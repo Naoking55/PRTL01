@@ -548,15 +548,30 @@
       setResolution(width, height, pixelAspectRatio = 1, fieldType = 'progressiveScan') {
         const titleSpecs = this.xmlDoc.querySelector('TitleSpecifics');
         if (titleSpecs) {
-          const widthElem = titleSpecs.querySelector('Width');
-          const heightElem = titleSpecs.querySelector('Height');
-          const parElem = titleSpecs.querySelector('PixelAspectRatio');
-          const fieldElem = titleSpecs.querySelector('FieldType');
+          // 直接の子要素として取得
+          const widthElem = titleSpecs.querySelector(':scope > Width');
+          const heightElem = titleSpecs.querySelector(':scope > Height');
+          const parElem = titleSpecs.querySelector(':scope > PixelAspectRatio');
+          const fieldElem = titleSpecs.querySelector(':scope > FieldType');
 
-          if (widthElem) widthElem.textContent = width;
-          if (heightElem) heightElem.textContent = height;
+          if (widthElem) {
+            widthElem.textContent = width;
+            console.log('Width set to:', width);
+          } else {
+            console.error('Width element not found');
+          }
+
+          if (heightElem) {
+            heightElem.textContent = height;
+            console.log('Height set to:', height);
+          } else {
+            console.error('Height element not found');
+          }
+
           if (parElem) parElem.textContent = pixelAspectRatio;
           if (fieldElem) fieldElem.textContent = fieldType;
+        } else {
+          console.error('TitleSpecifics element not found');
         }
         return this;
       }
@@ -592,6 +607,15 @@
       toXMLString() {
         const serializer = new XMLSerializer();
         let xmlString = serializer.serializeToString(this.xmlDoc);
+
+        // デバッグ: シリアライズ前のDOMを確認
+        const titleSpecs = this.xmlDoc.querySelector('TitleSpecifics');
+        if (titleSpecs) {
+          const width = titleSpecs.querySelector(':scope > Width');
+          const height = titleSpecs.querySelector(':scope > Height');
+          console.log('DOM Width element:', width ? width.textContent : 'NOT FOUND');
+          console.log('DOM Height element:', height ? height.textContent : 'NOT FOUND');
+        }
 
         if (!xmlString.startsWith('<?xml')) {
           xmlString = '<?xml version="1.0" encoding="UTF-16"?>\n' + xmlString;
@@ -682,6 +706,13 @@
 
         const [width, height] = resolution.split('x').map(Number);
 
+        console.log('=== PRTL Generation Started ===');
+        console.log('Resolution:', width, 'x', height);
+        console.log('Text:', text);
+        console.log('Font:', fontName, fontSize, fontFace);
+        console.log('Color RGB:', r, g, b);
+        console.log('Position:', posX, posY);
+
         const generator = new PRTLGenerator(BASIC_TEMPLATE);
 
         generator
@@ -693,11 +724,22 @@
           .setVerticalAlignment(0, vAlign)
           .setResolution(width, height);
 
+        // デバッグ: 生成されたXMLを確認
+        const xmlString = generator.toXMLString();
+        console.log('=== Generated XML (first 1000 chars) ===');
+        console.log(xmlString.substring(0, 1000));
+
+        // Width/Heightを検索
+        const widthMatch = xmlString.match(/<Width>(\d+)<\/Width>/);
+        const heightMatch = xmlString.match(/<Height>(\d+)<\/Height>/);
+        console.log('Width in XML:', widthMatch ? widthMatch[1] : 'NOT FOUND');
+        console.log('Height in XML:', heightMatch ? heightMatch[1] : 'NOT FOUND');
+
         const filename = text.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20) + '.prtl';
 
         generator.download(filename);
 
-        alert('✅ PRTLファイルが生成されました！\nファイル名: ' + filename);
+        alert('✅ PRTLファイルが生成されました！\nファイル名: ' + filename + '\n\nブラウザのコンソール(F12)でXML内容を確認できます。');
       } catch (error) {
         console.error('Error generating PRTL:', error);
         alert('❌ エラーが発生しました: ' + error.message);
