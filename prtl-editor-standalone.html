@@ -617,10 +617,20 @@
           console.log('DOM Height element:', height ? height.textContent : 'NOT FOUND');
         }
 
+        // 先頭・末尾の空白を除去
+        xmlString = xmlString.trim();
+
+        // XMLヘッダーを確実に設定（改行付き）
         if (!xmlString.startsWith('<?xml')) {
           xmlString = '<?xml version="1.0" encoding="UTF-16"?>\n' + xmlString;
         } else {
-          xmlString = xmlString.replace(/encoding="[^"]*"/, 'encoding="UTF-16"');
+          // 既存のXMLヘッダーのエンコーディングをUTF-16に変更
+          xmlString = xmlString.replace(/^<\?xml[^>]+\?>/, '<?xml version="1.0" encoding="UTF-16"?>');
+
+          // XMLヘッダーの直後に改行がない場合は追加
+          if (!xmlString.match(/^<\?xml[^>]+\?>\n/)) {
+            xmlString = xmlString.replace(/^(<\?xml[^>]+\?>)/, '$1\n');
+          }
         }
 
         return xmlString;
@@ -728,12 +738,22 @@
         const xmlString = generator.toXMLString();
         console.log('=== Generated XML (first 1000 chars) ===');
         console.log(xmlString.substring(0, 1000));
+        console.log('=== XML starts with ===');
+        console.log('First 100 chars:', JSON.stringify(xmlString.substring(0, 100)));
+        console.log('Has leading space?', xmlString[0] === ' ');
+        console.log('First char code:', xmlString.charCodeAt(0));
 
-        // Width/Heightを検索
-        const widthMatch = xmlString.match(/<Width>(\d+)<\/Width>/);
-        const heightMatch = xmlString.match(/<Height>(\d+)<\/Height>/);
-        console.log('Width in XML:', widthMatch ? widthMatch[1] : 'NOT FOUND');
-        console.log('Height in XML:', heightMatch ? heightMatch[1] : 'NOT FOUND');
+        // Width/Heightを検索（全てのマッチを取得）
+        const widthMatches = xmlString.match(/<Width>(\d+)<\/Width>/g);
+        const heightMatches = xmlString.match(/<Height>(\d+)<\/Height>/g);
+        console.log('Width tags found:', widthMatches);
+        console.log('Height tags found:', heightMatches);
+
+        // 最初のWidth/Heightを取得
+        const firstWidthMatch = xmlString.match(/<Width>(\d+)<\/Width>/);
+        const firstHeightMatch = xmlString.match(/<Height>(\d+)<\/Height>/);
+        console.log('First Width in XML:', firstWidthMatch ? firstWidthMatch[1] : 'NOT FOUND');
+        console.log('First Height in XML:', firstHeightMatch ? firstHeightMatch[1] : 'NOT FOUND');
 
         const filename = text.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20) + '.prtl';
 
