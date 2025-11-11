@@ -1,0 +1,21 @@
+{
+  "name": "prtl-editor",
+  "version": "1.0.0",
+  "description": "PRTL (Premiere Pro Legacy Title) File Editor",
+  "main": "src/prtl-generator.js",
+  "scripts": {
+    "dev": "npx http-server -p 8080 -o",
+    "build": "echo 'Build completed'"
+  },
+  "keywords": [
+    "premiere-pro",
+    "prtl",
+    "title",
+    "editor"
+  ],
+  "author": "NAOKI",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
