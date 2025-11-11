@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRTL Editor - Premiere Pro Legacy Title Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      padding: 40px;
+    }
+
+    .panel {
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .panel h2 {
+      color: #2a5298;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-group input[type="color"] {
+      width: 100%;
+      height: 50px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .form-group input[type="color"]:hover {
+      border-color: #667eea;
+    }
+
+    .inline-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .preview-area {
+      background: #000;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-canvas {
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 16/9;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .preview-text {
+      position: absolute;
+      white-space: nowrap;
+      text-align: center;
+      user-select: none;
+      transition: all 0.3s;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 25px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 0.9em;
+      color: #0d47a1;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 768px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 1.8em;
+      }
+
+      .inline-group {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎬 PRTL Editor</h1>
+      <p>Premiere Pro レガシータイトル ジェネレーター</p>
+    </div>
+
+    <div class="content">
+      <!-- 左側: テキスト設定 -->
+      <div class="panel">
+        <h2>📝 テキスト設定</h2>
+
+        <div class="form-group">
+          <label for="titleText">タイトルテキスト</label>
+          <input type="text" id="titleText" value="Sample Title" placeholder="テキストを入力">
+        </div>
+
+        <div class="form-group">
+          <label for="fontName">フォント</label>
+          <select id="fontName">
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Georgia">Georgia</option>
+            <option value="MS Gothic">MS Gothic (日本語)</option>
+            <option value="MS Mincho">MS Mincho (日本語)</option>
+            <option value="Meiryo">Meiryo (日本語)</option>
+            <option value="Yu Gothic">Yu Gothic (日本語)</option>
+          </select>
+        </div>
+
+        <div class="inline-group">
+          <div class="form-group">
+            <label for="fontSize">フォントサイズ</label>
+            <input type="number" id="fontSize" value="100" min="10" max="500">
+          </div>
+
+          <div class="form-group">
+            <label for="fontFace">フォントスタイル</label>
+            <select id="fontFace">
+              <option value="Regular">Regular</option>
+              <option value="Bold">Bold</option>
+              <option value="Italic">Italic</option>
+              <option value="BoldItalic">Bold Italic</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="textColor">テキストカラー</label>
+          <input type="color" id="textColor" value="#ffffff">
+        </div>
+      </div>
+
+      <!-- 右側: 位置・配置設定 -->
+      <div class="panel">
+        <h2>📐 位置・配置設定</h2>
+
+        <div class="inline-group">
+          <div class="form-group">
+            <label for="posX">X座標</label>
+            <input type="number" id="posX" value="960" min="0" max="3840">
+          </div>
+
+          <div class="form-group">
+            <label for="posY">Y座標</label>
+            <input type="number" id="posY" value="540" min="0" max="2160">
+          </div>
+        </div>
+
+        <div class="inline-group">
+          <div class="form-group">
+            <label for="hAlign">水平方向</label>
+            <select id="hAlign">
+              <option value="left">左揃え</option>
+              <option value="center" selected>中央揃え</option>
+              <option value="right">右揃え</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="vAlign">垂直方向</label>
+            <select id="vAlign">
+              <option value="top">上揃え</option>
+              <option value="center" selected>中央揃え</option>
+              <option value="bottom">下揃え</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="resolution">解像度</label>
+          <select id="resolution">
+            <option value="1920x1080" selected>1920x1080 (Full HD)</option>
+            <option value="3840x2160">3840x2160 (4K UHD)</option>
+            <option value="1280x720">1280x720 (HD)</option>
+            <option value="720x480">720x480 (NTSC)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- プレビュー -->
+      <div class="panel full-width">
+        <h2>👁️ プレビュー</h2>
+        <div class="preview-area">
+          <div class="preview-canvas" id="previewCanvas">
+            <span class="preview-text" id="previewText">Sample Title</span>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn btn-secondary" onclick="updatePreview()">🔄 プレビュー更新</button>
+          <button class="btn btn-primary" onclick="generatePRTL()">📥 PRTLファイル生成</button>
+        </div>
+
+        <div class="info-box">
+          ℹ️ <strong>ヒント:</strong> 生成されたPRTLファイルは、Premiere Proの「ファイル」→「読み込み」から読み込むことができます。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // PRTL テンプレート定義
+    // ========================================
+    const BASIC_TEMPLATE = `<?xml version="1.0" encoding="UTF-16"?>
+<PremiereData Version="3">
+  <TitleSpecifics>
+    <Width>1920</Width>
+    <Height>1080</Height>
+    <PixelAspectRatio>1</PixelAspectRatio>
+    <FieldType>progressiveScan</FieldType>
+    <AudioStreamSpecs>
+      <NumAudioStreams>0</NumAudioStreams>
+    </AudioStreamSpecs>
+    <DrawObjects>
+      <NumDrawObjects>1</NumDrawObjects>
+      <DrawObject Index="0">
+        <DrawClassName>cTextDraw</DrawClassName>
+        <DrawObjectPaintingRange>normalLayout</DrawObjectPaintingRange>
+        <DrawObjectLayoutInfo>
+          <TextLineReferenceArraySize>1</TextLineReferenceArraySize>
+          <TextLineReferenceIndex0>0</TextLineReferenceIndex0>
+        </DrawObjectLayoutInfo>
+        <DrawObjectPosition>
+          <HorizontalPos>960</HorizontalPos>
+          <VerticalPos>540</VerticalPos>
+        </DrawObjectPosition>
+      </DrawObject>
+    </DrawObjects>
+    <TextLines>
+      <NumTextLines>1</NumTextLines>
+      <TextLine Index="0">
+        <RunCount>12</RunCount>
+        <Text>Sample Title</Text>
+        <DispPrevTextStyles>1</DispPrevTextStyles>
+        <TextStyleArraySize>1</TextStyleArraySize>
+        <TextStyle Index="0">
+          <RunStart>0</RunStart>
+          <RunCount>12</RunCount>
+          <DispPrevTextStyles>1</DispPrevTextStyles>
+          <FontName>Arial</FontName>
+          <FontSize>100</FontSize>
+          <FontFace>Regular</FontFace>
+          <FontColor>255 255 255</FontColor>
+          <PainterStyleID>4099</PainterStyleID>
+        </TextStyle>
+        <MarginArraySize>0</MarginArraySize>
+        <VerticalAlignmentAttribute>center</VerticalAlignmentAttribute>
+        <HorizontalAlignmentAttribute>center</HorizontalAlignmentAttribute>
+        <LeadingType>auto</LeadingType>
+        <LeadingValue>120</LeadingValue>
+        <BaselineShift>0</BaselineShift>
+        <LineBasedParagraphAlignment>false</LineBasedParagraphAlignment>
+      </TextLine>
+    </TextLines>
+    <MergeGroups>
+      <NumMergeGroups>0</NumMergeGroups>
+    </MergeGroups>
+    <PainterStyles>
+      <NumPainterStyles>1</NumPainterStyles>
+      <PainterStyle ID="4099">
+        <annotation>65538</annotation>
+        <PainterStyleArraySize>1</PainterStyleArraySize>
+        <PainterStyle Index="0">
+          <PainterClassName>cPainterSolidColor</PainterClassName>
+          <enablePainting>true</enablePainting>
+          <paintingMethod>compositeColorBehind</paintingMethod>
+          <paintingRange>normalLayout</paintingRange>
+          <SolidColorPainterAttributes>
+            <SolidColorColor>255 255 255</SolidColorColor>
+          </SolidColorPainterAttributes>
+        </PainterStyle>
+      </PainterStyle>
+    </PainterStyles>
+    <ShaderReferences>
+      <NumShaderReferences>1</NumShaderReferences>
+      <ShaderReference ID="4240">
+        <annotation>131073</annotation>
+        <ShaderReferenceArraySize>1</ShaderReferenceArraySize>
+        <ShaderReference Index="0">
+          <fragmentName>flatLit</fragmentName>
+          <placeHolderShaderIndex>4294967295</placeHolderShaderIndex>
+          <eFragmentType>0</eFragmentType>
+          <painterMix>15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15</painterMix>
+          <alpha>255</alpha>
+        </ShaderReference>
+      </ShaderReference>
+    </ShaderReferences>
+    <SafeArea>
+      <SafeAction>0.1</SafeAction>
+      <SafeTitle>0.2</SafeTitle>
+    </SafeArea>
+    <TXMarker>Booyah</TXMarker>
+  </TitleSpecifics>
+</PremiereData>`;
+
+    // ========================================
+    // PRTLGenerator クラス
+    // ========================================
+    class PRTLGenerator {
+      constructor(templateXML) {
+        this.parser = new DOMParser();
+        this.xmlDoc = this.parser.parseFromString(templateXML, 'text/xml');
+
+        const parserError = this.xmlDoc.querySelector('parsererror');
+        if (parserError) {
+          throw new Error('XML Parse Error: ' + parserError.textContent);
+        }
+      }
+
+      setText(index, text) {
+        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${index}"]`);
+        if (!textLine) {
+          throw new Error(`TextLine with index ${index} not found`);
+        }
+
+        const textElement = textLine.querySelector('Text');
+        if (textElement) {
+          textElement.textContent = text;
+        }
+
+        const runCount = text.length + 1;
+        const runCountElement = textLine.querySelector('RunCount');
+        if (runCountElement) {
+          runCountElement.textContent = runCount;
+        }
+
+        const textStyleRunCount = textLine.querySelector('TextStyle RunCount');
+        if (textStyleRunCount) {
+          textStyleRunCount.textContent = runCount;
+        }
+
+        return this;
+      }
+
+      setPosition(drawIndex, x, y) {
+        const drawObject = this.xmlDoc.querySelector(`DrawObject[Index="${drawIndex}"]`);
+        if (!drawObject) {
+          throw new Error(`DrawObject with index ${drawIndex} not found`);
+        }
+
+        const position = drawObject.querySelector('DrawObjectPosition');
+        if (position) {
+          const hPos = position.querySelector('HorizontalPos');
+          const vPos = position.querySelector('VerticalPos');
+          if (hPos) hPos.textContent = x;
+          if (vPos) vPos.textContent = y;
+        }
+
+        return this;
+      }
+
+      setFont(textLineIndex, fontName, fontSize, fontFace = 'Regular') {
+        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
+        if (!textLine) {
+          throw new Error(`TextLine with index ${textLineIndex} not found`);
+        }
+
+        const textStyle = textLine.querySelector('TextStyle');
+        if (textStyle) {
+          const fontNameElem = textStyle.querySelector('FontName');
+          const fontSizeElem = textStyle.querySelector('FontSize');
+          const fontFaceElem = textStyle.querySelector('FontFace');
+
+          if (fontNameElem) fontNameElem.textContent = fontName;
+          if (fontSizeElem) fontSizeElem.textContent = fontSize;
+          if (fontFaceElem) fontFaceElem.textContent = fontFace;
+        }
+
+        return this;
+      }
+
+      setTextColor(textLineIndex, r, g, b) {
+        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
+        if (!textLine) {
+          throw new Error(`TextLine with index ${textLineIndex} not found`);
+        }
+
+        const fontColor = textLine.querySelector('TextStyle FontColor');
+        if (fontColor) {
+          fontColor.textContent = `${r} ${g} ${b}`;
+        }
+
+        const painterStyleID = textLine.querySelector('TextStyle PainterStyleID');
+        if (painterStyleID) {
+          const styleId = painterStyleID.textContent;
+          this.setPainterColor(styleId, r, g, b);
+        }
+
+        return this;
+      }
+
+      setPainterColor(styleId, r, g, b) {
+        const painterStyle = this.xmlDoc.querySelector(`PainterStyle[ID="${styleId}"]`);
+        if (painterStyle) {
+          const solidColor = painterStyle.querySelector('SolidColorColor');
+          if (solidColor) {
+            solidColor.textContent = `${r} ${g} ${b}`;
+          }
+        }
+        return this;
+      }
+
+      setResolution(width, height, pixelAspectRatio = 1, fieldType = 'progressiveScan') {
+        const titleSpecs = this.xmlDoc.querySelector('TitleSpecifics');
+        if (titleSpecs) {
+          const widthElem = titleSpecs.querySelector('Width');
+          const heightElem = titleSpecs.querySelector('Height');
+          const parElem = titleSpecs.querySelector('PixelAspectRatio');
+          const fieldElem = titleSpecs.querySelector('FieldType');
+
+          if (widthElem) widthElem.textContent = width;
+          if (heightElem) heightElem.textContent = height;
+          if (parElem) parElem.textContent = pixelAspectRatio;
+          if (fieldElem) fieldElem.textContent = fieldType;
+        }
+        return this;
+      }
+
+      setHorizontalAlignment(textLineIndex, alignment) {
+        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
+        if (!textLine) {
+          throw new Error(`TextLine with index ${textLineIndex} not found`);
+        }
+
+        const alignmentElem = textLine.querySelector('HorizontalAlignmentAttribute');
+        if (alignmentElem) {
+          alignmentElem.textContent = alignment;
+        }
+
+        return this;
+      }
+
+      setVerticalAlignment(textLineIndex, alignment) {
+        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
+        if (!textLine) {
+          throw new Error(`TextLine with index ${textLineIndex} not found`);
+        }
+
+        const alignmentElem = textLine.querySelector('VerticalAlignmentAttribute');
+        if (alignmentElem) {
+          alignmentElem.textContent = alignment;
+        }
+
+        return this;
+      }
+
+      toXMLString() {
+        const serializer = new XMLSerializer();
+        let xmlString = serializer.serializeToString(this.xmlDoc);
+
+        if (!xmlString.startsWith('<?xml')) {
+          xmlString = '<?xml version="1.0" encoding="UTF-16"?>\n' + xmlString;
+        } else {
+          xmlString = xmlString.replace(/encoding="[^"]*"/, 'encoding="UTF-16"');
+        }
+
+        return xmlString;
+      }
+
+      download(filename = 'output.prtl') {
+        const xmlString = this.toXMLString();
+
+        const BOM = new Uint8Array([0xFF, 0xFE]);
+        const utf16leArray = this.stringToUTF16LE(xmlString);
+
+        const combinedArray = new Uint8Array(BOM.length + utf16leArray.length);
+        combinedArray.set(BOM, 0);
+        combinedArray.set(utf16leArray, BOM.length);
+
+        const blob = new Blob([combinedArray], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      stringToUTF16LE(str) {
+        const buf = new ArrayBuffer(str.length * 2);
+        const bufView = new Uint16Array(buf);
+        for (let i = 0; i < str.length; i++) {
+          bufView[i] = str.charCodeAt(i);
+        }
+        return new Uint8Array(buf);
+      }
+    }
+
+    // ========================================
+    // UI ロジック
+    // ========================================
+    function updatePreview() {
+      const text = document.getElementById('titleText').value;
+      const fontSize = document.getElementById('fontSize').value;
+      const fontName = document.getElementById('fontName').value;
+      const fontFace = document.getElementById('fontFace').value;
+      const color = document.getElementById('textColor').value;
+
+      const previewText = document.getElementById('previewText');
+      previewText.textContent = text;
+      previewText.style.fontSize = (fontSize / 10) + 'px';
+      previewText.style.fontFamily = fontName;
+      previewText.style.color = color;
+
+      if (fontFace.includes('Bold')) {
+        previewText.style.fontWeight = 'bold';
+      } else {
+        previewText.style.fontWeight = 'normal';
+      }
+
+      if (fontFace.includes('Italic')) {
+        previewText.style.fontStyle = 'italic';
+      } else {
+        previewText.style.fontStyle = 'normal';
+      }
+    }
+
+    function generatePRTL() {
+      try {
+        const text = document.getElementById('titleText').value;
+        const fontName = document.getElementById('fontName').value;
+        const fontSize = parseInt(document.getElementById('fontSize').value);
+        const fontFace = document.getElementById('fontFace').value;
+        const colorHex = document.getElementById('textColor').value;
+        const posX = parseInt(document.getElementById('posX').value);
+        const posY = parseInt(document.getElementById('posY').value);
+        const hAlign = document.getElementById('hAlign').value;
+        const vAlign = document.getElementById('vAlign').value;
+        const resolution = document.getElementById('resolution').value;
+
+        const r = parseInt(colorHex.substr(1, 2), 16);
+        const g = parseInt(colorHex.substr(3, 2), 16);
+        const b = parseInt(colorHex.substr(5, 2), 16);
+
+        const [width, height] = resolution.split('x').map(Number);
+
+        const generator = new PRTLGenerator(BASIC_TEMPLATE);
+
+        generator
+          .setText(0, text)
+          .setFont(0, fontName, fontSize, fontFace)
+          .setTextColor(0, r, g, b)
+          .setPosition(0, posX, posY)
+          .setHorizontalAlignment(0, hAlign)
+          .setVerticalAlignment(0, vAlign)
+          .setResolution(width, height);
+
+        const filename = text.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20) + '.prtl';
+
+        generator.download(filename);
+
+        alert('✅ PRTLファイルが生成されました！\nファイル名: ' + filename);
+      } catch (error) {
+        console.error('Error generating PRTL:', error);
+        alert('❌ エラーが発生しました: ' + error.message);
+      }
+    }
+
+    // 初期プレビュー
+    window.addEventListener('DOMContentLoaded', function() {
+      updatePreview();
+
+      // リアルタイムプレビュー更新
+      document.getElementById('titleText').addEventListener('input', updatePreview);
+      document.getElementById('fontSize').addEventListener('input', updatePreview);
+      document.getElementById('fontName').addEventListener('change', updatePreview);
+      document.getElementById('fontFace').addEventListener('change', updatePreview);
+      document.getElementById('textColor').addEventListener('input', updatePreview);
+    });
+  </script>
+</body>
+</html>
