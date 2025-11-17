@@ -200,19 +200,115 @@ class PRTLProject:
             target_obj = all_objects[current_index - 1]
             obj.layer_order, target_obj.layer_order = target_obj.layer_order, obj.layer_order
     
+    def load_from_file(self, file_path: str) -> bool:
+        """PRTLファイル読み込み（高精度パーサー使用）"""
+        try:
+            # prtl_parser.pyからPRTLParserをインポート
+            import sys
+            from pathlib import Path
+            parser_path = Path(__file__).parent
+            if str(parser_path) not in sys.path:
+                sys.path.insert(0, str(parser_path))
+
+            from prtl_parser import PRTLParser
+
+            # パーサーでPRTL解析
+            parser = PRTLParser(file_path)
+            if not parser.parse():
+                return False
+
+            # データをクリア
+            self.text_lines.clear()
+            self.draw_objects.clear()
+
+            # レイアウト設定を反映
+            self.layout.width = parser.layout.width
+            self.layout.height = parser.layout.height
+            self.layout.screen_ar = parser.layout.screen_ar
+
+            # ParsedTextLineをTextLineDataに変換
+            for parsed_text in parser.text_lines:
+                text_line = TextLineData(
+                    object_id=parsed_text.object_id,
+                    persistent_id=parsed_text.persistent_id,
+                    text=parsed_text.text,
+                    x=parsed_text.x,
+                    y=parsed_text.y,
+                    layer_order=parsed_text.layer_order,
+                    style_ref=parsed_text.style_ref,
+                    text_ref=parsed_text.text_ref,
+                    alignment=parsed_text.alignment,
+                    font_family=parsed_text.font_family,
+                    font_style=parsed_text.font_style,
+                    font_size=parsed_text.font_size,
+                    color_r=parsed_text.color_r,
+                    color_g=parsed_text.color_g,
+                    color_b=parsed_text.color_b,
+                    rotation=parsed_text.rotation,
+                    enable_stroke=parsed_text.enable_stroke,
+                    enable_shadow=parsed_text.enable_shadow,
+                    stroke_size=parsed_text.stroke_size,
+                    shadow_angle=parsed_text.shadow_angle,
+                    shadow_distance=parsed_text.shadow_distance,
+                    character_spacing=parsed_text.character_spacing,
+                    line_spacing=parsed_text.line_spacing,
+                    baseline_shift=parsed_text.baseline_shift
+                )
+                self.text_lines.append(text_line)
+
+            # ParsedDrawObjectをDrawObjectDataに変換
+            for parsed_draw in parser.draw_objects:
+                draw_obj = DrawObjectData(
+                    object_id=parsed_draw.object_id,
+                    persistent_id=parsed_draw.persistent_id,
+                    primitive=parsed_draw.primitive,
+                    x=parsed_draw.x,
+                    y=parsed_draw.y,
+                    width=parsed_draw.width,
+                    height=parsed_draw.height,
+                    layer_order=parsed_draw.layer_order,
+                    style_ref=parsed_draw.style_ref,
+                    rotation=parsed_draw.rotation,
+                    fill_color_r=parsed_draw.fill_color_r,
+                    fill_color_g=parsed_draw.fill_color_g,
+                    fill_color_b=parsed_draw.fill_color_b,
+                    corner_radius=parsed_draw.corner_radius,
+                    opacity=parsed_draw.opacity
+                )
+                self.draw_objects.append(draw_obj)
+
+            # IDカウンターを更新
+            if self.text_lines or self.draw_objects:
+                all_ids = [t.object_id for t in self.text_lines] + [d.object_id for d in self.draw_objects]
+                self.next_object_id = max(all_ids) + 1
+                all_pids = [t.persistent_id for t in self.text_lines] + [d.persistent_id for d in self.draw_objects]
+                self.next_persistent_id = max(all_pids) + 1
+
+            self.file_path = file_path
+            print(f"✅ PRTL読み込み成功: {file_path}")
+            print(f"   - テキスト: {len(self.text_lines)}個")
+            print(f"   - 図形: {len(self.draw_objects)}個")
+            return True
+
+        except Exception as e:
+            print(f"❌ 読み込みエラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def save_to_file(self, file_path: str) -> bool:
         """Adobe Premiere Pro完全互換保存（v6.33技術）"""
         try:
             xml_content = self.generate_xml()
-            
+
             # UTF-16LE + BOM（Premiere Pro標準）
             with open(file_path, 'wb') as f:
                 f.write(codecs.BOM_UTF16_LE)
                 f.write(xml_content.encode('utf-16le'))
-            
+
             self.file_path = file_path
             return True
-            
+
         except Exception as e:
             print(f"保存エラー: {e}")
             return False
