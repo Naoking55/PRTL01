@@ -344,99 +344,41 @@
 
   <script>
     // ========================================
-    // PRTL テンプレート定義
+    // PRTL テンプレート定義（Adobe_Root形式）
     // ========================================
-    const BASIC_TEMPLATE = `<?xml version="1.0" encoding="UTF-16"?>
-<PremiereData Version="3">
-  <TitleSpecifics>
-    <Width>1920</Width>
-    <Height>1080</Height>
-    <PixelAspectRatio>1</PixelAspectRatio>
-    <FieldType>progressiveScan</FieldType>
-    <AudioStreamSpecs>
-      <NumAudioStreams>0</NumAudioStreams>
-    </AudioStreamSpecs>
-    <DrawObjects>
-      <NumDrawObjects>1</NumDrawObjects>
-      <DrawObject Index="0">
-        <DrawClassName>cTextDraw</DrawClassName>
-        <DrawObjectPaintingRange>normalLayout</DrawObjectPaintingRange>
-        <DrawObjectLayoutInfo>
-          <TextLineReferenceArraySize>1</TextLineReferenceArraySize>
-          <TextLineReferenceIndex0>0</TextLineReferenceIndex0>
-        </DrawObjectLayoutInfo>
-        <DrawObjectPosition>
-          <HorizontalPos>960</HorizontalPos>
-          <VerticalPos>540</VerticalPos>
-        </DrawObjectPosition>
-      </DrawObject>
-    </DrawObjects>
-    <TextLines>
-      <NumTextLines>1</NumTextLines>
-      <TextLine Index="0">
-        <RunCount>12</RunCount>
-        <Text>Sample Title</Text>
-        <DispPrevTextStyles>1</DispPrevTextStyles>
-        <TextStyleArraySize>1</TextStyleArraySize>
-        <TextStyle Index="0">
-          <RunStart>0</RunStart>
-          <RunCount>12</RunCount>
-          <DispPrevTextStyles>1</DispPrevTextStyles>
-          <FontName>Arial</FontName>
-          <FontSize>100</FontSize>
-          <FontFace>Regular</FontFace>
-          <FontColor>255 255 255</FontColor>
-          <PainterStyleID>4099</PainterStyleID>
-        </TextStyle>
-        <MarginArraySize>0</MarginArraySize>
-        <VerticalAlignmentAttribute>center</VerticalAlignmentAttribute>
-        <HorizontalAlignmentAttribute>center</HorizontalAlignmentAttribute>
-        <LeadingType>auto</LeadingType>
-        <LeadingValue>120</LeadingValue>
-        <BaselineShift>0</BaselineShift>
-        <LineBasedParagraphAlignment>false</LineBasedParagraphAlignment>
-      </TextLine>
-    </TextLines>
-    <MergeGroups>
-      <NumMergeGroups>0</NumMergeGroups>
-    </MergeGroups>
-    <PainterStyles>
-      <NumPainterStyles>1</NumPainterStyles>
-      <PainterStyle ID="4099">
-        <annotation>65538</annotation>
-        <PainterStyleArraySize>1</PainterStyleArraySize>
-        <PainterStyle Index="0">
-          <PainterClassName>cPainterSolidColor</PainterClassName>
-          <enablePainting>true</enablePainting>
-          <paintingMethod>compositeColorBehind</paintingMethod>
-          <paintingRange>normalLayout</paintingRange>
-          <SolidColorPainterAttributes>
-            <SolidColorColor>255 255 255</SolidColorColor>
-          </SolidColorPainterAttributes>
-        </PainterStyle>
-      </PainterStyle>
-    </PainterStyles>
-    <ShaderReferences>
-      <NumShaderReferences>1</NumShaderReferences>
-      <ShaderReference ID="4240">
-        <annotation>131073</annotation>
-        <ShaderReferenceArraySize>1</ShaderReferenceArraySize>
-        <ShaderReference Index="0">
-          <fragmentName>flatLit</fragmentName>
-          <placeHolderShaderIndex>4294967295</placeHolderShaderIndex>
-          <eFragmentType>0</eFragmentType>
-          <painterMix>15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15</painterMix>
-          <alpha>255</alpha>
-        </ShaderReference>
-      </ShaderReference>
-    </ShaderReferences>
-    <SafeArea>
-      <SafeAction>0.1</SafeAction>
-      <SafeTitle>0.2</SafeTitle>
-    </SafeArea>
-    <TXMarker>Booyah</TXMarker>
-  </TitleSpecifics>
-</PremiereData>`;
+    const BASIC_TEMPLATE = `<?xml version="1.0" encoding="UTF-16" ?>
+<Adobe_Root>
+<Adobe_Title>
+<Version>7.0</Version>
+<Motion_Settings>
+<Play_Forward>true</Play_Forward>
+<Start_on_Screen>false</Start_on_Screen>
+<Pre_Roll>0</Pre_Roll>
+<Ease_In>0</Ease_In>
+<End_off_Screen>false</End_off_Screen>
+<Post_Roll>0</Post_Roll>
+<Ease_Out>0</Ease_Out>
+</Motion_Settings>
+</Adobe_Title>
+<InscriberLayouts Version="1.0">
+<Layout>
+<LayoutDimension Version="1">
+<pXPIXELS>1920</pXPIXELS>
+<pYLINES>1080</pYLINES>
+<pSCREENAR>1.0</pSCREENAR>
+<growthDirection>1</growthDirection>
+</LayoutDimension>
+<LayoutAttributes><SafeTitleArea><left>0.10000000000000001</left><top>0.10000000000000001</top><right>0.90000000000000002</right><bottom>0.90000000000000002</bottom></SafeTitleArea><SafeActionArea><left>5.0000000000000003e-002</left><top>5.0000000000000003e-002</top><right>0.95000000000000007</right><bottom>0.95000000000000007</bottom></SafeActionArea></LayoutAttributes>
+<Background Version="4"><ShaderReference>4098</ShaderReference><On>false</On><paintingRange>normalLayout</paintingRange></Background>
+<TextDescriptions><TextDescription Reference="4098"><TypeSpec><size>368</size><txHeight>64.</txHeight><fifullName>Arial-Regular</fifullName><fifontFamilyName>Arial</fifontFamilyName><fifontStyle>Regular</fifontStyle><fifontType>6</fifontType></TypeSpec></TextDescription></TextDescriptions>
+<Styles><Style ID="4096"><StyleBase Version="4"><type>50000</type><positionDominance>0</positionDominance><lineGradient>false</lineGradient><styleRef>4096</styleRef><faceDistortX>0.</faceDistortX><faceDistortY>0.</faceDistortY><shadow_softness>21.</shadow_softness><personality>0</personality><linked>false</linked><EmbellishmentSizeRule>false</EmbellishmentSizeRule><PainterRampType>Basic</PainterRampType></StyleBase><FragmentList Version="5"><Fragment><size>0.</size><offset>0.</offset><angle>0.</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>0</eFragmentType><fragmentOff>false</fragmentOff><placeHolder>false</placeHolder><annotation>65538</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15</painterMix></Fragment></FragmentList><ShaderList Version="1"><ShaderRef PainterNumber="15"><shaderRef>4097</shaderRef></ShaderRef></ShaderList></Style></Styles>
+<Shaders><Shader Version="4" cReference="4097"><textureRef>4098</textureRef><colorOption>4</colorOption><shaderOn>true</shaderOn><glintSize>100.</glintSize><glintOffset>0.</glintOffset><rampPosTop>75.</rampPosTop><rampPosBottom>25.</rampPosBottom><rampAngle>0.</rampAngle><bevelBalance>0.</bevelBalance><rampCycle>0</rampCycle><classicStyle>0</classicStyle><rampType>0</rampType><ColorSpec index="0"><red>255</red><green>255</green><blue>255</blue><xpar>99</xpar></ColorSpec><ColorSpec index="1"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="2"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="3"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="4"><red>3</red><green>3</green><blue>3</blue><xpar>0</xpar></ColorSpec><glintAngle>265.</glintAngle><bevelSize>0.</bevelSize><bevelDirection>0</bevelDirection><bevelPipe>false</bevelPipe><bevelAngle>0.</bevelAngle><bevelShape>1.</bevelShape><bevelShining>0.</bevelShining><bevelLight>false</bevelLight><bevelMerge>true</bevelMerge><sheenOn>false</sheenOn></Shader></Shaders>
+<Textures><Texture Version="1" cReference="4098"><pixelAspect>1.</pixelAspect><angle>0.</angle><scaleX>1.</scaleX><scaleY>1.</scaleY><centerX>0.</centerX><centerY>0.</centerY></Texture></Textures>
+<VLS><FileReference Version="1"><fileString></fileString><seClass>2</seClass><seCode>1000</seCode></FileReference></VLS>
+<Layers><Layer><TextPage><TextChain><ChainProperty Version="9"><wordWrap>false</wordWrap><Position><x>960</x><y>540</y></Position><Size><x>315.31458522981484</x><y>139.26905187016439</y></Size><leading>0.</leading><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><boxCanGrow>false</boxCanGrow><tabModeStyle>Word</tabModeStyle></ChainProperty><TextLine Version="2" objectID="16777216" persistentID="1"><BaseProperties Version="5"><txBase>590</txBase><XPos>960</XPos><angle>0</angle><verticalText>false</verticalText><objectLeading>0</objectLeading></BaseProperties><EnclosingObjectType>block</EnclosingObjectType><Alignment>center</Alignment><TRString>Sample Title</TRString><RunLengthEncodedCharacterAttributes><CharacterAttributes RunCount="13" StyleRef="4096" TextRef="4098" TXKerning="0" TXPostKerning="0." BaselineShifting="0" /></RunLengthEncodedCharacterAttributes><tagName><name /></tagName></TextLine></TextChain></TextPage></Layer></Layers>
+</Layout>
+</InscriberLayouts>
+</Adobe_Root>`;
 
     // ========================================
     // PRTLGenerator クラス
@@ -453,154 +395,132 @@
       }
 
       setText(index, text) {
-        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${index}"]`);
-        if (!textLine) {
-          throw new Error(`TextLine with index ${index} not found`);
+        // Adobe_Root形式: TRString要素
+        const trString = this.xmlDoc.querySelector('TRString');
+        if (trString) {
+          trString.textContent = text;
+          console.log('Text set to:', text);
+        } else {
+          console.error('TRString element not found');
         }
 
-        const textElement = textLine.querySelector('Text');
-        if (textElement) {
-          textElement.textContent = text;
-        }
-
+        // RunCount更新 (文字数 + 1)
         const runCount = text.length + 1;
-        const runCountElement = textLine.querySelector('RunCount');
-        if (runCountElement) {
-          runCountElement.textContent = runCount;
-        }
-
-        const textStyleRunCount = textLine.querySelector('TextStyle RunCount');
-        if (textStyleRunCount) {
-          textStyleRunCount.textContent = runCount;
+        const charAttrs = this.xmlDoc.querySelector('CharacterAttributes');
+        if (charAttrs) {
+          charAttrs.setAttribute('RunCount', runCount);
+          console.log('RunCount set to:', runCount);
         }
 
         return this;
       }
 
       setPosition(drawIndex, x, y) {
-        const drawObject = this.xmlDoc.querySelector(`DrawObject[Index="${drawIndex}"]`);
-        if (!drawObject) {
-          throw new Error(`DrawObject with index ${drawIndex} not found`);
+        // Adobe_Root形式: Position要素とBaseProperties/XPos
+        const position = this.xmlDoc.querySelector('Position');
+        if (position) {
+          const xElem = position.querySelector('x');
+          const yElem = position.querySelector('y');
+          if (xElem) xElem.textContent = x;
+          if (yElem) yElem.textContent = y;
         }
 
-        const position = drawObject.querySelector('DrawObjectPosition');
-        if (position) {
-          const hPos = position.querySelector('HorizontalPos');
-          const vPos = position.querySelector('VerticalPos');
-          if (hPos) hPos.textContent = x;
-          if (vPos) vPos.textContent = y;
-        }
+        const xPos = this.xmlDoc.querySelector('XPos');
+        if (xPos) xPos.textContent = x;
+
+        const txBase = this.xmlDoc.querySelector('txBase');
+        if (txBase) txBase.textContent = y + 50;  // txBaseはyより50大きい値
 
         return this;
       }
 
       setFont(textLineIndex, fontName, fontSize, fontFace = 'Regular') {
-        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
-        if (!textLine) {
-          throw new Error(`TextLine with index ${textLineIndex} not found`);
-        }
+        // Adobe_Root形式: TextDescription内のfifullName, fifontFamilyName, fifontStyle
+        const textDesc = this.xmlDoc.querySelector('TextDescription');
+        if (textDesc) {
+          const fullName = textDesc.querySelector('fifullName');
+          const familyName = textDesc.querySelector('fifontFamilyName');
+          const styleElem = textDesc.querySelector('fifontStyle');
+          const txHeight = textDesc.querySelector('txHeight');
+          const sizeElem = textDesc.querySelector('size');
 
-        const textStyle = textLine.querySelector('TextStyle');
-        if (textStyle) {
-          const fontNameElem = textStyle.querySelector('FontName');
-          const fontSizeElem = textStyle.querySelector('FontSize');
-          const fontFaceElem = textStyle.querySelector('FontFace');
+          if (fullName) fullName.textContent = `${fontName}-${fontFace}`;
+          if (familyName) familyName.textContent = fontName;
+          if (styleElem) styleElem.textContent = fontFace;
+          if (txHeight) txHeight.textContent = `${fontSize}.`;
+          if (sizeElem) sizeElem.textContent = Math.round(fontSize * 5.75);  // Python式に合わせる
 
-          if (fontNameElem) fontNameElem.textContent = fontName;
-          if (fontSizeElem) fontSizeElem.textContent = fontSize;
-          if (fontFaceElem) fontFaceElem.textContent = fontFace;
+          console.log('Font set to:', fontName, fontSize, fontFace);
         }
 
         return this;
       }
 
       setTextColor(textLineIndex, r, g, b) {
-        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
-        if (!textLine) {
-          throw new Error(`TextLine with index ${textLineIndex} not found`);
-        }
+        // Adobe_Root形式: Shader/ColorSpec
+        const colorSpec = this.xmlDoc.querySelector('ColorSpec[index="0"]');
+        if (colorSpec) {
+          const redElem = colorSpec.querySelector('red');
+          const greenElem = colorSpec.querySelector('green');
+          const blueElem = colorSpec.querySelector('blue');
 
-        const fontColor = textLine.querySelector('TextStyle FontColor');
-        if (fontColor) {
-          fontColor.textContent = `${r} ${g} ${b}`;
-        }
+          if (redElem) redElem.textContent = r;
+          if (greenElem) greenElem.textContent = g;
+          if (blueElem) blueElem.textContent = b;
 
-        const painterStyleID = textLine.querySelector('TextStyle PainterStyleID');
-        if (painterStyleID) {
-          const styleId = painterStyleID.textContent;
-          this.setPainterColor(styleId, r, g, b);
+          console.log('Color set to:', r, g, b);
+        } else {
+          console.error('ColorSpec element not found');
         }
 
         return this;
       }
 
       setPainterColor(styleId, r, g, b) {
-        const painterStyle = this.xmlDoc.querySelector(`PainterStyle[ID="${styleId}"]`);
-        if (painterStyle) {
-          const solidColor = painterStyle.querySelector('SolidColorColor');
-          if (solidColor) {
-            solidColor.textContent = `${r} ${g} ${b}`;
-          }
-        }
+        // Adobe_Root形式では不要（setTextColorで処理）
         return this;
       }
 
-      setResolution(width, height, pixelAspectRatio = 1, fieldType = 'progressiveScan') {
-        const titleSpecs = this.xmlDoc.querySelector('TitleSpecifics');
-        if (titleSpecs) {
-          // 直接の子要素として取得
-          const widthElem = titleSpecs.querySelector(':scope > Width');
-          const heightElem = titleSpecs.querySelector(':scope > Height');
-          const parElem = titleSpecs.querySelector(':scope > PixelAspectRatio');
-          const fieldElem = titleSpecs.querySelector(':scope > FieldType');
+      setResolution(width, height, pixelAspectRatio = 1.0) {
+        // Adobe_Root形式での解像度設定
+        const pxPixels = this.xmlDoc.querySelector('pXPIXELS');
+        const pyLines = this.xmlDoc.querySelector('pYLINES');
+        const screenAR = this.xmlDoc.querySelector('pSCREENAR');
 
-          if (widthElem) {
-            widthElem.textContent = width;
-            console.log('Width set to:', width);
-          } else {
-            console.error('Width element not found');
-          }
-
-          if (heightElem) {
-            heightElem.textContent = height;
-            console.log('Height set to:', height);
-          } else {
-            console.error('Height element not found');
-          }
-
-          if (parElem) parElem.textContent = pixelAspectRatio;
-          if (fieldElem) fieldElem.textContent = fieldType;
+        if (pxPixels) {
+          pxPixels.textContent = width;
+          console.log('pXPIXELS set to:', width);
         } else {
-          console.error('TitleSpecifics element not found');
+          console.error('pXPIXELS element not found');
         }
+
+        if (pyLines) {
+          pyLines.textContent = height;
+          console.log('pYLINES set to:', height);
+        } else {
+          console.error('pYLINES element not found');
+        }
+
+        if (screenAR) {
+          screenAR.textContent = pixelAspectRatio;
+        }
+
         return this;
       }
 
       setHorizontalAlignment(textLineIndex, alignment) {
-        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
-        if (!textLine) {
-          throw new Error(`TextLine with index ${textLineIndex} not found`);
-        }
-
-        const alignmentElem = textLine.querySelector('HorizontalAlignmentAttribute');
+        // Adobe_Root形式: Alignment要素
+        const alignmentElem = this.xmlDoc.querySelector('Alignment');
         if (alignmentElem) {
           alignmentElem.textContent = alignment;
+          console.log('Alignment set to:', alignment);
         }
 
         return this;
       }
 
       setVerticalAlignment(textLineIndex, alignment) {
-        const textLine = this.xmlDoc.querySelector(`TextLine[Index="${textLineIndex}"]`);
-        if (!textLine) {
-          throw new Error(`TextLine with index ${textLineIndex} not found`);
-        }
-
-        const alignmentElem = textLine.querySelector('VerticalAlignmentAttribute');
-        if (alignmentElem) {
-          alignmentElem.textContent = alignment;
-        }
-
+        // Adobe_Root形式では水平配置のみサポート
         return this;
       }
 
@@ -609,28 +529,26 @@
         let xmlString = serializer.serializeToString(this.xmlDoc);
 
         // デバッグ: シリアライズ前のDOMを確認
-        const titleSpecs = this.xmlDoc.querySelector('TitleSpecifics');
-        if (titleSpecs) {
-          const width = titleSpecs.querySelector(':scope > Width');
-          const height = titleSpecs.querySelector(':scope > Height');
-          console.log('DOM Width element:', width ? width.textContent : 'NOT FOUND');
-          console.log('DOM Height element:', height ? height.textContent : 'NOT FOUND');
-        }
+        const pxPixels = this.xmlDoc.querySelector('pXPIXELS');
+        const pyLines = this.xmlDoc.querySelector('pYLINES');
+        console.log('DOM pXPIXELS element:', pxPixels ? pxPixels.textContent : 'NOT FOUND');
+        console.log('DOM pYLINES element:', pyLines ? pyLines.textContent : 'NOT FOUND');
 
         // 先頭・末尾の空白を除去
         xmlString = xmlString.trim();
 
-        // XMLヘッダーを確実に設定（改行付き）
+        // 1行フォーマット化（Pythonコードと同じ）
+        xmlString = xmlString.replace(/\n/g, '').replace(/\r/g, '');
+        xmlString = xmlString.replace(/\s+/g, ' ');
+        xmlString = xmlString.replace(/>\s+</g, '><');
+        xmlString = xmlString.trim();
+
+        // XMLヘッダーを確実に設定
         if (!xmlString.startsWith('<?xml')) {
-          xmlString = '<?xml version="1.0" encoding="UTF-16"?>\n' + xmlString;
+          xmlString = '<?xml version="1.0" encoding="UTF-16" ?>' + xmlString;
         } else {
           // 既存のXMLヘッダーのエンコーディングをUTF-16に変更
-          xmlString = xmlString.replace(/^<\?xml[^>]+\?>/, '<?xml version="1.0" encoding="UTF-16"?>');
-
-          // XMLヘッダーの直後に改行がない場合は追加
-          if (!xmlString.match(/^<\?xml[^>]+\?>\n/)) {
-            xmlString = xmlString.replace(/^(<\?xml[^>]+\?>)/, '$1\n');
-          }
+          xmlString = xmlString.replace(/^<\?xml[^>]+\?>/, '<?xml version="1.0" encoding="UTF-16" ?>');
         }
 
         return xmlString;
@@ -743,17 +661,11 @@
         console.log('Has leading space?', xmlString[0] === ' ');
         console.log('First char code:', xmlString.charCodeAt(0));
 
-        // Width/Heightを検索（全てのマッチを取得）
-        const widthMatches = xmlString.match(/<Width>(\d+)<\/Width>/g);
-        const heightMatches = xmlString.match(/<Height>(\d+)<\/Height>/g);
-        console.log('Width tags found:', widthMatches);
-        console.log('Height tags found:', heightMatches);
-
-        // 最初のWidth/Heightを取得
-        const firstWidthMatch = xmlString.match(/<Width>(\d+)<\/Width>/);
-        const firstHeightMatch = xmlString.match(/<Height>(\d+)<\/Height>/);
-        console.log('First Width in XML:', firstWidthMatch ? firstWidthMatch[1] : 'NOT FOUND');
-        console.log('First Height in XML:', firstHeightMatch ? firstHeightMatch[1] : 'NOT FOUND');
+        // pXPIXELS/pYLINESを検索
+        const pxPixelsMatch = xmlString.match(/<pXPIXELS>(\d+)<\/pXPIXELS>/);
+        const pyLinesMatch = xmlString.match(/<pYLINES>(\d+)<\/pYLINES>/);
+        console.log('pXPIXELS in XML:', pxPixelsMatch ? pxPixelsMatch[1] : 'NOT FOUND');
+        console.log('pYLINES in XML:', pyLinesMatch ? pyLinesMatch[1] : 'NOT FOUND');
 
         const filename = text.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20) + '.prtl';
 
