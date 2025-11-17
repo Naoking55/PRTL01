@@ -331,6 +331,9 @@ class PRTLProject:
 </Adobe_Title>
 <InscriberLayouts Version="1.0">
 <Layout>
+<LayoutEffectInfo Version="1">
+<EffectType>0</EffectType>
+</LayoutEffectInfo>
 <LayoutDimension Version="1">
 <pXPIXELS>{self.layout.width}</pXPIXELS>
 <pYLINES>{self.layout.height}</pYLINES>
