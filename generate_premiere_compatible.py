@@ -87,17 +87,24 @@ class PRTLGeneratorComplete:
         self.next_persistent_id += 1
         return text_line
 
-    def save_to_file(self, file_path: str) -> bool:
-        """Adobe Premiere Pro完全互換保存"""
+    def save_to_file(self, file_path: str, encoding: str = 'utf-16le') -> bool:
+        """Adobe Premiere Pro完全互換保存（エンコーディング選択可能）"""
         try:
             xml_content = self.generate_xml()
 
-            # UTF-16LE + BOM（Premiere Pro標準）
-            with open(file_path, 'wb') as f:
-                f.write(codecs.BOM_UTF16_LE)
-                f.write(xml_content.encode('utf-16le'))
+            if encoding == 'utf-16le':
+                # UTF-16LE + BOM
+                with open(file_path, 'wb') as f:
+                    f.write(codecs.BOM_UTF16_LE)
+                    f.write(xml_content.encode('utf-16le'))
+            elif encoding == 'utf-8':
+                # UTF-8（BOMなし、公式サンプル形式）
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(xml_content)
+            else:
+                raise ValueError(f"Unsupported encoding: {encoding}")
 
-            print(f"✅ PRTL保存成功: {file_path}")
+            print(f"✅ PRTL保存成功: {file_path} ({encoding})")
             return True
 
         except Exception as e:
@@ -336,11 +343,10 @@ class PRTLGeneratorComplete:
         )
 
         for i, text_line in enumerate(self.text_lines):
-            name_tag = "<name />" if i == 0 else ""
             rotation_rad = math.radians(text_line.rotation)
 
             content += (
-                f'<TextLine Version="2" objectID="{text_line.object_id}" persistentID="{text_line.persistent_id}">'
+                f'<TextLine Version="2" objectID="{text_line.object_id}">'
                 f'<BaseProperties Version="5">'
                 f'<txBase>{text_line.y + 50}</txBase>'
                 f'<XPos>{text_line.x}</XPos>'
@@ -357,7 +363,6 @@ class PRTLGeneratorComplete:
                 f'TXKerning="{text_line.character_spacing}" TXPostKerning="0." '
                 f'BaselineShifting="{text_line.baseline_shift}" />'
                 f'</RunLengthEncodedCharacterAttributes>'
-                f'<tagName>{name_tag}</tagName>'
                 f'</TextLine>'
             )
 
@@ -366,13 +371,13 @@ class PRTLGeneratorComplete:
 
 
 def generate_test_prtl():
-    """テスト用PRTL生成"""
+    """テスト用PRTL生成（UTF-16とUTF-8の両方）"""
     print("\n" + "="*60)
     print("Premiere Pro Complete Compatible PRTL Generator")
     print("="*60 + "\n")
 
-    # テスト1: 基本テキスト
-    print("📝 Test 1: Basic Text")
+    # テスト1: 基本テキスト（UTF-16版）
+    print("📝 Test 1: Basic Text (UTF-16 LE)")
     generator1 = PRTLGeneratorComplete()
     generator1.add_text_line(
         text="Adobe Premiere Pro",
@@ -392,10 +397,33 @@ def generate_test_prtl():
         enable_stroke=True,
         enable_shadow=False
     )
-    generator1.save_to_file("premiere_compatible_basic.prtl")
+    generator1.save_to_file("premiere_compatible_basic_utf16.prtl", encoding='utf-16le')
 
-    # テスト2: 日本語テキスト
-    print("\n📝 Test 2: Japanese Text")
+    # テスト1-2: 基本テキスト（UTF-8版、公式サンプル形式）
+    print("\n📝 Test 1-2: Basic Text (UTF-8, Official Format)")
+    generator1b = PRTLGeneratorComplete()
+    generator1b.add_text_line(
+        text="Adobe Premiere Pro",
+        x=960, y=400,
+        alignment="center",
+        font_size=72.0,
+        color_r=255, color_g=215, color_b=0,
+        enable_stroke=True,
+        enable_shadow=False
+    )
+    generator1b.add_text_line(
+        text="Legacy Title Editor",
+        x=960, y=600,
+        alignment="center",
+        font_size=48.0,
+        color_r=255, color_g=255, color_b=255,
+        enable_stroke=True,
+        enable_shadow=False
+    )
+    generator1b.save_to_file("premiere_compatible_basic_utf8.prtl", encoding='utf-8')
+
+    # テスト2: 日本語テキスト（UTF-8版）
+    print("\n📝 Test 2: Japanese Text (UTF-8)")
     generator2 = PRTLGeneratorComplete()
     generator2.add_text_line(
         text="こんにちは世界",
@@ -403,38 +431,24 @@ def generate_test_prtl():
         alignment="center",
         font_family="Yu Gothic UI",
         font_size=64.0,
-        color_r=100, color_g=200, color_b=255,  # 水色
+        color_r=100, color_g=200, color_b=255,
         enable_stroke=True,
         enable_shadow=True,
         shadow_distance=10.0,
         shadow_angle=135.0
     )
-    generator2.save_to_file("premiere_compatible_japanese.prtl")
-
-    # テスト3: エフェクト全部入り
-    print("\n📝 Test 3: Full Effects")
-    generator3 = PRTLGeneratorComplete()
-    generator3.add_text_line(
-        text="With Shadow & Stroke",
-        x=960, y=540,
-        alignment="center",
-        font_size=80.0,
-        color_r=255, color_g=100, color_b=100,  # 赤
-        enable_stroke=True,
-        stroke_size=40.0,
-        enable_shadow=True,
-        shadow_distance=15.0,
-        shadow_angle=135.0
-    )
-    generator3.save_to_file("premiere_compatible_effects.prtl")
+    generator2.save_to_file("premiere_compatible_japanese_utf8.prtl", encoding='utf-8')
 
     print("\n" + "="*60)
-    print("✅ 3つのPremiere Pro互換PRTLファイルを生成しました")
-    print("   - premiere_compatible_basic.prtl")
-    print("   - premiere_compatible_japanese.prtl")
-    print("   - premiere_compatible_effects.prtl")
+    print("✅ Premiere Pro互換PRTLファイルを生成しました")
+    print("\n【UTF-16 LE版】（従来形式）:")
+    print("   - premiere_compatible_basic_utf16.prtl")
+    print("\n【UTF-8版】（公式サンプル形式）:")
+    print("   - premiere_compatible_basic_utf8.prtl")
+    print("   - premiere_compatible_japanese_utf8.prtl")
     print("="*60 + "\n")
-    print("👉 これらのファイルをPremiere Proで試してください！")
+    print("👉 両方のエンコーディングをPremiere Proで試してください！")
+    print("   公式サンプルはUTF-8を使用しています。")
 
 
 if __name__ == "__main__":
