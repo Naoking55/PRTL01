@@ -2,54 +2,47 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v1.0</title>
+    <title>テロップエディタ v1.1</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
 
-        /* サイドバー */
         .sidebar { width: 300px; background: #383838; padding: 15px; overflow-y: auto; }
         .sidebar h3 { color: #fff; margin: 10px 0; font-size: 14px; }
         .sidebar label { display: block; margin: 8px 0 4px; font-size: 12px; }
-        .sidebar input, .sidebar select, .sidebar textarea {
-            width: 100%; padding: 6px; background: #4a4a4a; border: 1px solid #555;
-            color: #fff; border-radius: 3px; font-size: 12px;
-        }
-        .sidebar textarea { height: 80px; resize: vertical; }
+        .sidebar input, .sidebar select { width: 100%; padding: 6px; background: #4a4a4a; border: 1px solid #555; color: #fff; border-radius: 3px; font-size: 12px; }
         .sidebar input[type="color"] { height: 30px; padding: 2px; cursor: pointer; }
         .sidebar input[type="range"] { padding: 0; }
-        .btn {
-            width: 100%; padding: 8px; margin: 5px 0; cursor: pointer;
-            border: none; border-radius: 3px; font-size: 12px;
-        }
+        .btn { width: 100%; padding: 8px; margin: 5px 0; cursor: pointer; border: none; border-radius: 3px; font-size: 12px; }
         .btn-primary { background: #0078d4; color: #fff; }
         .btn-secondary { background: #4a4a4a; color: #fff; }
+        .btn-danger { background: #d43; color: #fff; }
         .btn:hover { opacity: 0.9; }
 
-        /* メインエリア */
-        .main { flex: 1; display: flex; flex-direction: column; padding: 15px; }
-        .toolbar { display: flex; gap: 10px; margin-bottom: 10px; }
-        .canvas-container {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            background: #1a1a1a; border-radius: 5px; overflow: hidden;
-        }
-        #canvas {
-            background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 20px 20px;
-            cursor: crosshair;
-        }
+        .layer-list { background: #2b2b2b; border-radius: 3px; max-height: 150px; overflow-y: auto; }
+        .layer-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #444; font-size: 11px; }
+        .layer-item:hover { background: #4a4a4a; }
+        .layer-item.selected { background: #0078d4; color: #fff; }
 
-        /* ステータスバー */
+        .main { flex: 1; display: flex; flex-direction: column; padding: 15px; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .canvas-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #1a1a1a; border-radius: 5px; overflow: hidden; position: relative; }
+        #canvas { background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 20px 20px; cursor: crosshair; }
+
+        #textInput { position: absolute; background: transparent; border: 2px solid #0078d4; color: #fff; font-family: inherit; padding: 5px; outline: none; min-width: 100px; display: none; }
+
         .status { padding: 8px; background: #383838; font-size: 11px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h3>テキスト設定</h3>
-        <label>テキスト</label>
-        <textarea id="text">サンプルテキスト</textarea>
+        <h3>レイヤー</h3>
+        <div class="layer-list" id="layerList"></div>
+        <button class="btn btn-danger" onclick="deleteSelected()">選択を削除</button>
 
+        <h3>テキスト設定</h3>
         <label>フォント</label>
-        <select id="fontFamily">
+        <select id="fontFamily" onchange="updateSelected()">
             <option value="Yu Gothic UI">Yu Gothic UI</option>
             <option value="Meiryo">メイリオ</option>
             <option value="MS Gothic">MS ゴシック</option>
@@ -58,34 +51,24 @@
         </select>
 
         <label>サイズ: <span id="fontSizeVal">72</span>px</label>
-        <input type="range" id="fontSize" min="12" max="200" value="72">
+        <input type="range" id="fontSize" min="12" max="200" value="72" oninput="document.getElementById('fontSizeVal').textContent=this.value;updateSelected()">
 
         <label>文字色</label>
-        <input type="color" id="textColor" value="#ffffff">
+        <input type="color" id="textColor" value="#ffffff" onchange="updateSelected()">
 
         <h3>縁取り</h3>
-        <label><input type="checkbox" id="strokeEnabled" checked> 有効</label>
+        <label><input type="checkbox" id="strokeEnabled" checked onchange="updateSelected()"> 有効</label>
         <label>色</label>
-        <input type="color" id="strokeColor" value="#000000">
+        <input type="color" id="strokeColor" value="#000000" onchange="updateSelected()">
         <label>太さ: <span id="strokeWidthVal">4</span>px</label>
-        <input type="range" id="strokeWidth" min="0" max="20" value="4">
+        <input type="range" id="strokeWidth" min="0" max="20" value="4" oninput="document.getElementById('strokeWidthVal').textContent=this.value;updateSelected()">
 
         <h3>影</h3>
-        <label><input type="checkbox" id="shadowEnabled"> 有効</label>
+        <label><input type="checkbox" id="shadowEnabled" onchange="updateSelected()"> 有効</label>
         <label>色</label>
-        <input type="color" id="shadowColor" value="#000000">
+        <input type="color" id="shadowColor" value="#000000" onchange="updateSelected()">
         <label>ぼかし: <span id="shadowBlurVal">5</span>px</label>
-        <input type="range" id="shadowBlur" min="0" max="30" value="5">
-        <label>オフセットX: <span id="shadowXVal">3</span>px</label>
-        <input type="range" id="shadowX" min="-20" max="20" value="3">
-        <label>オフセットY: <span id="shadowYVal">3</span>px</label>
-        <input type="range" id="shadowY" min="-20" max="20" value="3">
-
-        <h3>位置</h3>
-        <label>X: <span id="posXVal">960</span></label>
-        <input type="range" id="posX" min="0" max="1920" value="960">
-        <label>Y: <span id="posYVal">540</span></label>
-        <input type="range" id="posY" min="0" max="1080" value="540">
+        <input type="range" id="shadowBlur" min="0" max="30" value="5" oninput="document.getElementById('shadowBlurVal').textContent=this.value;updateSelected()">
 
         <h3>出力</h3>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
@@ -99,12 +82,14 @@
                 <option value="1920x1080">1920×1080 (HD)</option>
                 <option value="3840x2160">3840×2160 (4K)</option>
             </select>
+            <span style="font-size:12px; color:#888;">キャンバスをクリックしてテキスト入力 / ドラッグで移動</span>
         </div>
         <div class="canvas-container">
             <canvas id="canvas" width="1920" height="1080"></canvas>
+            <input type="text" id="textInput" placeholder="テキスト入力...">
         </div>
         <div class="status">
-            <span id="statusText">準備完了</span>
+            <span id="statusText">キャンバスをクリックしてテキストを追加</span>
             <span id="resolution-display">1920×1080</span>
         </div>
     </div>
@@ -114,183 +99,307 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        const textInput = document.getElementById('textInput');
+        const layerList = document.getElementById('layerList');
 
-        // 設定要素
-        const elements = {
-            text: document.getElementById('text'),
-            fontFamily: document.getElementById('fontFamily'),
-            fontSize: document.getElementById('fontSize'),
-            textColor: document.getElementById('textColor'),
-            strokeEnabled: document.getElementById('strokeEnabled'),
-            strokeColor: document.getElementById('strokeColor'),
-            strokeWidth: document.getElementById('strokeWidth'),
-            shadowEnabled: document.getElementById('shadowEnabled'),
-            shadowColor: document.getElementById('shadowColor'),
-            shadowBlur: document.getElementById('shadowBlur'),
-            shadowX: document.getElementById('shadowX'),
-            shadowY: document.getElementById('shadowY'),
-            posX: document.getElementById('posX'),
-            posY: document.getElementById('posY')
-        };
+        let textObjects = [];
+        let selectedId = null;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let scale = 1;
 
-        // 値表示更新
-        ['fontSize', 'strokeWidth', 'shadowBlur', 'shadowX', 'shadowY', 'posX', 'posY'].forEach(id => {
-            const el = document.getElementById(id);
-            const valEl = document.getElementById(id + 'Val');
-            el.addEventListener('input', () => { valEl.textContent = el.value; render(); });
+        // キャンバスクリック
+        canvas.addEventListener('click', (e) => {
+            if (isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            scale = canvas.width / rect.width;
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            // 既存オブジェクトをクリックしたか確認
+            const clicked = findObjectAt(x, y);
+            if (clicked) {
+                selectObject(clicked.id);
+                return;
+            }
+
+            // 新規テキスト入力
+            showTextInput(e.clientX - rect.left, e.clientY - rect.top, x, y);
         });
 
-        // 他の入力でも再描画
-        Object.values(elements).forEach(el => {
-            el.addEventListener('input', render);
-            el.addEventListener('change', render);
+        // ドラッグ開始
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            scale = canvas.width / rect.width;
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            const obj = findObjectAt(x, y);
+            if (obj) {
+                selectObject(obj.id);
+                isDragging = true;
+                dragOffset = { x: x - obj.x, y: y - obj.y };
+                canvas.style.cursor = 'move';
+            }
         });
 
+        // ドラッグ中
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging || !selectedId) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            const obj = textObjects.find(o => o.id === selectedId);
+            if (obj) {
+                obj.x = x - dragOffset.x;
+                obj.y = y - dragOffset.y;
+                render();
+            }
+        });
+
+        // ドラッグ終了
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+
+        // テキスト入力表示
+        function showTextInput(screenX, screenY, canvasX, canvasY) {
+            textInput.style.display = 'block';
+            textInput.style.left = screenX + 'px';
+            textInput.style.top = screenY + 'px';
+            textInput.style.fontSize = (parseInt(document.getElementById('fontSize').value) / scale) + 'px';
+            textInput.value = '';
+            textInput.dataset.x = canvasX;
+            textInput.dataset.y = canvasY;
+            textInput.focus();
+        }
+
+        // テキスト入力確定
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmTextInput();
+            } else if (e.key === 'Escape') {
+                textInput.style.display = 'none';
+            }
+        });
+
+        textInput.addEventListener('blur', () => {
+            if (textInput.value.trim()) {
+                confirmTextInput();
+            } else {
+                textInput.style.display = 'none';
+            }
+        });
+
+        function confirmTextInput() {
+            const text = textInput.value.trim();
+            if (!text) {
+                textInput.style.display = 'none';
+                return;
+            }
+
+            const obj = {
+                id: Date.now(),
+                text: text,
+                x: parseFloat(textInput.dataset.x),
+                y: parseFloat(textInput.dataset.y),
+                fontFamily: document.getElementById('fontFamily').value,
+                fontSize: parseInt(document.getElementById('fontSize').value),
+                textColor: document.getElementById('textColor').value,
+                strokeEnabled: document.getElementById('strokeEnabled').checked,
+                strokeColor: document.getElementById('strokeColor').value,
+                strokeWidth: parseInt(document.getElementById('strokeWidth').value),
+                shadowEnabled: document.getElementById('shadowEnabled').checked,
+                shadowColor: document.getElementById('shadowColor').value,
+                shadowBlur: parseInt(document.getElementById('shadowBlur').value)
+            };
+
+            textObjects.push(obj);
+            textInput.style.display = 'none';
+            selectObject(obj.id);
+            render();
+            updateLayerList();
+        }
+
+        // オブジェクト検索
+        function findObjectAt(x, y) {
+            for (let i = textObjects.length - 1; i >= 0; i--) {
+                const obj = textObjects[i];
+                ctx.font = `bold ${obj.fontSize}px "${obj.fontFamily}"`;
+                const metrics = ctx.measureText(obj.text);
+                const w = metrics.width;
+                const h = obj.fontSize;
+
+                if (x >= obj.x - w/2 - 10 && x <= obj.x + w/2 + 10 &&
+                    y >= obj.y - h/2 - 10 && y <= obj.y + h/2 + 10) {
+                    return obj;
+                }
+            }
+            return null;
+        }
+
+        // オブジェクト選択
+        function selectObject(id) {
+            selectedId = id;
+            const obj = textObjects.find(o => o.id === id);
+            if (obj) {
+                document.getElementById('fontFamily').value = obj.fontFamily;
+                document.getElementById('fontSize').value = obj.fontSize;
+                document.getElementById('fontSizeVal').textContent = obj.fontSize;
+                document.getElementById('textColor').value = obj.textColor;
+                document.getElementById('strokeEnabled').checked = obj.strokeEnabled;
+                document.getElementById('strokeColor').value = obj.strokeColor;
+                document.getElementById('strokeWidth').value = obj.strokeWidth;
+                document.getElementById('strokeWidthVal').textContent = obj.strokeWidth;
+                document.getElementById('shadowEnabled').checked = obj.shadowEnabled;
+                document.getElementById('shadowColor').value = obj.shadowColor;
+                document.getElementById('shadowBlur').value = obj.shadowBlur;
+                document.getElementById('shadowBlurVal').textContent = obj.shadowBlur;
+            }
+            updateLayerList();
+            render();
+        }
+
+        // 選択オブジェクト更新
+        function updateSelected() {
+            if (!selectedId) return;
+            const obj = textObjects.find(o => o.id === selectedId);
+            if (obj) {
+                obj.fontFamily = document.getElementById('fontFamily').value;
+                obj.fontSize = parseInt(document.getElementById('fontSize').value);
+                obj.textColor = document.getElementById('textColor').value;
+                obj.strokeEnabled = document.getElementById('strokeEnabled').checked;
+                obj.strokeColor = document.getElementById('strokeColor').value;
+                obj.strokeWidth = parseInt(document.getElementById('strokeWidth').value);
+                obj.shadowEnabled = document.getElementById('shadowEnabled').checked;
+                obj.shadowColor = document.getElementById('shadowColor').value;
+                obj.shadowBlur = parseInt(document.getElementById('shadowBlur').value);
+                render();
+            }
+        }
+
+        // 選択削除
+        function deleteSelected() {
+            if (!selectedId) return;
+            textObjects = textObjects.filter(o => o.id !== selectedId);
+            selectedId = null;
+            updateLayerList();
+            render();
+        }
+
+        // レイヤーリスト更新
+        function updateLayerList() {
+            layerList.innerHTML = '';
+            textObjects.slice().reverse().forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'layer-item' + (obj.id === selectedId ? ' selected' : '');
+                div.textContent = obj.text.substring(0, 20) + (obj.text.length > 20 ? '...' : '');
+                div.onclick = () => selectObject(obj.id);
+                layerList.appendChild(div);
+            });
+        }
+
+        // 描画
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const text = elements.text.value;
-            const fontSize = parseInt(elements.fontSize.value);
-            const fontFamily = elements.fontFamily.value;
-            const x = parseInt(elements.posX.value);
-            const y = parseInt(elements.posY.value);
+            textObjects.forEach(obj => {
+                ctx.font = `bold ${obj.fontSize}px "${obj.fontFamily}"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
 
-            ctx.font = `bold ${fontSize}px "${fontFamily}"`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            // 影
-            if (elements.shadowEnabled.checked) {
-                ctx.shadowColor = elements.shadowColor.value;
-                ctx.shadowBlur = parseInt(elements.shadowBlur.value);
-                ctx.shadowOffsetX = parseInt(elements.shadowX.value);
-                ctx.shadowOffsetY = parseInt(elements.shadowY.value);
-            } else {
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 0;
-            }
-
-            // 複数行対応
-            const lines = text.split('\n');
-            const lineHeight = fontSize * 1.2;
-            const startY = y - (lines.length - 1) * lineHeight / 2;
-
-            lines.forEach((line, i) => {
-                const ly = startY + i * lineHeight;
-
-                // 縁取り
-                if (elements.strokeEnabled.checked) {
-                    ctx.strokeStyle = elements.strokeColor.value;
-                    ctx.lineWidth = parseInt(elements.strokeWidth.value) * 2;
-                    ctx.lineJoin = 'round';
-                    ctx.strokeText(line, x, ly);
+                if (obj.shadowEnabled) {
+                    ctx.shadowColor = obj.shadowColor;
+                    ctx.shadowBlur = obj.shadowBlur;
+                    ctx.shadowOffsetX = 3;
+                    ctx.shadowOffsetY = 3;
+                } else {
+                    ctx.shadowColor = 'transparent';
+                    ctx.shadowBlur = 0;
                 }
 
-                // 塗り
-                ctx.fillStyle = elements.textColor.value;
-                ctx.fillText(line, x, ly);
+                if (obj.strokeEnabled) {
+                    ctx.strokeStyle = obj.strokeColor;
+                    ctx.lineWidth = obj.strokeWidth * 2;
+                    ctx.lineJoin = 'round';
+                    ctx.strokeText(obj.text, obj.x, obj.y);
+                }
+
+                ctx.fillStyle = obj.textColor;
+                ctx.fillText(obj.text, obj.x, obj.y);
+
+                // 選択枠
+                if (obj.id === selectedId) {
+                    const metrics = ctx.measureText(obj.text);
+                    ctx.shadowColor = 'transparent';
+                    ctx.strokeStyle = '#0078d4';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(obj.x - metrics.width/2 - 5, obj.y - obj.fontSize/2 - 5, metrics.width + 10, obj.fontSize + 10);
+                    ctx.setLineDash([]);
+                }
             });
 
-            document.getElementById('statusText').textContent = `テキスト: ${text.substring(0, 20)}${text.length > 20 ? '...' : ''}`;
+            document.getElementById('statusText').textContent = `オブジェクト数: ${textObjects.length}`;
         }
 
         function changeResolution() {
             const [w, h] = document.getElementById('resolution').value.split('x').map(Number);
             canvas.width = w;
             canvas.height = h;
-            elements.posX.max = w;
-            elements.posY.max = h;
             document.getElementById('resolution-display').textContent = `${w}×${h}`;
             render();
         }
 
         function exportPNG() {
+            selectedId = null;
+            render();
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
-            document.getElementById('statusText').textContent = 'PNG書き出し完了';
         }
 
         function saveProject() {
-            const project = {
-                version: '1.0',
-                resolution: document.getElementById('resolution').value,
-                text: elements.text.value,
-                fontFamily: elements.fontFamily.value,
-                fontSize: elements.fontSize.value,
-                textColor: elements.textColor.value,
-                strokeEnabled: elements.strokeEnabled.checked,
-                strokeColor: elements.strokeColor.value,
-                strokeWidth: elements.strokeWidth.value,
-                shadowEnabled: elements.shadowEnabled.checked,
-                shadowColor: elements.shadowColor.value,
-                shadowBlur: elements.shadowBlur.value,
-                shadowX: elements.shadowX.value,
-                shadowY: elements.shadowY.value,
-                posX: elements.posX.value,
-                posY: elements.posY.value
-            };
-
+            const project = { version: '1.1', resolution: document.getElementById('resolution').value, objects: textObjects };
             const blob = new Blob([JSON.stringify(project, null, 2)], {type: 'application/json'});
             const link = document.createElement('a');
             link.download = `telop_project_${Date.now()}.json`;
             link.href = URL.createObjectURL(blob);
             link.click();
-            document.getElementById('statusText').textContent = 'プロジェクト保存完了';
         }
 
-        function loadProject() {
-            document.getElementById('fileInput').click();
-        }
+        function loadProject() { document.getElementById('fileInput').click(); }
 
         function handleFileLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const project = JSON.parse(e.target.result);
-
                     if (project.resolution) {
                         document.getElementById('resolution').value = project.resolution;
                         changeResolution();
                     }
-
-                    elements.text.value = project.text || '';
-                    elements.fontFamily.value = project.fontFamily || 'Yu Gothic UI';
-                    elements.fontSize.value = project.fontSize || 72;
-                    elements.textColor.value = project.textColor || '#ffffff';
-                    elements.strokeEnabled.checked = project.strokeEnabled !== false;
-                    elements.strokeColor.value = project.strokeColor || '#000000';
-                    elements.strokeWidth.value = project.strokeWidth || 4;
-                    elements.shadowEnabled.checked = project.shadowEnabled || false;
-                    elements.shadowColor.value = project.shadowColor || '#000000';
-                    elements.shadowBlur.value = project.shadowBlur || 5;
-                    elements.shadowX.value = project.shadowX || 3;
-                    elements.shadowY.value = project.shadowY || 3;
-                    elements.posX.value = project.posX || 960;
-                    elements.posY.value = project.posY || 540;
-
-                    // 値表示更新
-                    ['fontSize', 'strokeWidth', 'shadowBlur', 'shadowX', 'shadowY', 'posX', 'posY'].forEach(id => {
-                        document.getElementById(id + 'Val').textContent = document.getElementById(id).value;
-                    });
-
+                    textObjects = project.objects || [];
+                    selectedId = null;
+                    updateLayerList();
                     render();
-                    document.getElementById('statusText').textContent = 'プロジェクト読込完了';
-                } catch (err) {
-                    alert('ファイルの読み込みに失敗しました');
-                }
+                } catch (err) { alert('読み込み失敗'); }
             };
             reader.readAsText(file);
             event.target.value = '';
         }
 
-        // 初期描画
         render();
     </script>
 </body>
