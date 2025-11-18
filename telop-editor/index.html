@@ -348,8 +348,17 @@
                 if (text) { insertText(text); imeInput.value = ''; }
             }
         });
-        imeInput.addEventListener('blur', () => {
-            if (editingObjId) setTimeout(() => imeInput.focus(), 0);
+        imeInput.addEventListener('blur', (e) => {
+            if (editingObjId) {
+                // 他の入力要素にフォーカスが移った場合はフォーカスを戻さない
+                setTimeout(() => {
+                    const active = document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'BUTTON')) {
+                        return;
+                    }
+                    imeInput.focus();
+                }, 0);
+            }
         });
 
         function insertText(text) {
