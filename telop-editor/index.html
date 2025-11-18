@@ -2,11 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v1.1</title>
+    <title>テロップエディタ v1.3</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
-
         .sidebar { width: 300px; background: #383838; padding: 15px; overflow-y: auto; }
         .sidebar h3 { color: #fff; margin: 10px 0; font-size: 14px; }
         .sidebar label { display: block; margin: 8px 0 4px; font-size: 12px; }
@@ -18,20 +17,16 @@
         .btn-secondary { background: #4a4a4a; color: #fff; }
         .btn-danger { background: #d43; color: #fff; }
         .btn:hover { opacity: 0.9; }
-
-        .layer-list { background: #2b2b2b; border-radius: 3px; max-height: 150px; overflow-y: auto; }
-        .layer-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #444; font-size: 11px; }
+        .layer-list { background: #2b2b2b; border-radius: 3px; max-height: 120px; overflow-y: auto; }
+        .layer-item { padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #444; font-size: 11px; }
         .layer-item:hover { background: #4a4a4a; }
         .layer-item.selected { background: #0078d4; color: #fff; }
-
         .main { flex: 1; display: flex; flex-direction: column; padding: 15px; min-width: 0; }
         .toolbar { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-shrink: 0; }
         .canvas-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #1a1a1a; border-radius: 5px; overflow: hidden; position: relative; min-height: 0; }
-        #canvas { background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 20px 20px; cursor: crosshair; max-width: 100%; max-height: 100%; object-fit: contain; }
-
-        #textInput { position: absolute; background: transparent; border: 2px solid #0078d4; color: #fff; font-family: inherit; padding: 5px; outline: none; min-width: 100px; display: none; }
-
-        .status { padding: 8px; background: #383838; font-size: 11px; display: flex; justify-content: space-between; }
+        #canvas { background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 20px 20px; cursor: text; max-width: 100%; max-height: 100%; }
+        .status { padding: 8px; background: #383838; font-size: 11px; display: flex; justify-content: space-between; flex-shrink: 0; }
+        .char-info { font-size: 10px; color: #888; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -40,9 +35,11 @@
         <div class="layer-list" id="layerList"></div>
         <button class="btn btn-danger" onclick="deleteSelected()">選択を削除</button>
 
-        <h3>テキスト設定</h3>
+        <h3>文字スタイル</h3>
+        <div class="char-info" id="charInfo">文字を選択してください</div>
+
         <label>フォント</label>
-        <select id="fontFamily" onchange="updateSelected()">
+        <select id="fontFamily" onchange="applyStyle()">
             <option value="Yu Gothic UI">Yu Gothic UI</option>
             <option value="Meiryo">メイリオ</option>
             <option value="MS Gothic">MS ゴシック</option>
@@ -51,24 +48,17 @@
         </select>
 
         <label>サイズ: <span id="fontSizeVal">72</span>px</label>
-        <input type="range" id="fontSize" min="12" max="200" value="72" oninput="document.getElementById('fontSizeVal').textContent=this.value;updateSelected()">
+        <input type="range" id="fontSize" min="12" max="200" value="72" oninput="document.getElementById('fontSizeVal').textContent=this.value;applyStyle()">
 
         <label>文字色</label>
-        <input type="color" id="textColor" value="#ffffff" onchange="updateSelected()">
+        <input type="color" id="textColor" value="#ffffff" onchange="applyStyle()">
 
         <h3>縁取り</h3>
-        <label><input type="checkbox" id="strokeEnabled" checked onchange="updateSelected()"> 有効</label>
+        <label><input type="checkbox" id="strokeEnabled" checked onchange="applyStyle()"> 有効</label>
         <label>色</label>
-        <input type="color" id="strokeColor" value="#000000" onchange="updateSelected()">
+        <input type="color" id="strokeColor" value="#000000" onchange="applyStyle()">
         <label>太さ: <span id="strokeWidthVal">4</span>px</label>
-        <input type="range" id="strokeWidth" min="0" max="20" value="4" oninput="document.getElementById('strokeWidthVal').textContent=this.value;updateSelected()">
-
-        <h3>影</h3>
-        <label><input type="checkbox" id="shadowEnabled" onchange="updateSelected()"> 有効</label>
-        <label>色</label>
-        <input type="color" id="shadowColor" value="#000000" onchange="updateSelected()">
-        <label>ぼかし: <span id="shadowBlurVal">5</span>px</label>
-        <input type="range" id="shadowBlur" min="0" max="30" value="5" oninput="document.getElementById('shadowBlurVal').textContent=this.value;updateSelected()">
+        <input type="range" id="strokeWidth" min="0" max="20" value="4" oninput="document.getElementById('strokeWidthVal').textContent=this.value;applyStyle()">
 
         <h3>出力</h3>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
@@ -82,14 +72,13 @@
                 <option value="1920x1080">1920×1080 (HD)</option>
                 <option value="3840x2160">3840×2160 (4K)</option>
             </select>
-            <span style="font-size:12px; color:#888;">キャンバスをクリックしてテキスト入力 / ドラッグで移動</span>
+            <span style="font-size:11px;color:#888;">クリック:テキスト追加 / ダブルクリック:文字選択 / ドラッグ:移動</span>
         </div>
         <div class="canvas-container">
             <canvas id="canvas" width="1920" height="1080"></canvas>
-            <input type="text" id="textInput" placeholder="テキスト入力...">
         </div>
         <div class="status">
-            <span id="statusText">キャンバスをクリックしてテキストを追加</span>
+            <span id="statusText">準備完了</span>
             <span id="resolution-display">1920×1080</span>
         </div>
     </div>
@@ -99,18 +88,31 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const textInput = document.getElementById('textInput');
-        const layerList = document.getElementById('layerList');
 
-        let textObjects = [];
-        let selectedId = null;
+        let textObjects = []; // { id, x, y, chars: [{char, fontSize, fontFamily, color, strokeEnabled, strokeColor, strokeWidth}] }
+        let selectedObjId = null;
+        let selectedCharStart = -1;
+        let selectedCharEnd = -1;
         let isDragging = false;
-        let isResizing = false;
-        let resizeHandle = null;
+        let isSelecting = false;
         let dragOffset = { x: 0, y: 0 };
         let scale = 1;
-        let dragStartPos = { x: 0, y: 0 };
-        let hasMoved = false;
+        let editingObjId = null;
+        let cursorPos = 0;
+        let cursorVisible = true;
+        let cursorInterval = null;
+
+        // デフォルトスタイル取得
+        function getDefaultStyle() {
+            return {
+                fontSize: parseInt(document.getElementById('fontSize').value),
+                fontFamily: document.getElementById('fontFamily').value,
+                color: document.getElementById('textColor').value,
+                strokeEnabled: document.getElementById('strokeEnabled').checked,
+                strokeColor: document.getElementById('strokeColor').value,
+                strokeWidth: parseInt(document.getElementById('strokeWidth').value)
+            };
+        }
 
         // マウスダウン
         canvas.addEventListener('mousedown', (e) => {
@@ -118,26 +120,55 @@
             scale = canvas.width / rect.width;
             const x = (e.clientX - rect.left) * scale;
             const y = (e.clientY - rect.top) * scale;
-            dragStartPos = { x, y };
-            hasMoved = false;
-
-            // リサイズハンドルチェック
-            if (selectedId) {
-                const handle = getResizeHandle(x, y);
-                if (handle) {
-                    isResizing = true;
-                    resizeHandle = handle;
-                    canvas.style.cursor = handle.cursor;
-                    return;
-                }
-            }
 
             const obj = findObjectAt(x, y);
-            if (obj) {
+
+            if (editingObjId) {
+                // 編集中：文字選択開始
+                if (obj && obj.id === editingObjId) {
+                    const charIdx = getCharIndexAt(obj, x, y);
+                    selectedCharStart = charIdx;
+                    selectedCharEnd = charIdx;
+                    cursorPos = charIdx;
+                    isSelecting = true;
+                    render();
+                } else {
+                    // 編集終了
+                    exitEditMode();
+                    if (obj) {
+                        selectObject(obj.id);
+                        isDragging = true;
+                        dragOffset = { x: x - obj.x, y: y - obj.y };
+                    }
+                }
+            } else if (obj) {
                 selectObject(obj.id);
                 isDragging = true;
                 dragOffset = { x: x - obj.x, y: y - obj.y };
-                canvas.style.cursor = 'move';
+            }
+        });
+
+        // ダブルクリック
+        canvas.addEventListener('dblclick', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            scale = canvas.width / rect.width;
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            const obj = findObjectAt(x, y);
+            if (obj) {
+                enterEditMode(obj.id);
+                const charIdx = getCharIndexAt(obj, x, y);
+                cursorPos = charIdx;
+                selectedCharStart = -1;
+                selectedCharEnd = -1;
+                render();
+            } else {
+                // 新規テキスト
+                const text = prompt('テキストを入力:');
+                if (text) {
+                    createTextObject(text, x, y);
+                }
             }
         });
 
@@ -147,242 +178,221 @@
             const x = (e.clientX - rect.left) * scale;
             const y = (e.clientY - rect.top) * scale;
 
-            if (isResizing && selectedId) {
-                hasMoved = true;
-                const obj = textObjects.find(o => o.id === selectedId);
+            if (isSelecting && editingObjId) {
+                const obj = textObjects.find(o => o.id === editingObjId);
                 if (obj) {
-                    const dx = x - dragStartPos.x;
-                    const dy = y - dragStartPos.y;
-
-                    if (resizeHandle.type === 'se') {
-                        obj.scaleX = Math.max(0.1, (obj.scaleX || 1) + dx / 200);
-                        obj.scaleY = Math.max(0.1, (obj.scaleY || 1) + dy / 200);
-                    } else if (resizeHandle.type === 'e') {
-                        obj.scaleX = Math.max(0.1, (obj.scaleX || 1) + dx / 200);
-                    } else if (resizeHandle.type === 's') {
-                        obj.scaleY = Math.max(0.1, (obj.scaleY || 1) + dy / 200);
-                    }
-                    dragStartPos = { x, y };
+                    selectedCharEnd = getCharIndexAt(obj, x, y);
                     render();
                 }
-            } else if (isDragging && selectedId) {
-                hasMoved = true;
-                const obj = textObjects.find(o => o.id === selectedId);
+            } else if (isDragging && selectedObjId) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
                 if (obj) {
                     obj.x = x - dragOffset.x;
                     obj.y = y - dragOffset.y;
                     render();
                 }
-            } else {
-                // カーソル変更
-                if (selectedId) {
-                    const handle = getResizeHandle(x, y);
-                    if (handle) {
-                        canvas.style.cursor = handle.cursor;
-                        return;
-                    }
-                }
-                const obj = findObjectAt(x, y);
-                canvas.style.cursor = obj ? 'move' : 'crosshair';
             }
         });
 
         // マウスアップ
-        canvas.addEventListener('mouseup', (e) => {
-            const wasResizing = isResizing;
-            const wasDragging = isDragging;
+        canvas.addEventListener('mouseup', () => {
             isDragging = false;
-            isResizing = false;
-            resizeHandle = null;
-            canvas.style.cursor = 'crosshair';
-
-            // クリック判定（移動していない場合のみ）
-            if (!hasMoved && !wasResizing && !wasDragging) {
-                const rect = canvas.getBoundingClientRect();
-                const x = (e.clientX - rect.left) * scale;
-                const y = (e.clientY - rect.top) * scale;
-
-                const obj = findObjectAt(x, y);
-                if (obj) {
-                    selectObject(obj.id);
-                } else {
-                    // 新規テキスト入力
-                    showTextInput(e.clientX - rect.left, e.clientY - rect.top, x, y);
-                }
-            }
+            isSelecting = false;
+            updateCharInfo();
         });
 
-        canvas.addEventListener('mouseleave', () => {
-            isDragging = false;
-            isResizing = false;
-            canvas.style.cursor = 'crosshair';
-        });
+        // キー入力
+        document.addEventListener('keydown', (e) => {
+            if (!editingObjId) return;
+            const obj = textObjects.find(o => o.id === editingObjId);
+            if (!obj) return;
 
-        // リサイズハンドル取得
-        function getResizeHandle(x, y) {
-            if (!selectedId) return null;
-            const obj = textObjects.find(o => o.id === selectedId);
-            if (!obj) return null;
-
-            ctx.font = `bold ${obj.fontSize * (obj.scaleY || 1)}px "${obj.fontFamily}"`;
-            const metrics = ctx.measureText(obj.text);
-            const w = metrics.width * (obj.scaleX || 1) / (obj.scaleY || 1);
-            const h = obj.fontSize * (obj.scaleY || 1);
-            const handleSize = 8;
-
-            const handles = [
-                { type: 'e', x: obj.x + w/2 + 5, y: obj.y, cursor: 'ew-resize' },
-                { type: 's', x: obj.x, y: obj.y + h/2 + 5, cursor: 'ns-resize' },
-                { type: 'se', x: obj.x + w/2 + 5, y: obj.y + h/2 + 5, cursor: 'nwse-resize' }
-            ];
-
-            for (const handle of handles) {
-                if (Math.abs(x - handle.x) < handleSize && Math.abs(y - handle.y) < handleSize) {
-                    return handle;
-                }
-            }
-            return null;
-        }
-
-        // テキスト入力表示
-        function showTextInput(screenX, screenY, canvasX, canvasY) {
-            textInput.style.display = 'block';
-            textInput.style.left = screenX + 'px';
-            textInput.style.top = screenY + 'px';
-            textInput.style.fontSize = (parseInt(document.getElementById('fontSize').value) / scale) + 'px';
-            textInput.value = '';
-            textInput.dataset.x = canvasX;
-            textInput.dataset.y = canvasY;
-            textInput.focus();
-        }
-
-        // テキスト入力確定
-        textInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Backspace') {
                 e.preventDefault();
-                confirmTextInput();
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const start = Math.min(selectedCharStart, selectedCharEnd);
+                    const end = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(start, end - start);
+                    cursorPos = start;
+                    selectedCharStart = -1;
+                    selectedCharEnd = -1;
+                } else if (cursorPos > 0) {
+                    obj.chars.splice(cursorPos - 1, 1);
+                    cursorPos--;
+                }
+                render();
+            } else if (e.key === 'Delete') {
+                e.preventDefault();
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const start = Math.min(selectedCharStart, selectedCharEnd);
+                    const end = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(start, end - start);
+                    cursorPos = start;
+                    selectedCharStart = -1;
+                    selectedCharEnd = -1;
+                } else if (cursorPos < obj.chars.length) {
+                    obj.chars.splice(cursorPos, 1);
+                }
+                render();
+            } else if (e.key === 'ArrowLeft') {
+                if (cursorPos > 0) cursorPos--;
+                selectedCharStart = -1;
+                render();
+            } else if (e.key === 'ArrowRight') {
+                if (cursorPos < obj.chars.length) cursorPos++;
+                selectedCharStart = -1;
+                render();
             } else if (e.key === 'Escape') {
-                textInput.style.display = 'none';
+                exitEditMode();
+            } else if (e.key === 'a' && e.ctrlKey) {
+                e.preventDefault();
+                selectedCharStart = 0;
+                selectedCharEnd = obj.chars.length;
+                render();
+                updateCharInfo();
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const start = Math.min(selectedCharStart, selectedCharEnd);
+                    const end = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(start, end - start);
+                    cursorPos = start;
+                    selectedCharStart = -1;
+                    selectedCharEnd = -1;
+                }
+                const style = getDefaultStyle();
+                obj.chars.splice(cursorPos, 0, { char: e.key, ...style });
+                cursorPos++;
+                render();
             }
-        });
-
-        textInput.addEventListener('blur', () => {
-            if (textInput.value.trim()) {
-                confirmTextInput();
-            } else {
-                textInput.style.display = 'none';
-            }
-        });
-
-        function confirmTextInput() {
-            const text = textInput.value.trim();
-            if (!text) {
-                textInput.style.display = 'none';
-                return;
-            }
-
-            const obj = {
-                id: Date.now(),
-                text: text,
-                x: parseFloat(textInput.dataset.x),
-                y: parseFloat(textInput.dataset.y),
-                fontFamily: document.getElementById('fontFamily').value,
-                fontSize: parseInt(document.getElementById('fontSize').value),
-                textColor: document.getElementById('textColor').value,
-                strokeEnabled: document.getElementById('strokeEnabled').checked,
-                strokeColor: document.getElementById('strokeColor').value,
-                strokeWidth: parseInt(document.getElementById('strokeWidth').value),
-                shadowEnabled: document.getElementById('shadowEnabled').checked,
-                shadowColor: document.getElementById('shadowColor').value,
-                shadowBlur: parseInt(document.getElementById('shadowBlur').value),
-                scaleX: 1,
-                scaleY: 1
-            };
-
-            textObjects.push(obj);
-            textInput.style.display = 'none';
-            selectObject(obj.id);
-            render();
             updateLayerList();
+        });
+
+        // 文字インデックス取得
+        function getCharIndexAt(obj, x, y) {
+            let posX = obj.x;
+            for (let i = 0; i < obj.chars.length; i++) {
+                const c = obj.chars[i];
+                ctx.font = `bold ${c.fontSize}px "${c.fontFamily}"`;
+                const w = ctx.measureText(c.char).width;
+                if (x < posX + w / 2) return i;
+                posX += w;
+            }
+            return obj.chars.length;
+        }
+
+        // テキストオブジェクト作成
+        function createTextObject(text, x, y) {
+            const style = getDefaultStyle();
+            const chars = text.split('').map(char => ({ char, ...style }));
+            const obj = { id: Date.now(), x, y, chars };
+            textObjects.push(obj);
+            selectObject(obj.id);
+            updateLayerList();
+            render();
         }
 
         // オブジェクト検索
         function findObjectAt(x, y) {
             for (let i = textObjects.length - 1; i >= 0; i--) {
                 const obj = textObjects[i];
-                const scaleX = obj.scaleX || 1;
-                const scaleY = obj.scaleY || 1;
-                ctx.font = `bold ${obj.fontSize * scaleY}px "${obj.fontFamily}"`;
-                const metrics = ctx.measureText(obj.text);
-                const w = metrics.width * scaleX / scaleY;
-                const h = obj.fontSize * scaleY;
-
-                if (x >= obj.x - w/2 - 10 && x <= obj.x + w/2 + 10 &&
-                    y >= obj.y - h/2 - 10 && y <= obj.y + h/2 + 10) {
+                const bounds = getObjectBounds(obj);
+                if (x >= bounds.x - 10 && x <= bounds.x + bounds.w + 10 &&
+                    y >= bounds.y - 10 && y <= bounds.y + bounds.h + 10) {
                     return obj;
                 }
             }
             return null;
         }
 
+        // オブジェクト境界取得
+        function getObjectBounds(obj) {
+            let w = 0, maxSize = 0;
+            obj.chars.forEach(c => {
+                ctx.font = `bold ${c.fontSize}px "${c.fontFamily}"`;
+                w += ctx.measureText(c.char).width;
+                if (c.fontSize > maxSize) maxSize = c.fontSize;
+            });
+            return { x: obj.x, y: obj.y - maxSize / 2, w, h: maxSize };
+        }
+
         // オブジェクト選択
         function selectObject(id) {
-            selectedId = id;
-            const obj = textObjects.find(o => o.id === id);
-            if (obj) {
-                document.getElementById('fontFamily').value = obj.fontFamily;
-                document.getElementById('fontSize').value = obj.fontSize;
-                document.getElementById('fontSizeVal').textContent = obj.fontSize;
-                document.getElementById('textColor').value = obj.textColor;
-                document.getElementById('strokeEnabled').checked = obj.strokeEnabled;
-                document.getElementById('strokeColor').value = obj.strokeColor;
-                document.getElementById('strokeWidth').value = obj.strokeWidth;
-                document.getElementById('strokeWidthVal').textContent = obj.strokeWidth;
-                document.getElementById('shadowEnabled').checked = obj.shadowEnabled;
-                document.getElementById('shadowColor').value = obj.shadowColor;
-                document.getElementById('shadowBlur').value = obj.shadowBlur;
-                document.getElementById('shadowBlurVal').textContent = obj.shadowBlur;
-            }
+            selectedObjId = id;
             updateLayerList();
             render();
         }
 
-        // 選択オブジェクト更新
-        function updateSelected() {
-            if (!selectedId) return;
-            const obj = textObjects.find(o => o.id === selectedId);
-            if (obj) {
-                obj.fontFamily = document.getElementById('fontFamily').value;
-                obj.fontSize = parseInt(document.getElementById('fontSize').value);
-                obj.textColor = document.getElementById('textColor').value;
-                obj.strokeEnabled = document.getElementById('strokeEnabled').checked;
-                obj.strokeColor = document.getElementById('strokeColor').value;
-                obj.strokeWidth = parseInt(document.getElementById('strokeWidth').value);
-                obj.shadowEnabled = document.getElementById('shadowEnabled').checked;
-                obj.shadowColor = document.getElementById('shadowColor').value;
-                obj.shadowBlur = parseInt(document.getElementById('shadowBlur').value);
+        // 編集モード開始
+        function enterEditMode(id) {
+            editingObjId = id;
+            selectedObjId = id;
+            cursorPos = 0;
+            cursorVisible = true;
+            if (cursorInterval) clearInterval(cursorInterval);
+            cursorInterval = setInterval(() => { cursorVisible = !cursorVisible; render(); }, 500);
+            updateLayerList();
+        }
+
+        // 編集モード終了
+        function exitEditMode() {
+            editingObjId = null;
+            selectedCharStart = -1;
+            selectedCharEnd = -1;
+            if (cursorInterval) clearInterval(cursorInterval);
+            render();
+        }
+
+        // スタイル適用
+        function applyStyle() {
+            if (!editingObjId) return;
+            const obj = textObjects.find(o => o.id === editingObjId);
+            if (!obj) return;
+
+            if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                const start = Math.min(selectedCharStart, selectedCharEnd);
+                const end = Math.max(selectedCharStart, selectedCharEnd);
+                const style = getDefaultStyle();
+                for (let i = start; i < end; i++) {
+                    Object.assign(obj.chars[i], style);
+                }
                 render();
+            }
+        }
+
+        // 選択文字情報更新
+        function updateCharInfo() {
+            const info = document.getElementById('charInfo');
+            if (editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                const count = Math.abs(selectedCharEnd - selectedCharStart);
+                info.textContent = `${count}文字選択中`;
+            } else {
+                info.textContent = '文字を選択してください';
             }
         }
 
         // 選択削除
         function deleteSelected() {
-            if (!selectedId) return;
-            textObjects = textObjects.filter(o => o.id !== selectedId);
-            selectedId = null;
+            if (!selectedObjId) return;
+            textObjects = textObjects.filter(o => o.id !== selectedObjId);
+            selectedObjId = null;
+            editingObjId = null;
             updateLayerList();
             render();
         }
 
         // レイヤーリスト更新
         function updateLayerList() {
-            layerList.innerHTML = '';
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
             textObjects.slice().reverse().forEach(obj => {
                 const div = document.createElement('div');
-                div.className = 'layer-item' + (obj.id === selectedId ? ' selected' : '');
-                div.textContent = obj.text.substring(0, 20) + (obj.text.length > 20 ? '...' : '');
-                div.onclick = () => selectObject(obj.id);
-                layerList.appendChild(div);
+                div.className = 'layer-item' + (obj.id === selectedObjId ? ' selected' : '');
+                const text = obj.chars.map(c => c.char).join('');
+                div.textContent = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+                div.onclick = () => { exitEditMode(); selectObject(obj.id); };
+                div.ondblclick = () => enterEditMode(obj.id);
+                list.appendChild(div);
             });
         }
 
@@ -391,75 +401,82 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             textObjects.forEach(obj => {
-                const scaleX = obj.scaleX || 1;
-                const scaleY = obj.scaleY || 1;
+                let posX = obj.x;
+                let maxSize = Math.max(...obj.chars.map(c => c.fontSize), 72);
 
-                ctx.save();
-                ctx.translate(obj.x, obj.y);
-                ctx.scale(scaleX, scaleY);
-
-                ctx.font = `bold ${obj.fontSize}px "${obj.fontFamily}"`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-
-                if (obj.shadowEnabled) {
-                    ctx.shadowColor = obj.shadowColor;
-                    ctx.shadowBlur = obj.shadowBlur;
-                    ctx.shadowOffsetX = 3;
-                    ctx.shadowOffsetY = 3;
-                } else {
-                    ctx.shadowColor = 'transparent';
-                    ctx.shadowBlur = 0;
+                // 選択範囲ハイライト
+                if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const start = Math.min(selectedCharStart, selectedCharEnd);
+                    const end = Math.max(selectedCharStart, selectedCharEnd);
+                    let hlX = obj.x;
+                    for (let i = 0; i < start; i++) {
+                        ctx.font = `bold ${obj.chars[i].fontSize}px "${obj.chars[i].fontFamily}"`;
+                        hlX += ctx.measureText(obj.chars[i].char).width;
+                    }
+                    let hlW = 0;
+                    for (let i = start; i < end; i++) {
+                        ctx.font = `bold ${obj.chars[i].fontSize}px "${obj.chars[i].fontFamily}"`;
+                        hlW += ctx.measureText(obj.chars[i].char).width;
+                    }
+                    ctx.fillStyle = 'rgba(0,120,212,0.3)';
+                    ctx.fillRect(hlX, obj.y - maxSize / 2, hlW, maxSize);
                 }
 
-                if (obj.strokeEnabled) {
-                    ctx.strokeStyle = obj.strokeColor;
-                    ctx.lineWidth = obj.strokeWidth * 2;
-                    ctx.lineJoin = 'round';
-                    ctx.strokeText(obj.text, 0, 0);
+                // 文字描画
+                obj.chars.forEach((c, i) => {
+                    ctx.font = `bold ${c.fontSize}px "${c.fontFamily}"`;
+                    ctx.textBaseline = 'middle';
+                    const w = ctx.measureText(c.char).width;
+
+                    if (c.strokeEnabled) {
+                        ctx.strokeStyle = c.strokeColor;
+                        ctx.lineWidth = c.strokeWidth * 2;
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText(c.char, posX, obj.y);
+                    }
+                    ctx.fillStyle = c.color;
+                    ctx.fillText(c.char, posX, obj.y);
+                    posX += w;
+                });
+
+                // カーソル
+                if (obj.id === editingObjId && cursorVisible && selectedCharStart === -1) {
+                    let cX = obj.x;
+                    for (let i = 0; i < cursorPos; i++) {
+                        ctx.font = `bold ${obj.chars[i].fontSize}px "${obj.chars[i].fontFamily}"`;
+                        cX += ctx.measureText(obj.chars[i].char).width;
+                    }
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(cX, obj.y - maxSize / 2);
+                    ctx.lineTo(cX, obj.y + maxSize / 2);
+                    ctx.stroke();
                 }
 
-                ctx.fillStyle = obj.textColor;
-                ctx.fillText(obj.text, 0, 0);
-                ctx.restore();
-
-                // 選択枠とハンドル
-                if (obj.id === selectedId) {
-                    ctx.font = `bold ${obj.fontSize * scaleY}px "${obj.fontFamily}"`;
-                    const metrics = ctx.measureText(obj.text);
-                    const w = metrics.width * scaleX / scaleY;
-                    const h = obj.fontSize * scaleY;
-
-                    ctx.shadowColor = 'transparent';
+                // 選択枠
+                if (obj.id === selectedObjId && obj.id !== editingObjId) {
+                    const bounds = getObjectBounds(obj);
                     ctx.strokeStyle = '#0078d4';
                     ctx.lineWidth = 2;
                     ctx.setLineDash([5, 3]);
-                    ctx.strokeRect(obj.x - w/2 - 5, obj.y - h/2 - 5, w + 10, h + 10);
+                    ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
                     ctx.setLineDash([]);
-
-                    // リサイズハンドル
-                    ctx.fillStyle = '#0078d4';
-                    const hs = 6;
-                    ctx.fillRect(obj.x + w/2 + 5 - hs/2, obj.y - hs/2, hs, hs); // E
-                    ctx.fillRect(obj.x - hs/2, obj.y + h/2 + 5 - hs/2, hs, hs); // S
-                    ctx.fillRect(obj.x + w/2 + 5 - hs/2, obj.y + h/2 + 5 - hs/2, hs, hs); // SE
                 }
             });
 
-            document.getElementById('statusText').textContent = `オブジェクト数: ${textObjects.length}`;
+            document.getElementById('statusText').textContent = editingObjId ? '編集中 (Escで終了)' : `オブジェクト: ${textObjects.length}`;
         }
 
         function changeResolution() {
             const [w, h] = document.getElementById('resolution').value.split('x').map(Number);
-            canvas.width = w;
-            canvas.height = h;
+            canvas.width = w; canvas.height = h;
             document.getElementById('resolution-display').textContent = `${w}×${h}`;
             render();
         }
 
         function exportPNG() {
-            selectedId = null;
-            render();
+            exitEditMode(); selectedObjId = null; render();
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
@@ -467,35 +484,30 @@
         }
 
         function saveProject() {
-            const project = { version: '1.1', resolution: document.getElementById('resolution').value, objects: textObjects };
-            const blob = new Blob([JSON.stringify(project, null, 2)], {type: 'application/json'});
+            const project = { version: '1.3', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const blob = new Blob([JSON.stringify(project)], {type: 'application/json'});
             const link = document.createElement('a');
-            link.download = `telop_project_${Date.now()}.json`;
+            link.download = `telop_${Date.now()}.json`;
             link.href = URL.createObjectURL(blob);
             link.click();
         }
 
         function loadProject() { document.getElementById('fileInput').click(); }
 
-        function handleFileLoad(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        function handleFileLoad(e) {
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = (ev) => {
                 try {
-                    const project = JSON.parse(e.target.result);
-                    if (project.resolution) {
-                        document.getElementById('resolution').value = project.resolution;
-                        changeResolution();
-                    }
-                    textObjects = project.objects || [];
-                    selectedId = null;
-                    updateLayerList();
-                    render();
-                } catch (err) { alert('読み込み失敗'); }
+                    const p = JSON.parse(ev.target.result);
+                    if (p.resolution) { document.getElementById('resolution').value = p.resolution; changeResolution(); }
+                    textObjects = p.objects || [];
+                    selectedObjId = null; editingObjId = null;
+                    updateLayerList(); render();
+                } catch { alert('読込失敗'); }
             };
             reader.readAsText(file);
-            event.target.value = '';
+            e.target.value = '';
         }
 
         render();
