@@ -215,6 +215,14 @@
             <label><input type="checkbox" id="nameTagEnabled" onchange="updateNameTag()"> 有効</label>
             <label>名前</label>
             <input type="text" id="nameTagText" placeholder="話者名" onchange="updateNameTag()">
+            <label>フォント</label>
+            <select id="nameTagFont" onchange="updateNameTag()">
+                <option value="Yu Gothic UI">Yu Gothic UI</option>
+                <option value="Meiryo">メイリオ</option>
+                <option value="MS Gothic">MS ゴシック</option>
+                <option value="Arial">Arial</option>
+                <option value="Impact">Impact</option>
+            </select>
             <div class="row2">
                 <div><label>位置</label><select id="nameTagPosition" onchange="updateNameTag()">
                     <option value="top-left">左上</option>
@@ -792,6 +800,7 @@
                 nameTag: {
                     enabled: false,
                     text: '',
+                    font: 'Yu Gothic UI',
                     position: 'top-left',
                     gap: 10,
                     color: '#ffffff',
@@ -839,6 +848,7 @@
             if (!obj.nameTag) obj.nameTag = {};
             obj.nameTag.enabled = document.getElementById('nameTagEnabled').checked;
             obj.nameTag.text = document.getElementById('nameTagText').value;
+            obj.nameTag.font = document.getElementById('nameTagFont').value;
             obj.nameTag.position = document.getElementById('nameTagPosition').value;
             obj.nameTag.gap = parseInt(document.getElementById('nameTagGap').value) || 10;
             obj.nameTag.color = document.getElementById('nameTagColor').value;
@@ -883,6 +893,7 @@
             if (!obj.nameTag) return;
             document.getElementById('nameTagEnabled').checked = obj.nameTag.enabled || false;
             document.getElementById('nameTagText').value = obj.nameTag.text || '';
+            document.getElementById('nameTagFont').value = obj.nameTag.font || 'Yu Gothic UI';
             document.getElementById('nameTagPosition').value = obj.nameTag.position || 'top-left';
             document.getElementById('nameTagGap').value = obj.nameTag.gap || 10;
             document.getElementById('nameTagColor').value = obj.nameTag.color || '#ffffff';
@@ -1098,45 +1109,15 @@
             const radius = b.radius || 20;
 
             ctx.save();
-            ctx.globalAlpha = (b.fillOpacity || 100) / 100;
 
-            // Draw balloon shape
-            if (b.shape === 'ellipse') {
-                ctx.beginPath();
-                ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
-                ctx.closePath();
-            } else if (b.shape === 'cloud') {
-                // Simple cloud shape using overlapping circles
-                ctx.beginPath();
-                const cx = bx + bw / 2, cy = by + bh / 2;
-                const rx = bw / 2, ry = bh / 2;
-                const bumps = 8;
-                for (let i = 0; i < bumps; i++) {
-                    const angle = (i / bumps) * Math.PI * 2;
-                    const px = cx + Math.cos(angle) * rx * 0.8;
-                    const py = cy + Math.sin(angle) * ry * 0.8;
-                    const bumpR = Math.min(rx, ry) * 0.4;
-                    if (i === 0) ctx.moveTo(px + bumpR, py);
-                    ctx.arc(px, py, bumpR, 0, Math.PI * 2);
-                }
-                ctx.closePath();
-            } else {
-                // Rounded rectangle
-                drawRoundedRect(ctx, bx, by, bw, bh, radius);
-            }
-
-            // Fill
-            ctx.fillStyle = b.fill || '#ffffff';
-            ctx.fill();
-
-            // Draw tail
+            // Calculate tail points
+            let tailPoints = null;
             if (b.tailEnabled) {
                 const tailWidth = b.tailWidth || 20;
                 const tailLength = b.tailLength || 30;
                 const tailPos = (b.tailPos || 50) / 100;
                 const tailDir = b.tailDir || 'bottom';
 
-                ctx.beginPath();
                 let tx, ty, t1x, t1y, t2x, t2y, tipX, tipY;
 
                 if (tailDir === 'bottom' || tailDir === 'bottom-left' || tailDir === 'bottom-right') {
@@ -1172,29 +1153,133 @@
                     tipX = tx + tailLength;
                     tipY = ty;
                 }
-
-                ctx.moveTo(t1x, t1y);
-                ctx.lineTo(tipX, tipY);
-                ctx.lineTo(t2x, t2y);
-                ctx.closePath();
-                ctx.fill();
+                tailPoints = { t1x, t1y, t2x, t2y, tipX, tipY, dir: tailDir };
             }
 
-            // Stroke
-            if (b.strokeEnabled) {
-                ctx.strokeStyle = b.strokeColor || '#000000';
-                ctx.lineWidth = b.strokeWidth || 3;
+            // For rounded rectangle, draw body and tail as single unified path
+            if (b.shape !== 'ellipse' && b.shape !== 'cloud') {
+                const r = Math.min(radius, bw / 2, bh / 2);
 
-                // Redraw shape for stroke
-                if (b.shape === 'ellipse') {
+                ctx.beginPath();
+                ctx.moveTo(bx + r, by);
+
+                // Top edge
+                if (tailPoints && tailPoints.dir === 'top') {
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                }
+                ctx.lineTo(bx + bw - r, by);
+                ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+
+                // Right edge
+                if (tailPoints && tailPoints.dir === 'right') {
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                }
+                ctx.lineTo(bx + bw, by + bh - r);
+                ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+
+                // Bottom edge
+                if (tailPoints && (tailPoints.dir === 'bottom' || tailPoints.dir === 'bottom-left' || tailPoints.dir === 'bottom-right')) {
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                }
+                ctx.lineTo(bx + r, by + bh);
+                ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+
+                // Left edge
+                if (tailPoints && tailPoints.dir === 'left') {
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                }
+                ctx.lineTo(bx, by + r);
+                ctx.quadraticCurveTo(bx, by, bx + r, by);
+                ctx.closePath();
+
+                // Fill
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                // Stroke
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
+                    ctx.stroke();
+                }
+            } else if (b.shape === 'ellipse') {
+                // Ellipse shape
+                ctx.beginPath();
+                ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+                ctx.closePath();
+
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                // Draw tail separately for ellipse
+                if (tailPoints) {
+                    ctx.beginPath();
+                    ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // Stroke
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
                     ctx.beginPath();
                     ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
                     ctx.stroke();
-                } else if (b.shape === 'cloud') {
+
+                    if (tailPoints) {
+                        ctx.beginPath();
+                        ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                        ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                        ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                        ctx.stroke();
+                    }
+                }
+            } else {
+                // Cloud shape
+                const cx = bx + bw / 2, cy = by + bh / 2;
+                const rx = bw / 2, ry = bh / 2;
+                const bumps = 8;
+
+                ctx.beginPath();
+                for (let i = 0; i < bumps; i++) {
+                    const angle = (i / bumps) * Math.PI * 2;
+                    const px = cx + Math.cos(angle) * rx * 0.8;
+                    const py = cy + Math.sin(angle) * ry * 0.8;
+                    const bumpR = Math.min(rx, ry) * 0.4;
+                    if (i === 0) ctx.moveTo(px + bumpR, py);
+                    ctx.arc(px, py, bumpR, 0, Math.PI * 2);
+                }
+                ctx.closePath();
+
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                if (tailPoints) {
                     ctx.beginPath();
-                    const cx = bx + bw / 2, cy = by + bh / 2;
-                    const rx = bw / 2, ry = bh / 2;
-                    const bumps = 8;
+                    ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
                     for (let i = 0; i < bumps; i++) {
                         const angle = (i / bumps) * Math.PI * 2;
                         const px = cx + Math.cos(angle) * rx * 0.8;
@@ -1204,59 +1289,14 @@
                         ctx.arc(px, py, bumpR, 0, Math.PI * 2);
                         ctx.stroke();
                     }
-                } else {
-                    drawRoundedRect(ctx, bx, by, bw, bh, radius);
-                    ctx.stroke();
-                }
 
-                // Stroke tail
-                if (b.tailEnabled) {
-                    const tailWidth = b.tailWidth || 20;
-                    const tailLength = b.tailLength || 30;
-                    const tailPos = (b.tailPos || 50) / 100;
-                    const tailDir = b.tailDir || 'bottom';
-
-                    let tx, ty, t1x, t1y, t2x, t2y, tipX, tipY;
-
-                    if (tailDir === 'bottom' || tailDir === 'bottom-left' || tailDir === 'bottom-right') {
-                        tx = bx + bw * tailPos;
-                        ty = by + bh;
-                        t1x = tx - tailWidth / 2;
-                        t2x = tx + tailWidth / 2;
-                        t1y = t2y = ty;
-                        tipX = tailDir === 'bottom-left' ? tx - tailLength : (tailDir === 'bottom-right' ? tx + tailLength : tx);
-                        tipY = ty + tailLength;
-                    } else if (tailDir === 'top') {
-                        tx = bx + bw * tailPos;
-                        ty = by;
-                        t1x = tx - tailWidth / 2;
-                        t2x = tx + tailWidth / 2;
-                        t1y = t2y = ty;
-                        tipX = tx;
-                        tipY = ty - tailLength;
-                    } else if (tailDir === 'left') {
-                        tx = bx;
-                        ty = by + bh * tailPos;
-                        t1y = ty - tailWidth / 2;
-                        t2y = ty + tailWidth / 2;
-                        t1x = t2x = tx;
-                        tipX = tx - tailLength;
-                        tipY = ty;
-                    } else {
-                        tx = bx + bw;
-                        ty = by + bh * tailPos;
-                        t1y = ty - tailWidth / 2;
-                        t2y = ty + tailWidth / 2;
-                        t1x = t2x = tx;
-                        tipX = tx + tailLength;
-                        tipY = ty;
+                    if (tailPoints) {
+                        ctx.beginPath();
+                        ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                        ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                        ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                        ctx.stroke();
                     }
-
-                    ctx.beginPath();
-                    ctx.moveTo(t1x, t1y);
-                    ctx.lineTo(tipX, tipY);
-                    ctx.lineTo(t2x, t2y);
-                    ctx.stroke();
                 }
             }
 
@@ -1268,12 +1308,13 @@
             if (!nt || !nt.enabled || !nt.text) return;
 
             const fontSize = nt.size || 36;
+            const fontFamily = nt.font || 'Yu Gothic UI';
             const padX = nt.padX || 10;
             const padY = nt.padY || 5;
             const gap = nt.gap || 10;
 
             ctx.save();
-            ctx.font = `bold ${fontSize}px "Yu Gothic UI"`;
+            ctx.font = `bold ${fontSize}px "${fontFamily}"`;
             const textWidth = ctx.measureText(nt.text).width;
             const textHeight = fontSize;
 
@@ -1624,11 +1665,15 @@
                         // Initialize name tag properties
                         if (!obj.nameTag) {
                             obj.nameTag = {
-                                enabled: false, text: '', position: 'top-left', gap: 10,
+                                enabled: false, text: '', font: 'Yu Gothic UI', position: 'top-left', gap: 10,
                                 color: '#ffffff', size: 36, bgEnabled: true, bgShape: 'rounded',
                                 bgRadius: 5, bgColor: '#0078d4', bgOpacity: 100, padX: 10, padY: 5,
                                 strokeEnabled: false, strokeColor: '#ffffff', strokeWidth: 2
                             };
+                        }
+                        // Ensure font property exists for older projects
+                        if (obj.nameTag && !obj.nameTag.font) {
+                            obj.nameTag.font = 'Yu Gothic UI';
                         }
                         // Initialize balloon properties
                         if (!obj.balloon) {
