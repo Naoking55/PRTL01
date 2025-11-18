@@ -444,7 +444,7 @@
             }
 
             if (!editingObjId) return;
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if ((e.target.tagName === 'INPUT' && e.target.id !== 'imeInput') || e.target.tagName === 'SELECT') return;
             if (isComposing) return;
 
             const obj = textObjects.find(o => o.id === editingObjId);
@@ -497,6 +497,9 @@
                 selectedCharEnd = obj.chars.length;
                 render();
                 updateCharInfo();
+            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                insertText(e.key);
             }
             updateLayerList();
         });
