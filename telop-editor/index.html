@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v1.7</title>
+    <title>テロップエディタ v1.8</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
@@ -55,6 +55,9 @@
         #imeInput { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; border: none; outline: none; background: transparent; }
         .stroke-item { background: #3a3a3a; padding: 6px; margin: 4px 0; border-radius: 3px; }
         .stroke-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .gradient-stop { position: relative; padding-right: 20px; }
+        .gradient-stop .remove-stop { position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: #d43; color: #fff; border: none; border-radius: 3px; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: none; }
+        .gradient-stop:nth-child(n+3) .remove-stop { display: block; }
     </style>
 </head>
 <body>
@@ -139,10 +142,21 @@
                 <option value="linear">線形グラデーション</option>
                 <option value="radial">円形グラデーション</option>
             </select>
-            <div class="row2">
-                <div><label>色1</label><input type="color" id="textColor" value="#ffffff" onchange="applyStyle()"></div>
-                <div><label>色2</label><input type="color" id="textColor2" value="#888888" onchange="applyStyle()"></div>
+            <div id="gradientStops">
+                <div class="gradient-stop" data-pos="0">
+                    <div class="row2">
+                        <div><label>色1</label><input type="color" class="grad-color" value="#ffffff" onchange="applyStyle()"></div>
+                        <div><label>位置%</label><input type="number" class="grad-pos" value="0" min="0" max="100" onchange="applyStyle()"></div>
+                    </div>
+                </div>
+                <div class="gradient-stop" data-pos="100">
+                    <div class="row2">
+                        <div><label>色2</label><input type="color" class="grad-color" value="#888888" onchange="applyStyle()"></div>
+                        <div><label>位置%</label><input type="number" class="grad-pos" value="100" min="0" max="100" onchange="applyStyle()"></div>
+                    </div>
+                </div>
             </div>
+            <button class="btn btn-small btn-secondary" onclick="addGradientStop()">+ 色追加</button>
             <div class="row2" id="gradientAngleRow">
                 <div><label>角度°</label><input type="number" id="gradientAngle" value="0" step="1" onchange="applyStyle()"></div>
             </div>
@@ -250,13 +264,42 @@
             el.nextElementSibling.classList.toggle('hidden');
         }
 
+        function getGradientStopsFromUI() {
+            const stops = [];
+            document.querySelectorAll('.gradient-stop').forEach(el => {
+                stops.push({
+                    color: el.querySelector('.grad-color').value,
+                    pos: parseInt(el.querySelector('.grad-pos').value) || 0
+                });
+            });
+            return stops.sort((a, b) => a.pos - b.pos);
+        }
+
+        function addGradientStop() {
+            const container = document.getElementById('gradientStops');
+            const stops = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'gradient-stop';
+            div.innerHTML = `
+                <div class="row2">
+                    <div><label>色${stops + 1}</label><input type="color" class="grad-color" value="#cccccc" onchange="applyStyle()"></div>
+                    <div><label>位置%</label><input type="number" class="grad-pos" value="50" min="0" max="100" onchange="applyStyle()"></div>
+                </div>
+                <button class="remove-stop" onclick="this.parentElement.remove();applyStyle()">×</button>
+            `;
+            container.appendChild(div);
+            applyStyle();
+        }
+
         function getDefaultStyle() {
+            const gradStops = getGradientStopsFromUI();
             return {
                 fontSize: parseInt(document.getElementById('fontSize').value),
                 fontFamily: document.getElementById('fontFamily').value,
                 fillType: document.getElementById('fillType').value,
-                color: document.getElementById('textColor').value,
-                color2: document.getElementById('textColor2').value,
+                color: gradStops[0]?.color || '#ffffff',
+                color2: gradStops[gradStops.length - 1]?.color || '#888888',
+                gradientStops: gradStops,
                 gradientAngle: parseInt(document.getElementById('gradientAngle').value),
                 opacity: parseInt(document.getElementById('charOpacity').value),
                 strokes: getStrokesFromUI(),
@@ -290,10 +333,11 @@
                     type: item.querySelector('.stroke-type').value,
                     color: item.querySelector('.stroke-color').value,
                     width: parseInt(item.querySelector('.stroke-width').value),
-                    opacity: parseInt(item.querySelector('.stroke-opacity').value)
+                    opacity: parseInt(item.querySelector('.stroke-opacity').value),
+                    angle: parseInt(item.querySelector('.stroke-angle').value) || 45
                 });
             });
-            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100 }];
+            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45 }];
         }
 
         function addStroke() {
@@ -317,6 +361,9 @@
                 <div class="row2">
                     <div><label>太さ</label><input type="number" class="stroke-width" value="4" min="0" max="50" onchange="applyStyle()"></div>
                     <div><label>不透明度%</label><input type="number" class="stroke-opacity" value="100" min="0" max="100" onchange="applyStyle()"></div>
+                </div>
+                <div class="row2">
+                    <div><label>角度°</label><input type="number" class="stroke-angle" value="45" step="1" onchange="applyStyle()"></div>
                 </div>
             `;
             list.appendChild(div);
@@ -815,18 +862,18 @@
                         const bw = ctx.measureText(dc).width, sx = (c.scaleX || 100) / 100, cy = lineY - (c.baselineShift || 0);
                         ctx.translate(px, cy);
                         if (c.slant) ctx.transform(1, 0, Math.tan(c.slant * Math.PI / 180), 1, 0, 0);
-                        ctx.scale(sx, 1);
 
-                        // Shadow
+                        // Shadow (draw before scale to avoid offset distortion)
                         if (c.shadowEnabled) {
                             const sa = (c.shadowAngle || 45) * Math.PI / 180;
                             const sd = c.shadowDistance || 5;
                             const sox = Math.cos(sa) * sd, soy = Math.sin(sa) * sd;
                             ctx.save();
-                            ctx.translate(sox, soy); // Move to shadow offset position
+                            ctx.scale(sx, 1);
+                            ctx.translate(sox / sx, soy); // Adjust for scale
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (c.shadowOpacity || 50) / 100;
 
-                            // Apply blur effect using shadow properties
+                            // Apply blur effect
                             ctx.shadowColor = c.shadowColor || '#000';
                             ctx.shadowBlur = c.shadowBlur || 5;
                             ctx.shadowOffsetX = 0;
@@ -846,6 +893,8 @@
                             ctx.restore();
                         }
 
+                        ctx.scale(sx, 1);
+
                         // Strokes
                         const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
                         strokes.slice().reverse().forEach(st => {
@@ -856,11 +905,14 @@
                             ctx.lineWidth = st.width * 2;
                             ctx.lineJoin = 'round';
                             if (st.type === 'depth') {
+                                const depthAngle = (st.angle || 45) * Math.PI / 180;
+                                const depthDx = Math.cos(depthAngle);
+                                const depthDy = Math.sin(depthAngle);
                                 for (let d = st.width; d > 0; d--) {
                                     ctx.strokeStyle = st.color;
                                     ctx.lineWidth = 2;
                                     ctx.save();
-                                    ctx.translate(d * 0.7, d * 0.7);
+                                    ctx.translate(d * depthDx, d * depthDy);
                                     ctx.strokeText(dc, 0, 0);
                                     ctx.restore();
                                 }
@@ -887,15 +939,22 @@
                             } else {
                                 grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(gw, gh) / 2);
                             }
-                            grad.addColorStop(0, c.color);
-                            grad.addColorStop(1, c.color2 || '#888');
+                            // Use multiple color stops if available
+                            if (c.gradientStops && c.gradientStops.length >= 2) {
+                                c.gradientStops.forEach(stop => {
+                                    grad.addColorStop(stop.pos / 100, stop.color);
+                                });
+                            } else {
+                                grad.addColorStop(0, c.color);
+                                grad.addColorStop(1, c.color2 || '#888');
+                            }
                             ctx.fillStyle = grad;
                         } else {
                             ctx.fillStyle = c.color;
                         }
                         ctx.fillText(dc, 0, 0);
 
-                        // Gloss - horizontal gradient line clipped to text shape
+                        // Gloss - horizontal gradient line at text center, clipped to text shape
                         if (c.glossEnabled) {
                             // Use temporary canvas to clip gloss to text shape
                             const tempCanvas = document.createElement('canvas');
@@ -915,19 +974,25 @@
                             tempCtx.globalCompositeOperation = 'source-atop';
 
                             const glossWidth = c.glossWidth || 10;
-                            const glossBlur = c.glossBlur || 5; // Gradient spread amount
+                            const glossBlur = c.glossBlur || 5; // Gradient spread amount (0=sharp line, higher=more fade)
                             const halfHeight = glossWidth / 2 + glossBlur;
 
-                            // Create gradient: transparent at edges, opaque at center
+                            // Create gradient: centered at Y=0 (middle of text)
+                            // transparent at edges, opaque at center
                             const grad = tempCtx.createLinearGradient(0, -halfHeight, 0, halfHeight);
-                            grad.addColorStop(0, 'rgba(255,255,255,0)');
-                            grad.addColorStop(0.5, c.glossColor || '#fff');
-                            grad.addColorStop(1, 'rgba(255,255,255,0)');
+                            const glossCol = c.glossColor || '#ffffff';
+                            // Parse color to get rgba
+                            const r = parseInt(glossCol.slice(1, 3), 16);
+                            const g = parseInt(glossCol.slice(3, 5), 16);
+                            const b = parseInt(glossCol.slice(5, 7), 16);
+                            grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+                            grad.addColorStop(0.5, `rgba(${r},${g},${b},1)`);
+                            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
 
                             tempCtx.fillStyle = grad;
                             tempCtx.fillRect(-tempCanvas.width / 2, -halfHeight, tempCanvas.width, halfHeight * 2);
 
-                            // Draw result to main canvas
+                            // Draw result to main canvas at character center
                             ctx.save();
                             ctx.globalAlpha = (c.glossOpacity || 50) / 100;
                             ctx.drawImage(tempCanvas, -tempCanvas.width / 2, -tempCanvas.height / 2);
@@ -994,7 +1059,7 @@
         }
 
         function saveProject() {
-            const project = { version: '1.7', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const project = { version: '1.8', resolution: document.getElementById('resolution').value, objects: textObjects };
             const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
