@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v1.8</title>
+    <title>テロップエディタ v1.9</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
@@ -146,13 +146,13 @@
                 <div class="gradient-stop" data-pos="0">
                     <div class="row2">
                         <div><label>色1</label><input type="color" class="grad-color" value="#ffffff" onchange="applyStyle()"></div>
-                        <div><label>位置%</label><input type="number" class="grad-pos" value="0" min="0" max="100" onchange="applyStyle()"></div>
+                        <div><label>比率</label><input type="number" class="grad-ratio" value="50" min="1" max="100" onchange="applyStyle()"></div>
                     </div>
                 </div>
                 <div class="gradient-stop" data-pos="100">
                     <div class="row2">
                         <div><label>色2</label><input type="color" class="grad-color" value="#888888" onchange="applyStyle()"></div>
-                        <div><label>位置%</label><input type="number" class="grad-pos" value="100" min="0" max="100" onchange="applyStyle()"></div>
+                        <div><label>比率</label><input type="number" class="grad-ratio" value="50" min="1" max="100" onchange="applyStyle()"></div>
                     </div>
                 </div>
             </div>
@@ -265,14 +265,35 @@
         }
 
         function getGradientStopsFromUI() {
-            const stops = [];
+            const rawStops = [];
             document.querySelectorAll('.gradient-stop').forEach(el => {
-                stops.push({
+                rawStops.push({
                     color: el.querySelector('.grad-color').value,
-                    pos: parseInt(el.querySelector('.grad-pos').value) || 0
+                    ratio: parseInt(el.querySelector('.grad-ratio').value) || 1
                 });
             });
-            return stops.sort((a, b) => a.pos - b.pos);
+
+            // Calculate positions from ratios
+            const total = rawStops.reduce((sum, s) => sum + s.ratio, 0);
+            const stops = [];
+            let cumulative = 0;
+
+            rawStops.forEach((s, i) => {
+                // Start position of this color's range
+                const startPos = cumulative / total * 100;
+                cumulative += s.ratio;
+                // End position of this color's range
+                const endPos = cumulative / total * 100;
+
+                stops.push({
+                    color: s.color,
+                    ratio: s.ratio,
+                    pos: startPos,
+                    endPos: endPos
+                });
+            });
+
+            return stops;
         }
 
         function addGradientStop() {
@@ -283,7 +304,7 @@
             div.innerHTML = `
                 <div class="row2">
                     <div><label>色${stops + 1}</label><input type="color" class="grad-color" value="#cccccc" onchange="applyStyle()"></div>
-                    <div><label>位置%</label><input type="number" class="grad-pos" value="50" min="0" max="100" onchange="applyStyle()"></div>
+                    <div><label>比率</label><input type="number" class="grad-ratio" value="30" min="1" max="100" onchange="applyStyle()"></div>
                 </div>
                 <button class="remove-stop" onclick="this.parentElement.remove();applyStyle()">×</button>
             `;
@@ -939,10 +960,20 @@
                             } else {
                                 grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(gw, gh) / 2);
                             }
-                            // Use multiple color stops if available
+                            // Use multiple color stops with ratio-based positions
                             if (c.gradientStops && c.gradientStops.length >= 2) {
-                                c.gradientStops.forEach(stop => {
+                                c.gradientStops.forEach((stop, i) => {
+                                    // Add color at start of range
                                     grad.addColorStop(stop.pos / 100, stop.color);
+                                    // Add color at end of range (creates solid color section)
+                                    // Only add if not overlapping with next color's start
+                                    if (i < c.gradientStops.length - 1) {
+                                        const nextStop = c.gradientStops[i + 1];
+                                        const midPoint = (stop.endPos + nextStop.pos) / 2 / 100;
+                                        grad.addColorStop(midPoint, stop.color);
+                                    } else {
+                                        grad.addColorStop(1, stop.color);
+                                    }
                                 });
                             } else {
                                 grad.addColorStop(0, c.color);
@@ -956,47 +987,77 @@
 
                         // Gloss - horizontal gradient line at text center, clipped to text shape
                         if (c.glossEnabled) {
-                            // Use temporary canvas to clip gloss to text shape
-                            const tempCanvas = document.createElement('canvas');
-                            const padding = 20;
-                            tempCanvas.width = bw + padding * 2;
-                            tempCanvas.height = fs + padding * 2;
-                            const tempCtx = tempCanvas.getContext('2d');
-                            tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
-
-                            // Draw text as mask
-                            tempCtx.font = ctx.font;
-                            tempCtx.textBaseline = 'middle';
-                            tempCtx.fillStyle = '#fff';
-                            tempCtx.fillText(dc, 0, 0);
-
-                            // Apply gloss gradient only where text exists
-                            tempCtx.globalCompositeOperation = 'source-atop';
-
                             const glossWidth = c.glossWidth || 10;
-                            const glossBlur = c.glossBlur || 5; // Gradient spread amount (0=sharp line, higher=more fade)
-                            const halfHeight = glossWidth / 2 + glossBlur;
-
-                            // Create gradient: centered at Y=0 (middle of text)
-                            // transparent at edges, opaque at center
-                            const grad = tempCtx.createLinearGradient(0, -halfHeight, 0, halfHeight);
+                            const glossBlur = c.glossBlur || 5; // Gradient spread: 0=sharp, higher=more fade
                             const glossCol = c.glossColor || '#ffffff';
-                            // Parse color to get rgba
+
+                            // Parse color to get rgb values
                             const r = parseInt(glossCol.slice(1, 3), 16);
                             const g = parseInt(glossCol.slice(3, 5), 16);
-                            const b = parseInt(glossCol.slice(5, 7), 16);
-                            grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-                            grad.addColorStop(0.5, `rgba(${r},${g},${b},1)`);
-                            grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+                            const bb = parseInt(glossCol.slice(5, 7), 16);
 
-                            tempCtx.fillStyle = grad;
-                            tempCtx.fillRect(-tempCanvas.width / 2, -halfHeight, tempCanvas.width, halfHeight * 2);
-
-                            // Draw result to main canvas at character center
+                            // Create clipping path from text
                             ctx.save();
+                            ctx.beginPath();
+                            ctx.rect(-bw / 2 - 10, -fs / 2 - 10, bw + 20, fs + 20);
+                            ctx.clip();
+
+                            // Draw text as clipping mask using globalCompositeOperation
+                            ctx.globalCompositeOperation = 'source-over';
+
+                            // Create gradient for gloss line at center (y=0)
+                            const halfHeight = glossWidth / 2 + glossBlur;
+                            const glossGrad = ctx.createLinearGradient(0, -halfHeight, 0, halfHeight);
+                            glossGrad.addColorStop(0, `rgba(${r},${g},${bb},0)`);
+                            glossGrad.addColorStop(0.5, `rgba(${r},${g},${bb},1)`);
+                            glossGrad.addColorStop(1, `rgba(${r},${g},${bb},0)`);
+
+                            // Use destination-in to clip gloss to text shape
+                            // First draw the text shape
+                            ctx.globalAlpha = 1;
+                            ctx.fillStyle = '#fff';
+                            ctx.fillText(dc, 0, 0);
+
+                            // Then draw gloss only where text exists
+                            ctx.globalCompositeOperation = 'source-atop';
                             ctx.globalAlpha = (c.glossOpacity || 50) / 100;
-                            ctx.drawImage(tempCanvas, -tempCanvas.width / 2, -tempCanvas.height / 2);
+                            ctx.fillStyle = glossGrad;
+                            ctx.fillRect(-bw, -halfHeight, bw * 2, halfHeight * 2);
+
                             ctx.restore();
+
+                            // Redraw the original text on top
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+                            if (c.fillType === 'linear' || c.fillType === 'radial') {
+                                // Recreate gradient for redraw
+                                const gw2 = bw * sx, gh2 = fs;
+                                let grad2;
+                                if (c.fillType === 'linear') {
+                                    const a2 = (c.gradientAngle || 0) * Math.PI / 180;
+                                    const dx2 = Math.cos(a2) * gw2 / 2, dy2 = Math.sin(a2) * gh2 / 2;
+                                    grad2 = ctx.createLinearGradient(-dx2, -dy2, dx2, dy2);
+                                } else {
+                                    grad2 = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(gw2, gh2) / 2);
+                                }
+                                if (c.gradientStops && c.gradientStops.length >= 2) {
+                                    c.gradientStops.forEach((stop, i) => {
+                                        grad2.addColorStop(stop.pos / 100, stop.color);
+                                        if (i < c.gradientStops.length - 1) {
+                                            const nextStop = c.gradientStops[i + 1];
+                                            const midPoint = (stop.endPos + nextStop.pos) / 2 / 100;
+                                            grad2.addColorStop(midPoint, stop.color);
+                                        } else {
+                                            grad2.addColorStop(1, stop.color);
+                                        }
+                                    });
+                                } else {
+                                    grad2.addColorStop(0, c.color);
+                                    grad2.addColorStop(1, c.color2 || '#888');
+                                }
+                                ctx.fillStyle = grad2;
+                            } else {
+                                ctx.fillStyle = c.color;
+                            }
                         }
 
                         ctx.restore();
@@ -1059,7 +1120,7 @@
         }
 
         function saveProject() {
-            const project = { version: '1.8', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const project = { version: '1.9', resolution: document.getElementById('resolution').value, objects: textObjects };
             const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
