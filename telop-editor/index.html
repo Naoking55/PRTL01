@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v2.2</title>
+    <title>テロップエディタ v2.3</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
@@ -207,6 +207,97 @@
             <div class="row2">
                 <div><label>サイズ</label><input type="number" id="shadowSize" value="0" step="1" onchange="applyStyle()"></div>
                 <div><label>ぼかし</label><input type="number" id="shadowBlur" value="5" step="1" onchange="applyStyle()"></div>
+            </div>
+        </div>
+
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">名前タグ</h3>
+        <div class="collapse-content hidden">
+            <label><input type="checkbox" id="nameTagEnabled" onchange="updateNameTag()"> 有効</label>
+            <label>名前</label>
+            <input type="text" id="nameTagText" placeholder="話者名" onchange="updateNameTag()">
+            <div class="row2">
+                <div><label>位置</label><select id="nameTagPosition" onchange="updateNameTag()">
+                    <option value="top-left">左上</option>
+                    <option value="top-center">中央上</option>
+                    <option value="top-right">右上</option>
+                    <option value="bottom-left">左下</option>
+                    <option value="bottom-center">中央下</option>
+                    <option value="bottom-right">右下</option>
+                </select></div>
+                <div><label>間隔</label><input type="number" id="nameTagGap" value="10" step="1" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>文字色</label><input type="color" id="nameTagColor" value="#ffffff" onchange="updateNameTag()"></div>
+                <div><label>サイズ</label><input type="number" id="nameTagSize" value="36" min="1" onchange="updateNameTag()"></div>
+            </div>
+            <h4>背景</h4>
+            <label><input type="checkbox" id="nameTagBgEnabled" checked onchange="updateNameTag()"> 背景表示</label>
+            <div class="row2">
+                <div><label>形状</label><select id="nameTagBgShape" onchange="updateNameTag()">
+                    <option value="rect">四角形</option>
+                    <option value="rounded">角丸</option>
+                    <option value="pill">ピル型</option>
+                </select></div>
+                <div><label>角丸</label><input type="number" id="nameTagBgRadius" value="5" min="0" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>背景色</label><input type="color" id="nameTagBgColor" value="#0078d4" onchange="updateNameTag()"></div>
+                <div><label>不透明度%</label><input type="number" id="nameTagBgOpacity" min="0" max="100" value="100" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>余白X</label><input type="number" id="nameTagPadX" value="10" min="0" onchange="updateNameTag()"></div>
+                <div><label>余白Y</label><input type="number" id="nameTagPadY" value="5" min="0" onchange="updateNameTag()"></div>
+            </div>
+            <h4>縁取り</h4>
+            <label><input type="checkbox" id="nameTagStrokeEnabled" onchange="updateNameTag()"> 縁取り表示</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="nameTagStrokeColor" value="#ffffff" onchange="updateNameTag()"></div>
+                <div><label>太さ</label><input type="number" id="nameTagStrokeWidth" value="2" min="0" onchange="updateNameTag()"></div>
+            </div>
+        </div>
+
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">吹き出し</h3>
+        <div class="collapse-content hidden">
+            <label><input type="checkbox" id="balloonEnabled" onchange="updateBalloon()"> 有効</label>
+            <div class="row2">
+                <div><label>形状</label><select id="balloonShape" onchange="updateBalloon()">
+                    <option value="rounded">角丸四角</option>
+                    <option value="ellipse">楕円</option>
+                    <option value="cloud">雲形</option>
+                </select></div>
+                <div><label>角丸</label><input type="number" id="balloonRadius" value="20" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <div class="row2">
+                <div><label>余白X</label><input type="number" id="balloonPadX" value="30" min="0" onchange="updateBalloon()"></div>
+                <div><label>余白Y</label><input type="number" id="balloonPadY" value="20" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <h4>塗り</h4>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="balloonFill" value="#ffffff" onchange="updateBalloon()"></div>
+                <div><label>不透明度%</label><input type="number" id="balloonFillOpacity" min="0" max="100" value="100" onchange="updateBalloon()"></div>
+            </div>
+            <h4>縁取り</h4>
+            <label><input type="checkbox" id="balloonStrokeEnabled" checked onchange="updateBalloon()"> 縁取り表示</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="balloonStrokeColor" value="#000000" onchange="updateBalloon()"></div>
+                <div><label>太さ</label><input type="number" id="balloonStrokeWidth" value="3" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <h4>しっぽ</h4>
+            <label><input type="checkbox" id="balloonTailEnabled" checked onchange="updateBalloon()"> しっぽ表示</label>
+            <div class="row2">
+                <div><label>方向</label><select id="balloonTailDir" onchange="updateBalloon()">
+                    <option value="bottom">下</option>
+                    <option value="top">上</option>
+                    <option value="left">左</option>
+                    <option value="right">右</option>
+                    <option value="bottom-left">左下</option>
+                    <option value="bottom-right">右下</option>
+                </select></div>
+                <div><label>位置%</label><input type="number" id="balloonTailPos" value="50" min="0" max="100" onchange="updateBalloon()"></div>
+            </div>
+            <div class="row2">
+                <div><label>幅</label><input type="number" id="balloonTailWidth" value="20" min="1" onchange="updateBalloon()"></div>
+                <div><label>長さ</label><input type="number" id="balloonTailLength" value="30" min="1" onchange="updateBalloon()"></div>
             </div>
         </div>
 
@@ -687,11 +778,144 @@
         function createTextObject(text, x, y) {
             const style = getDefaultStyle();
             const chars = text.split('').map(char => ({ char, ...style }));
-            const obj = { id: Date.now(), name: 'テキスト ' + (textObjects.length + 1), x, y, rotation: 0, opacity: 100, lineHeight: 1.2, textAlign: 'left', verticalAlign: 'middle', chars };
+            const obj = {
+                id: Date.now(),
+                name: 'テキスト ' + (textObjects.length + 1),
+                x, y,
+                rotation: 0,
+                opacity: 100,
+                lineHeight: 1.2,
+                textAlign: 'left',
+                verticalAlign: 'middle',
+                chars,
+                // Name tag properties
+                nameTag: {
+                    enabled: false,
+                    text: '',
+                    position: 'top-left',
+                    gap: 10,
+                    color: '#ffffff',
+                    size: 36,
+                    bgEnabled: true,
+                    bgShape: 'rounded',
+                    bgRadius: 5,
+                    bgColor: '#0078d4',
+                    bgOpacity: 100,
+                    padX: 10,
+                    padY: 5,
+                    strokeEnabled: false,
+                    strokeColor: '#ffffff',
+                    strokeWidth: 2
+                },
+                // Balloon properties
+                balloon: {
+                    enabled: false,
+                    shape: 'rounded',
+                    radius: 20,
+                    padX: 30,
+                    padY: 20,
+                    fill: '#ffffff',
+                    fillOpacity: 100,
+                    strokeEnabled: true,
+                    strokeColor: '#000000',
+                    strokeWidth: 3,
+                    tailEnabled: true,
+                    tailDir: 'bottom',
+                    tailPos: 50,
+                    tailWidth: 20,
+                    tailLength: 30
+                }
+            };
             textObjects.push(obj);
             selectObject(obj.id);
             updateLayerList();
             render();
+        }
+
+        function updateNameTag() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.nameTag) obj.nameTag = {};
+            obj.nameTag.enabled = document.getElementById('nameTagEnabled').checked;
+            obj.nameTag.text = document.getElementById('nameTagText').value;
+            obj.nameTag.position = document.getElementById('nameTagPosition').value;
+            obj.nameTag.gap = parseInt(document.getElementById('nameTagGap').value) || 10;
+            obj.nameTag.color = document.getElementById('nameTagColor').value;
+            obj.nameTag.size = parseInt(document.getElementById('nameTagSize').value) || 36;
+            obj.nameTag.bgEnabled = document.getElementById('nameTagBgEnabled').checked;
+            obj.nameTag.bgShape = document.getElementById('nameTagBgShape').value;
+            obj.nameTag.bgRadius = parseInt(document.getElementById('nameTagBgRadius').value) || 5;
+            obj.nameTag.bgColor = document.getElementById('nameTagBgColor').value;
+            obj.nameTag.bgOpacity = parseInt(document.getElementById('nameTagBgOpacity').value) || 100;
+            obj.nameTag.padX = parseInt(document.getElementById('nameTagPadX').value) || 10;
+            obj.nameTag.padY = parseInt(document.getElementById('nameTagPadY').value) || 5;
+            obj.nameTag.strokeEnabled = document.getElementById('nameTagStrokeEnabled').checked;
+            obj.nameTag.strokeColor = document.getElementById('nameTagStrokeColor').value;
+            obj.nameTag.strokeWidth = parseInt(document.getElementById('nameTagStrokeWidth').value) || 2;
+            render();
+        }
+
+        function updateBalloon() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.balloon) obj.balloon = {};
+            obj.balloon.enabled = document.getElementById('balloonEnabled').checked;
+            obj.balloon.shape = document.getElementById('balloonShape').value;
+            obj.balloon.radius = parseInt(document.getElementById('balloonRadius').value) || 20;
+            obj.balloon.padX = parseInt(document.getElementById('balloonPadX').value) || 30;
+            obj.balloon.padY = parseInt(document.getElementById('balloonPadY').value) || 20;
+            obj.balloon.fill = document.getElementById('balloonFill').value;
+            obj.balloon.fillOpacity = parseInt(document.getElementById('balloonFillOpacity').value) || 100;
+            obj.balloon.strokeEnabled = document.getElementById('balloonStrokeEnabled').checked;
+            obj.balloon.strokeColor = document.getElementById('balloonStrokeColor').value;
+            obj.balloon.strokeWidth = parseInt(document.getElementById('balloonStrokeWidth').value) || 3;
+            obj.balloon.tailEnabled = document.getElementById('balloonTailEnabled').checked;
+            obj.balloon.tailDir = document.getElementById('balloonTailDir').value;
+            obj.balloon.tailPos = parseInt(document.getElementById('balloonTailPos').value) || 50;
+            obj.balloon.tailWidth = parseInt(document.getElementById('balloonTailWidth').value) || 20;
+            obj.balloon.tailLength = parseInt(document.getElementById('balloonTailLength').value) || 30;
+            render();
+        }
+
+        function loadNameTagUI(obj) {
+            if (!obj.nameTag) return;
+            document.getElementById('nameTagEnabled').checked = obj.nameTag.enabled || false;
+            document.getElementById('nameTagText').value = obj.nameTag.text || '';
+            document.getElementById('nameTagPosition').value = obj.nameTag.position || 'top-left';
+            document.getElementById('nameTagGap').value = obj.nameTag.gap || 10;
+            document.getElementById('nameTagColor').value = obj.nameTag.color || '#ffffff';
+            document.getElementById('nameTagSize').value = obj.nameTag.size || 36;
+            document.getElementById('nameTagBgEnabled').checked = obj.nameTag.bgEnabled !== false;
+            document.getElementById('nameTagBgShape').value = obj.nameTag.bgShape || 'rounded';
+            document.getElementById('nameTagBgRadius').value = obj.nameTag.bgRadius || 5;
+            document.getElementById('nameTagBgColor').value = obj.nameTag.bgColor || '#0078d4';
+            document.getElementById('nameTagBgOpacity').value = obj.nameTag.bgOpacity || 100;
+            document.getElementById('nameTagPadX').value = obj.nameTag.padX || 10;
+            document.getElementById('nameTagPadY').value = obj.nameTag.padY || 5;
+            document.getElementById('nameTagStrokeEnabled').checked = obj.nameTag.strokeEnabled || false;
+            document.getElementById('nameTagStrokeColor').value = obj.nameTag.strokeColor || '#ffffff';
+            document.getElementById('nameTagStrokeWidth').value = obj.nameTag.strokeWidth || 2;
+        }
+
+        function loadBalloonUI(obj) {
+            if (!obj.balloon) return;
+            document.getElementById('balloonEnabled').checked = obj.balloon.enabled || false;
+            document.getElementById('balloonShape').value = obj.balloon.shape || 'rounded';
+            document.getElementById('balloonRadius').value = obj.balloon.radius || 20;
+            document.getElementById('balloonPadX').value = obj.balloon.padX || 30;
+            document.getElementById('balloonPadY').value = obj.balloon.padY || 20;
+            document.getElementById('balloonFill').value = obj.balloon.fill || '#ffffff';
+            document.getElementById('balloonFillOpacity').value = obj.balloon.fillOpacity || 100;
+            document.getElementById('balloonStrokeEnabled').checked = obj.balloon.strokeEnabled !== false;
+            document.getElementById('balloonStrokeColor').value = obj.balloon.strokeColor || '#000000';
+            document.getElementById('balloonStrokeWidth').value = obj.balloon.strokeWidth || 3;
+            document.getElementById('balloonTailEnabled').checked = obj.balloon.tailEnabled !== false;
+            document.getElementById('balloonTailDir').value = obj.balloon.tailDir || 'bottom';
+            document.getElementById('balloonTailPos').value = obj.balloon.tailPos || 50;
+            document.getElementById('balloonTailWidth').value = obj.balloon.tailWidth || 20;
+            document.getElementById('balloonTailLength').value = obj.balloon.tailLength || 30;
         }
 
         function findObjectAt(x, y) {
@@ -828,6 +1052,9 @@
             document.querySelector(`[data-align="${obj.textAlign || 'left'}"]`)?.classList.add('active');
             document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-valign="${obj.verticalAlign || 'middle'}"]`)?.classList.add('active');
+            // Load name tag and balloon UI
+            loadNameTagUI(obj);
+            loadBalloonUI(obj);
         }
 
         function updateLayerList() {
@@ -843,6 +1070,265 @@
             });
         }
 
+        function drawRoundedRect(ctx, x, y, w, h, r) {
+            r = Math.min(r, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function drawBalloon(ctx, obj, bounds) {
+            const b = obj.balloon;
+            if (!b || !b.enabled) return;
+
+            const padX = b.padX || 30;
+            const padY = b.padY || 20;
+            const bx = bounds.x - padX;
+            const by = bounds.y - padY;
+            const bw = bounds.w + padX * 2;
+            const bh = bounds.h + padY * 2;
+            const radius = b.radius || 20;
+
+            ctx.save();
+            ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+
+            // Draw balloon shape
+            if (b.shape === 'ellipse') {
+                ctx.beginPath();
+                ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+                ctx.closePath();
+            } else if (b.shape === 'cloud') {
+                // Simple cloud shape using overlapping circles
+                ctx.beginPath();
+                const cx = bx + bw / 2, cy = by + bh / 2;
+                const rx = bw / 2, ry = bh / 2;
+                const bumps = 8;
+                for (let i = 0; i < bumps; i++) {
+                    const angle = (i / bumps) * Math.PI * 2;
+                    const px = cx + Math.cos(angle) * rx * 0.8;
+                    const py = cy + Math.sin(angle) * ry * 0.8;
+                    const bumpR = Math.min(rx, ry) * 0.4;
+                    if (i === 0) ctx.moveTo(px + bumpR, py);
+                    ctx.arc(px, py, bumpR, 0, Math.PI * 2);
+                }
+                ctx.closePath();
+            } else {
+                // Rounded rectangle
+                drawRoundedRect(ctx, bx, by, bw, bh, radius);
+            }
+
+            // Fill
+            ctx.fillStyle = b.fill || '#ffffff';
+            ctx.fill();
+
+            // Draw tail
+            if (b.tailEnabled) {
+                const tailWidth = b.tailWidth || 20;
+                const tailLength = b.tailLength || 30;
+                const tailPos = (b.tailPos || 50) / 100;
+                const tailDir = b.tailDir || 'bottom';
+
+                ctx.beginPath();
+                let tx, ty, t1x, t1y, t2x, t2y, tipX, tipY;
+
+                if (tailDir === 'bottom' || tailDir === 'bottom-left' || tailDir === 'bottom-right') {
+                    tx = bx + bw * tailPos;
+                    ty = by + bh;
+                    t1x = tx - tailWidth / 2;
+                    t2x = tx + tailWidth / 2;
+                    t1y = t2y = ty;
+                    tipX = tailDir === 'bottom-left' ? tx - tailLength : (tailDir === 'bottom-right' ? tx + tailLength : tx);
+                    tipY = ty + tailLength;
+                } else if (tailDir === 'top') {
+                    tx = bx + bw * tailPos;
+                    ty = by;
+                    t1x = tx - tailWidth / 2;
+                    t2x = tx + tailWidth / 2;
+                    t1y = t2y = ty;
+                    tipX = tx;
+                    tipY = ty - tailLength;
+                } else if (tailDir === 'left') {
+                    tx = bx;
+                    ty = by + bh * tailPos;
+                    t1y = ty - tailWidth / 2;
+                    t2y = ty + tailWidth / 2;
+                    t1x = t2x = tx;
+                    tipX = tx - tailLength;
+                    tipY = ty;
+                } else { // right
+                    tx = bx + bw;
+                    ty = by + bh * tailPos;
+                    t1y = ty - tailWidth / 2;
+                    t2y = ty + tailWidth / 2;
+                    t1x = t2x = tx;
+                    tipX = tx + tailLength;
+                    tipY = ty;
+                }
+
+                ctx.moveTo(t1x, t1y);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(t2x, t2y);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Stroke
+            if (b.strokeEnabled) {
+                ctx.strokeStyle = b.strokeColor || '#000000';
+                ctx.lineWidth = b.strokeWidth || 3;
+
+                // Redraw shape for stroke
+                if (b.shape === 'ellipse') {
+                    ctx.beginPath();
+                    ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (b.shape === 'cloud') {
+                    ctx.beginPath();
+                    const cx = bx + bw / 2, cy = by + bh / 2;
+                    const rx = bw / 2, ry = bh / 2;
+                    const bumps = 8;
+                    for (let i = 0; i < bumps; i++) {
+                        const angle = (i / bumps) * Math.PI * 2;
+                        const px = cx + Math.cos(angle) * rx * 0.8;
+                        const py = cy + Math.sin(angle) * ry * 0.8;
+                        const bumpR = Math.min(rx, ry) * 0.4;
+                        ctx.beginPath();
+                        ctx.arc(px, py, bumpR, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                } else {
+                    drawRoundedRect(ctx, bx, by, bw, bh, radius);
+                    ctx.stroke();
+                }
+
+                // Stroke tail
+                if (b.tailEnabled) {
+                    const tailWidth = b.tailWidth || 20;
+                    const tailLength = b.tailLength || 30;
+                    const tailPos = (b.tailPos || 50) / 100;
+                    const tailDir = b.tailDir || 'bottom';
+
+                    let tx, ty, t1x, t1y, t2x, t2y, tipX, tipY;
+
+                    if (tailDir === 'bottom' || tailDir === 'bottom-left' || tailDir === 'bottom-right') {
+                        tx = bx + bw * tailPos;
+                        ty = by + bh;
+                        t1x = tx - tailWidth / 2;
+                        t2x = tx + tailWidth / 2;
+                        t1y = t2y = ty;
+                        tipX = tailDir === 'bottom-left' ? tx - tailLength : (tailDir === 'bottom-right' ? tx + tailLength : tx);
+                        tipY = ty + tailLength;
+                    } else if (tailDir === 'top') {
+                        tx = bx + bw * tailPos;
+                        ty = by;
+                        t1x = tx - tailWidth / 2;
+                        t2x = tx + tailWidth / 2;
+                        t1y = t2y = ty;
+                        tipX = tx;
+                        tipY = ty - tailLength;
+                    } else if (tailDir === 'left') {
+                        tx = bx;
+                        ty = by + bh * tailPos;
+                        t1y = ty - tailWidth / 2;
+                        t2y = ty + tailWidth / 2;
+                        t1x = t2x = tx;
+                        tipX = tx - tailLength;
+                        tipY = ty;
+                    } else {
+                        tx = bx + bw;
+                        ty = by + bh * tailPos;
+                        t1y = ty - tailWidth / 2;
+                        t2y = ty + tailWidth / 2;
+                        t1x = t2x = tx;
+                        tipX = tx + tailLength;
+                        tipY = ty;
+                    }
+
+                    ctx.beginPath();
+                    ctx.moveTo(t1x, t1y);
+                    ctx.lineTo(tipX, tipY);
+                    ctx.lineTo(t2x, t2y);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawNameTag(ctx, obj, bounds) {
+            const nt = obj.nameTag;
+            if (!nt || !nt.enabled || !nt.text) return;
+
+            const fontSize = nt.size || 36;
+            const padX = nt.padX || 10;
+            const padY = nt.padY || 5;
+            const gap = nt.gap || 10;
+
+            ctx.save();
+            ctx.font = `bold ${fontSize}px "Yu Gothic UI"`;
+            const textWidth = ctx.measureText(nt.text).width;
+            const textHeight = fontSize;
+
+            // Calculate position based on position setting
+            let nx, ny;
+            const pos = nt.position || 'top-left';
+
+            if (pos.includes('left')) {
+                nx = bounds.x;
+            } else if (pos.includes('right')) {
+                nx = bounds.x + bounds.w - textWidth - padX * 2;
+            } else {
+                nx = bounds.x + (bounds.w - textWidth - padX * 2) / 2;
+            }
+
+            if (pos.includes('top')) {
+                ny = bounds.y - gap - textHeight - padY * 2;
+            } else {
+                ny = bounds.y + bounds.h + gap;
+            }
+
+            // Draw background
+            if (nt.bgEnabled) {
+                ctx.globalAlpha = (nt.bgOpacity || 100) / 100;
+                const bgW = textWidth + padX * 2;
+                const bgH = textHeight + padY * 2;
+
+                let radius = nt.bgRadius || 5;
+                if (nt.bgShape === 'pill') {
+                    radius = bgH / 2;
+                } else if (nt.bgShape === 'rect') {
+                    radius = 0;
+                }
+
+                drawRoundedRect(ctx, nx, ny, bgW, bgH, radius);
+                ctx.fillStyle = nt.bgColor || '#0078d4';
+                ctx.fill();
+
+                // Background stroke
+                if (nt.strokeEnabled) {
+                    ctx.strokeStyle = nt.strokeColor || '#ffffff';
+                    ctx.lineWidth = nt.strokeWidth || 2;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw text
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = nt.color || '#ffffff';
+            ctx.textBaseline = 'top';
+            ctx.fillText(nt.text, nx + padX, ny + padY);
+
+            ctx.restore();
+        }
+
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -856,6 +1342,12 @@
                 if (obj.verticalAlign === 'top') startY = obj.y;
                 else if (obj.verticalAlign === 'bottom') startY = obj.y - th + lh;
                 else startY = obj.y - th / 2 + lh / 2;
+
+                // Get bounds for balloon and name tag
+                const bounds = getObjectBounds(obj);
+
+                // Draw balloon (behind text)
+                drawBalloon(ctx, obj, bounds);
 
                 let ci = 0;
                 for (let li = 0; li < lines.length; li++) {
@@ -1066,6 +1558,9 @@
 
                 ctx.restore();
 
+                // Draw name tag (after text)
+                drawNameTag(ctx, obj, bounds);
+
                 // Selection box and handles
                 if (obj.id === selectedObjId && obj.id !== editingObjId) {
                     const b = getObjectBounds(obj);
@@ -1101,7 +1596,7 @@
         }
 
         function saveProject() {
-            const project = { version: '2.2', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const project = { version: '2.3', resolution: document.getElementById('resolution').value, objects: textObjects };
             const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
@@ -1126,6 +1621,24 @@
                         if (obj.opacity === undefined) obj.opacity = 100;
                         if (obj.rotation === undefined) obj.rotation = 0;
                         if (obj.lineHeight === undefined) obj.lineHeight = 1.2;
+                        // Initialize name tag properties
+                        if (!obj.nameTag) {
+                            obj.nameTag = {
+                                enabled: false, text: '', position: 'top-left', gap: 10,
+                                color: '#ffffff', size: 36, bgEnabled: true, bgShape: 'rounded',
+                                bgRadius: 5, bgColor: '#0078d4', bgOpacity: 100, padX: 10, padY: 5,
+                                strokeEnabled: false, strokeColor: '#ffffff', strokeWidth: 2
+                            };
+                        }
+                        // Initialize balloon properties
+                        if (!obj.balloon) {
+                            obj.balloon = {
+                                enabled: false, shape: 'rounded', radius: 20, padX: 30, padY: 20,
+                                fill: '#ffffff', fillOpacity: 100, strokeEnabled: true,
+                                strokeColor: '#000000', strokeWidth: 3, tailEnabled: true,
+                                tailDir: 'bottom', tailPos: 50, tailWidth: 20, tailLength: 30
+                            };
+                        }
                         obj.chars.forEach(c => {
                             if (c.scaleX === undefined) c.scaleX = 100;
                             if (c.opacity === undefined) c.opacity = 100;
