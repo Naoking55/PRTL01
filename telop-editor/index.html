@@ -498,6 +498,10 @@
                 render();
                 updateCharInfo();
             } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                // IME入力中またはimeInputにフォーカス中はスキップ（IMEで処理される）
+                if (document.activeElement === imeInput) {
+                    return;
+                }
                 e.preventDefault();
                 insertText(e.key);
             }
