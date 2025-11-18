@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v2.1</title>
+    <title>テロップエディタ v2.2</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
@@ -355,10 +355,11 @@
                     color: item.querySelector('.stroke-color').value,
                     width: parseInt(item.querySelector('.stroke-width').value),
                     opacity: parseInt(item.querySelector('.stroke-opacity').value),
-                    angle: parseInt(item.querySelector('.stroke-angle').value) || 45
+                    angle: parseInt(item.querySelector('.stroke-angle').value) || 45,
+                    join: item.querySelector('.stroke-join').value || 'round'
                 });
             });
-            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45 }];
+            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45, join: 'round' }];
         }
 
         function addStroke() {
@@ -385,6 +386,11 @@
                 </div>
                 <div class="row2">
                     <div><label>角度°</label><input type="number" class="stroke-angle" value="45" step="1" onchange="applyStyle()"></div>
+                    <div><label>角</label><select class="stroke-join" onchange="applyStyle()">
+                        <option value="round">丸み</option>
+                        <option value="miter">角</option>
+                        <option value="bevel">面取り</option>
+                    </select></div>
                 </div>
             `;
             list.appendChild(div);
@@ -917,14 +923,14 @@
                         ctx.scale(sx, 1);
 
                         // Strokes
-                        const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                        const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100, join: 'round' }];
                         strokes.slice().reverse().forEach(st => {
                             if (!st.enabled) return;
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                             ctx.strokeStyle = st.color;
                             ctx.lineWidth = st.width * 2;
-                            ctx.lineJoin = 'round';
+                            ctx.lineJoin = st.join || 'round';
                             if (st.type === 'depth') {
                                 const depthAngle = (st.angle || 45) * Math.PI / 180;
                                 const depthDx = Math.cos(depthAngle);
@@ -962,13 +968,22 @@
                             }
                             // Use multiple color stops based on ratio
                             if (c.gradientStops && c.gradientStops.length >= 2) {
-                                // First color starts at 0%
-                                grad.addColorStop(0, c.gradientStops[0].color);
-
-                                // Each color occupies its ratio portion
+                                // Each color occupies its exact range with sharp boundaries
                                 c.gradientStops.forEach((stop, i) => {
-                                    // Place color at end of its range
-                                    grad.addColorStop(stop.endPos / 100, stop.color);
+                                    const startPos = Math.max(0, stop.pos / 100);
+                                    const endPos = Math.min(1, stop.endPos / 100);
+                                    // Place color at start and end of its range
+                                    if (i === 0) {
+                                        grad.addColorStop(0, stop.color);
+                                    } else {
+                                        // Tiny offset to create sharp transition
+                                        grad.addColorStop(startPos + 0.001, stop.color);
+                                    }
+                                    if (i === c.gradientStops.length - 1) {
+                                        grad.addColorStop(1, stop.color);
+                                    } else {
+                                        grad.addColorStop(endPos - 0.001, stop.color);
+                                    }
                                 });
                             } else {
                                 grad.addColorStop(0, c.color);
@@ -980,7 +995,7 @@
                         }
                         ctx.fillText(dc, 0, 0);
 
-                        // Gloss - horizontal gradient line at text center, clipped to text shape
+                        // Gloss - horizontal line at text center, clipped to text shape
                         if (c.glossEnabled) {
                             const glossWidth = c.glossWidth || 10;
                             const glossBlur = c.glossBlur || 5;
@@ -996,33 +1011,33 @@
                             tempCanvas.width = bw * 2 + 40;
                             tempCanvas.height = fs * 2 + 40;
                             const tempCtx = tempCanvas.getContext('2d');
-                            const cx = tempCanvas.width / 2;
-                            const cy = tempCanvas.height / 2;
+                            const tcx = tempCanvas.width / 2;
+                            const tcy = tempCanvas.height / 2;
 
                             // Draw text as mask
                             tempCtx.font = ctx.font;
                             tempCtx.textBaseline = 'middle';
                             tempCtx.textAlign = 'center';
                             tempCtx.fillStyle = '#fff';
-                            tempCtx.fillText(dc, cx, cy);
+                            tempCtx.fillText(dc, tcx, tcy);
 
                             // Apply gloss only inside text shape
                             tempCtx.globalCompositeOperation = 'source-in';
 
-                            // Create gradient for gloss line centered vertically
+                            // Create horizontal line gradient at text center
                             const halfHeight = glossWidth / 2 + glossBlur;
-                            const glossGrad = tempCtx.createLinearGradient(0, cy - halfHeight, 0, cy + halfHeight);
+                            const glossGrad = tempCtx.createLinearGradient(0, tcy - halfHeight, 0, tcy + halfHeight);
                             glossGrad.addColorStop(0, `rgba(${r},${g},${bb},0)`);
                             glossGrad.addColorStop(0.5, `rgba(${r},${g},${bb},1)`);
                             glossGrad.addColorStop(1, `rgba(${r},${g},${bb},0)`);
 
                             tempCtx.fillStyle = glossGrad;
-                            tempCtx.fillRect(0, cy - halfHeight, tempCanvas.width, halfHeight * 2);
+                            tempCtx.fillRect(0, tcy - halfHeight, tempCanvas.width, halfHeight * 2);
 
                             // Draw gloss overlay on main canvas
                             ctx.save();
                             ctx.globalAlpha = (c.glossOpacity || 50) / 100;
-                            ctx.drawImage(tempCanvas, -cx, -cy);
+                            ctx.drawImage(tempCanvas, -tcx, -tcy);
                             ctx.restore();
                         }
 
@@ -1086,7 +1101,7 @@
         }
 
         function saveProject() {
-            const project = { version: '2.1', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const project = { version: '2.2', resolution: document.getElementById('resolution').value, objects: textObjects };
             const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
