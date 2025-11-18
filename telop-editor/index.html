@@ -2,75 +2,88 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v1.5</title>
+    <title>テロップエディタ v1.6</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Yu Gothic UI', sans-serif; background: #2b2b2b; color: #ccc; display: flex; height: 100vh; }
-        .sidebar { width: 340px; background: #383838; padding: 15px; overflow-y: auto; }
+        .sidebar { width: 360px; background: #383838; padding: 15px; overflow-y: auto; }
         .sidebar h3 { color: #fff; margin: 10px 0; font-size: 14px; }
-        .sidebar label { display: block; margin: 8px 0 4px; font-size: 12px; }
-        .sidebar input, .sidebar select { width: 100%; padding: 6px; background: #4a4a4a; border: 1px solid #555; color: #fff; border-radius: 3px; font-size: 12px; }
-        .sidebar input[type="color"] { height: 30px; padding: 2px; cursor: pointer; }
+        .sidebar h4 { color: #aaa; margin: 8px 0 4px; font-size: 12px; }
+        .sidebar label { display: block; margin: 6px 0 3px; font-size: 11px; }
+        .sidebar input, .sidebar select { width: 100%; padding: 5px; background: #4a4a4a; border: 1px solid #555; color: #fff; border-radius: 3px; font-size: 11px; }
+        .sidebar input[type="color"] { height: 26px; padding: 2px; cursor: pointer; }
         .sidebar input[type="range"] { padding: 0; }
         .sidebar input[type="number"] { width: 100%; }
-        .btn { width: 100%; padding: 8px; margin: 5px 0; cursor: pointer; border: none; border-radius: 3px; font-size: 12px; }
+        .btn { width: 100%; padding: 6px; margin: 4px 0; cursor: pointer; border: none; border-radius: 3px; font-size: 11px; }
         .btn-primary { background: #0078d4; color: #fff; }
         .btn-secondary { background: #4a4a4a; color: #fff; }
         .btn-danger { background: #d43; color: #fff; }
-        .btn-small { width: auto; padding: 4px 8px; margin: 2px; font-size: 10px; }
+        .btn-small { width: auto; padding: 3px 6px; margin: 2px; font-size: 10px; }
         .btn:hover { opacity: 0.9; }
-        .layer-list { background: #2b2b2b; border-radius: 3px; max-height: 80px; overflow-y: auto; }
-        .layer-item { padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #444; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+        .layer-list { background: #2b2b2b; border-radius: 3px; max-height: 70px; overflow-y: auto; }
+        .layer-item { padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #444; font-size: 10px; }
         .layer-item:hover { background: #4a4a4a; }
         .layer-item.selected { background: #0078d4; color: #fff; }
-        .layer-item .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .align-buttons { display: flex; gap: 4px; margin: 5px 0; }
-        .align-btn { flex: 1; padding: 6px; background: #4a4a4a; border: 1px solid #555; color: #ccc; cursor: pointer; font-size: 11px; border-radius: 3px; }
+        .align-buttons { display: flex; gap: 3px; margin: 4px 0; }
+        .align-btn { flex: 1; padding: 5px; background: #4a4a4a; border: 1px solid #555; color: #ccc; cursor: pointer; font-size: 10px; border-radius: 3px; }
         .align-btn.active { background: #0078d4; color: #fff; border-color: #0078d4; }
-        .tool-buttons { display: flex; gap: 4px; margin: 10px 0; }
-        .tool-btn { flex: 1; padding: 8px; background: #4a4a4a; border: 2px solid #555; color: #ccc; cursor: pointer; font-size: 11px; border-radius: 3px; }
+        .tool-buttons { display: flex; gap: 3px; margin: 8px 0; }
+        .tool-btn { flex: 1; padding: 6px; background: #4a4a4a; border: 2px solid #555; color: #ccc; cursor: pointer; font-size: 10px; border-radius: 3px; }
         .tool-btn.active { background: #0078d4; color: #fff; border-color: #fff; }
         .main { flex: 1; display: flex; flex-direction: column; padding: 15px; min-width: 0; }
         .toolbar { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-shrink: 0; }
         .canvas-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #1a1a1a; border-radius: 5px; overflow: hidden; position: relative; min-height: 0; }
         #canvas { background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 20px 20px; max-width: 100%; max-height: 100%; }
         .status { padding: 8px; background: #383838; font-size: 11px; display: flex; justify-content: space-between; flex-shrink: 0; }
-        .char-info { font-size: 10px; color: #888; margin-top: 5px; }
-        .prop-section { background: #2b2b2b; padding: 8px; border-radius: 3px; margin: 8px 0; }
-        .prop-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
-        .prop-label { font-size: 11px; width: 70px; }
+        .char-info { font-size: 9px; color: #888; margin-top: 4px; }
+        .prop-section { background: #2b2b2b; padding: 6px; border-radius: 3px; margin: 6px 0; }
+        .prop-row { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+        .prop-label { font-size: 10px; width: 50px; }
         .prop-input { flex: 1; }
         .prop-input input { width: 100%; }
-        .row2 { display: flex; gap: 4px; }
+        .row2 { display: flex; gap: 3px; }
         .row2 > div { flex: 1; }
-        .row2 label { font-size: 10px; }
+        .row2 label { font-size: 9px; }
+        .row3 { display: flex; gap: 3px; }
+        .row3 > div { flex: 1; }
+        .row3 label { font-size: 9px; }
+        .collapsible { cursor: pointer; user-select: none; }
+        .collapsible::before { content: '▼ '; font-size: 8px; }
+        .collapsible.collapsed::before { content: '▶ '; }
+        .collapse-content { display: block; }
+        .collapse-content.hidden { display: none; }
         #imeInput { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; border: none; outline: none; background: transparent; }
+        .stroke-item { background: #3a3a3a; padding: 6px; margin: 4px 0; border-radius: 3px; }
+        .stroke-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <h3>ツール</h3>
         <div class="tool-buttons">
-            <button class="tool-btn active" id="toolSelect" onclick="setTool('select')">選択 (V)</button>
-            <button class="tool-btn" id="toolText" onclick="setTool('text')">テキスト (T)</button>
+            <button class="tool-btn active" id="toolSelect" onclick="setTool('select')">選択(V)</button>
+            <button class="tool-btn" id="toolText" onclick="setTool('text')">テキスト(T)</button>
         </div>
 
         <h3>レイヤー</h3>
         <div class="layer-list" id="layerList"></div>
-        <div style="display:flex;gap:4px;margin-top:5px;">
+        <div style="display:flex;gap:3px;margin-top:4px;">
             <button class="btn btn-small btn-secondary" onclick="moveLayerUp()">↑</button>
             <button class="btn btn-small btn-secondary" onclick="moveLayerDown()">↓</button>
             <button class="btn btn-small btn-danger" onclick="deleteSelected()">削除</button>
         </div>
 
         <div class="prop-section" id="layerProps" style="display:none;">
-            <div class="prop-row">
-                <span class="prop-label">名前</span>
-                <div class="prop-input"><input type="text" id="layerName" onchange="updateLayerName()"></div>
+            <div class="row2">
+                <div><label>名前</label><input type="text" id="layerName" onchange="updateLayerName()"></div>
             </div>
             <div class="row2">
                 <div><label>X</label><input type="number" id="layerX" step="0.1" onchange="updateLayerPosition()"></div>
                 <div><label>Y</label><input type="number" id="layerY" step="0.1" onchange="updateLayerPosition()"></div>
+            </div>
+            <div class="row2">
+                <div><label>幅</label><input type="number" id="layerWidth" step="0.1" onchange="updateLayerSize()"></div>
+                <div><label>高さ</label><input type="number" id="layerHeight" step="0.1" onchange="updateLayerSize()"></div>
             </div>
             <div class="row2">
                 <div><label>回転°</label><input type="number" id="layerRotation" step="0.1" value="0" onchange="updateLayerRotation()"></div>
@@ -78,64 +91,109 @@
             </div>
             <div class="prop-row">
                 <span class="prop-label">不透明度</span>
-                <div class="prop-input"><input type="range" id="layerOpacity" min="0" max="100" value="100" oninput="updateLayerOpacity()"><span id="opacityVal">100</span>%</div>
+                <input type="range" id="layerOpacity" min="0" max="100" value="100" oninput="updateLayerOpacity()"><span id="opacityVal">100</span>%
             </div>
         </div>
 
-        <h3>文字スタイル</h3>
-        <div class="char-info" id="charInfo">文字を選択してください</div>
+        <h3 class="collapsible" onclick="toggleCollapse(this)">文字スタイル</h3>
+        <div class="collapse-content">
+            <div class="char-info" id="charInfo">文字を選択してください</div>
 
-        <label>フォント</label>
-        <select id="fontFamily" onchange="applyStyle()">
-            <option value="Yu Gothic UI">Yu Gothic UI</option>
-            <option value="Meiryo">メイリオ</option>
-            <option value="MS Gothic">MS ゴシック</option>
-            <option value="Arial">Arial</option>
-            <option value="Impact">Impact</option>
-        </select>
+            <label>フォント</label>
+            <select id="fontFamily" onchange="applyStyle()">
+                <option value="Yu Gothic UI">Yu Gothic UI</option>
+                <option value="Meiryo">メイリオ</option>
+                <option value="MS Gothic">MS ゴシック</option>
+                <option value="Arial">Arial</option>
+                <option value="Impact">Impact</option>
+            </select>
 
-        <div class="row2">
-            <div><label>サイズ</label><input type="number" id="fontSize" min="1" value="72" onchange="applyStyle()"></div>
-            <div><label>縦横比%</label><input type="number" id="charScaleX" min="10" max="400" value="100" onchange="applyStyle()"></div>
+            <div class="row2">
+                <div><label>サイズ</label><input type="number" id="fontSize" min="1" value="72" onchange="applyStyle()"></div>
+                <div><label>縦横比%</label><input type="number" id="charScaleX" min="10" max="400" value="100" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>カーニング</label><input type="number" id="charKerning" step="1" value="0" onchange="applyStyle()"></div>
+                <div><label>トラッキング</label><input type="number" id="charTracking" step="1" value="0" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>ベースライン</label><input type="number" id="charBaseline" step="1" value="0" onchange="applyStyle()"></div>
+                <div><label>傾き°</label><input type="number" id="charSlant" step="0.1" value="0" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>不透明度%</label><input type="number" id="charOpacity" min="0" max="100" value="100" onchange="applyStyle()"></div>
+            </div>
+
+            <label><input type="checkbox" id="charSmallCaps" onchange="applyStyle()"> スモールキャップス</label>
+            <div class="row2">
+                <div><label>サイズ%</label><input type="number" id="charSmallCapsSize" min="10" max="100" value="70" onchange="applyStyle()"></div>
+            </div>
+
+            <h4>塗り</h4>
+            <label>種類</label>
+            <select id="fillType" onchange="applyStyle()">
+                <option value="solid">ベタ塗り</option>
+                <option value="linear">線形グラデーション</option>
+                <option value="radial">円形グラデーション</option>
+            </select>
+            <div class="row2">
+                <div><label>色1</label><input type="color" id="textColor" value="#ffffff" onchange="applyStyle()"></div>
+                <div><label>色2</label><input type="color" id="textColor2" value="#888888" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2" id="gradientAngleRow">
+                <div><label>角度°</label><input type="number" id="gradientAngle" value="0" step="1" onchange="applyStyle()"></div>
+            </div>
+
+            <h4>光沢</h4>
+            <label><input type="checkbox" id="glossEnabled" onchange="applyStyle()"> 有効</label>
+            <div class="row2">
+                <div><label>太さ</label><input type="number" id="glossWidth" min="1" max="50" value="10" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="glossBlur" min="0" max="30" value="5" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="glossColor" value="#ffffff" onchange="applyStyle()"></div>
+                <div><label>不透明度%</label><input type="number" id="glossOpacity" min="0" max="100" value="50" onchange="applyStyle()"></div>
+            </div>
+
+            <label>横揃え</label>
+            <div class="align-buttons">
+                <button class="align-btn active" data-align="left" onclick="setTextAlign('left')">左</button>
+                <button class="align-btn" data-align="center" onclick="setTextAlign('center')">中央</button>
+                <button class="align-btn" data-align="right" onclick="setTextAlign('right')">右</button>
+            </div>
+
+            <label>縦揃え</label>
+            <div class="align-buttons">
+                <button class="align-btn" data-valign="top" onclick="setVerticalAlign('top')">上</button>
+                <button class="align-btn active" data-valign="middle" onclick="setVerticalAlign('middle')">中央</button>
+                <button class="align-btn" data-valign="bottom" onclick="setVerticalAlign('bottom')">下</button>
+            </div>
         </div>
 
-        <div class="row2">
-            <div><label>カーニング</label><input type="number" id="charKerning" step="1" value="0" onchange="applyStyle()"></div>
-            <div><label>トラッキング</label><input type="number" id="charTracking" step="1" value="0" onchange="applyStyle()"></div>
+        <h3 class="collapsible" onclick="toggleCollapse(this)">縁取り</h3>
+        <div class="collapse-content">
+            <div id="strokeList"></div>
+            <button class="btn btn-small btn-secondary" onclick="addStroke()">+ ストローク追加</button>
         </div>
 
-        <div class="row2">
-            <div><label>ベースライン</label><input type="number" id="charBaseline" step="1" value="0" onchange="applyStyle()"></div>
-            <div><label>傾き°</label><input type="number" id="charSlant" step="0.1" value="0" onchange="applyStyle()"></div>
-        </div>
-
-        <label><input type="checkbox" id="charSmallCaps" onchange="applyStyle()"> スモールキャップス</label>
-        <div class="row2">
-            <div><label>スモールキャップスサイズ%</label><input type="number" id="charSmallCapsSize" min="10" max="100" value="70" onchange="applyStyle()"></div>
-        </div>
-
-        <label>文字色</label>
-        <input type="color" id="textColor" value="#ffffff" onchange="applyStyle()">
-
-        <label>横揃え</label>
-        <div class="align-buttons">
-            <button class="align-btn active" data-align="left" onclick="setTextAlign('left')">左</button>
-            <button class="align-btn" data-align="center" onclick="setTextAlign('center')">中央</button>
-            <button class="align-btn" data-align="right" onclick="setTextAlign('right')">右</button>
-        </div>
-
-        <label>縦揃え</label>
-        <div class="align-buttons">
-            <button class="align-btn" data-valign="top" onclick="setVerticalAlign('top')">上</button>
-            <button class="align-btn active" data-valign="middle" onclick="setVerticalAlign('middle')">中央</button>
-            <button class="align-btn" data-valign="bottom" onclick="setVerticalAlign('bottom')">下</button>
-        </div>
-
-        <h3>縁取り</h3>
-        <label><input type="checkbox" id="strokeEnabled" checked onchange="applyStyle()"> 有効</label>
-        <div class="row2">
-            <div><label>色</label><input type="color" id="strokeColor" value="#000000" onchange="applyStyle()"></div>
-            <div><label>太さ</label><input type="number" id="strokeWidth" min="0" max="50" value="4" onchange="applyStyle()"></div>
+        <h3 class="collapsible" onclick="toggleCollapse(this)">影</h3>
+        <div class="collapse-content">
+            <label><input type="checkbox" id="shadowEnabled" onchange="applyStyle()"> 有効</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="shadowColor" value="#000000" onchange="applyStyle()"></div>
+                <div><label>不透明度%</label><input type="number" id="shadowOpacity" min="0" max="100" value="50" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>角度°</label><input type="number" id="shadowAngle" value="45" step="1" onchange="applyStyle()"></div>
+                <div><label>距離</label><input type="number" id="shadowDistance" value="5" step="1" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>サイズ</label><input type="number" id="shadowSize" value="0" step="1" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="shadowBlur" value="5" step="1" onchange="applyStyle()"></div>
+            </div>
         </div>
 
         <h3>出力</h3>
@@ -147,10 +205,10 @@
     <div class="main">
         <div class="toolbar">
             <select id="resolution" onchange="changeResolution()">
-                <option value="1920x1080">1920×1080 (HD)</option>
-                <option value="3840x2160">3840×2160 (4K)</option>
+                <option value="1920x1080">1920×1080</option>
+                <option value="3840x2160">3840×2160</option>
             </select>
-            <span id="toolHint" style="font-size:11px;color:#888;">選択ツール: クリックで選択、ドラッグで移動</span>
+            <span id="toolHint" style="font-size:10px;color:#888;">選択ツール</span>
         </div>
         <div class="canvas-container">
             <canvas id="canvas" width="1920" height="1080"></canvas>
@@ -178,7 +236,7 @@
         let isResizing = false;
         let resizeHandle = null;
         let dragOffset = { x: 0, y: 0 };
-        let resizeStart = { x: 0, y: 0, w: 0, h: 0 };
+        let resizeStart = {};
         let scale = 1;
         let editingObjId = null;
         let cursorPos = 0;
@@ -187,14 +245,33 @@
         let currentTool = 'select';
         let isComposing = false;
 
+        function toggleCollapse(el) {
+            el.classList.toggle('collapsed');
+            el.nextElementSibling.classList.toggle('hidden');
+        }
+
         function getDefaultStyle() {
             return {
                 fontSize: parseInt(document.getElementById('fontSize').value),
                 fontFamily: document.getElementById('fontFamily').value,
+                fillType: document.getElementById('fillType').value,
                 color: document.getElementById('textColor').value,
-                strokeEnabled: document.getElementById('strokeEnabled').checked,
-                strokeColor: document.getElementById('strokeColor').value,
-                strokeWidth: parseInt(document.getElementById('strokeWidth').value),
+                color2: document.getElementById('textColor2').value,
+                gradientAngle: parseInt(document.getElementById('gradientAngle').value),
+                opacity: parseInt(document.getElementById('charOpacity').value),
+                strokes: getStrokesFromUI(),
+                shadowEnabled: document.getElementById('shadowEnabled').checked,
+                shadowColor: document.getElementById('shadowColor').value,
+                shadowOpacity: parseInt(document.getElementById('shadowOpacity').value),
+                shadowAngle: parseInt(document.getElementById('shadowAngle').value),
+                shadowDistance: parseInt(document.getElementById('shadowDistance').value),
+                shadowSize: parseInt(document.getElementById('shadowSize').value),
+                shadowBlur: parseInt(document.getElementById('shadowBlur').value),
+                glossEnabled: document.getElementById('glossEnabled').checked,
+                glossWidth: parseInt(document.getElementById('glossWidth').value),
+                glossBlur: parseInt(document.getElementById('glossBlur').value),
+                glossColor: document.getElementById('glossColor').value,
+                glossOpacity: parseInt(document.getElementById('glossOpacity').value),
                 scaleX: parseInt(document.getElementById('charScaleX').value),
                 kerning: parseInt(document.getElementById('charKerning').value),
                 tracking: parseInt(document.getElementById('charTracking').value),
@@ -205,49 +282,79 @@
             };
         }
 
+        function getStrokesFromUI() {
+            const strokes = [];
+            document.querySelectorAll('.stroke-item').forEach((item, i) => {
+                strokes.push({
+                    enabled: item.querySelector('.stroke-enabled').checked,
+                    type: item.querySelector('.stroke-type').value,
+                    color: item.querySelector('.stroke-color').value,
+                    width: parseInt(item.querySelector('.stroke-width').value),
+                    opacity: parseInt(item.querySelector('.stroke-opacity').value)
+                });
+            });
+            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100 }];
+        }
+
+        function addStroke() {
+            const list = document.getElementById('strokeList');
+            const idx = list.children.length;
+            const div = document.createElement('div');
+            div.className = 'stroke-item';
+            div.innerHTML = `
+                <div class="stroke-header">
+                    <label><input type="checkbox" class="stroke-enabled" checked onchange="applyStyle()"> ストローク${idx + 1}</label>
+                    <button class="btn btn-small btn-danger" onclick="this.parentElement.parentElement.remove();applyStyle()">×</button>
+                </div>
+                <div class="row2">
+                    <div><label>種類</label><select class="stroke-type" onchange="applyStyle()">
+                        <option value="edge">エッジ</option>
+                        <option value="depth">奥行き</option>
+                        <option value="drop">ドロップ</option>
+                    </select></div>
+                    <div><label>色</label><input type="color" class="stroke-color" value="#000000" onchange="applyStyle()"></div>
+                </div>
+                <div class="row2">
+                    <div><label>太さ</label><input type="number" class="stroke-width" value="4" min="0" max="50" onchange="applyStyle()"></div>
+                    <div><label>不透明度%</label><input type="number" class="stroke-opacity" value="100" min="0" max="100" onchange="applyStyle()"></div>
+                </div>
+            `;
+            list.appendChild(div);
+        }
+
+        // 初期ストローク
+        addStroke();
+
         function setTool(tool) {
             currentTool = tool;
             document.getElementById('toolSelect').classList.toggle('active', tool === 'select');
             document.getElementById('toolText').classList.toggle('active', tool === 'text');
             canvas.style.cursor = tool === 'text' ? 'text' : 'default';
-            document.getElementById('toolHint').textContent = tool === 'text'
-                ? 'テキストツール: クリックで入力開始'
-                : '選択ツール: クリックで選択、ドラッグで移動';
+            document.getElementById('toolHint').textContent = tool === 'text' ? 'テキストツール' : '選択ツール';
             if (tool === 'select' && editingObjId) exitEditMode();
         }
 
         // IME入力対応
-        imeInput.addEventListener('compositionstart', () => {
-            isComposing = true;
-        });
+        imeInput.addEventListener('compositionstart', () => { isComposing = true; });
         imeInput.addEventListener('compositionend', (e) => {
             isComposing = false;
             const text = e.data || imeInput.value;
-            if (editingObjId && text) {
-                insertText(text);
-            }
+            if (editingObjId && text) insertText(text);
             imeInput.value = '';
         });
         imeInput.addEventListener('input', (e) => {
             if (!isComposing && editingObjId) {
                 const text = e.data || imeInput.value;
-                if (text) {
-                    insertText(text);
-                    imeInput.value = '';
-                }
+                if (text) { insertText(text); imeInput.value = ''; }
             }
         });
-        // フォーカスを維持
         imeInput.addEventListener('blur', () => {
-            if (editingObjId) {
-                setTimeout(() => imeInput.focus(), 0);
-            }
+            if (editingObjId) setTimeout(() => imeInput.focus(), 0);
         });
 
         function insertText(text) {
             const obj = textObjects.find(o => o.id === editingObjId);
             if (!obj) return;
-
             if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
                 const start = Math.min(selectedCharStart, selectedCharEnd);
                 const end = Math.max(selectedCharStart, selectedCharEnd);
@@ -256,7 +363,6 @@
                 selectedCharStart = -1;
                 selectedCharEnd = -1;
             }
-
             const style = getDefaultStyle();
             const chars = text.split('').map(char => ({ char, ...style }));
             obj.chars.splice(cursorPos, 0, ...chars);
@@ -277,11 +383,9 @@
                 { type: 'sw', x: bounds.x, y: bounds.y + bounds.h },
                 { type: 'w', x: bounds.x, y: bounds.y + bounds.h / 2 }
             ];
-            const handleSize = 8 / scale;
+            const hs = 8 / scale;
             for (const h of handles) {
-                if (Math.abs(x - h.x) < handleSize && Math.abs(y - h.y) < handleSize) {
-                    return h.type;
-                }
+                if (Math.abs(x - h.x) < hs && Math.abs(y - h.y) < hs) return h.type;
             }
             return null;
         }
@@ -306,7 +410,6 @@
                         }
                     }
                 }
-
                 const obj = findObjectAt(x, y);
                 if (obj) {
                     selectObject(obj.id);
@@ -355,7 +458,6 @@
             scale = canvas.width / rect.width;
             const x = (e.clientX - rect.left) * scale;
             const y = (e.clientY - rect.top) * scale;
-
             const obj = findObjectAt(x, y);
             if (obj) {
                 setTool('text');
@@ -376,49 +478,29 @@
                     const dx = x - resizeStart.x;
                     const dy = y - resizeStart.y;
                     const origBounds = resizeStart.bounds;
-
-                    let scaleFactorX = 1, scaleFactorY = 1;
-
-                    if (resizeHandle.includes('e')) {
-                        scaleFactorX = (origBounds.w + dx) / origBounds.w;
-                    } else if (resizeHandle.includes('w')) {
-                        scaleFactorX = (origBounds.w - dx) / origBounds.w;
-                    }
-                    if (resizeHandle.includes('s')) {
-                        scaleFactorY = (origBounds.h + dy) / origBounds.h;
-                    } else if (resizeHandle.includes('n')) {
-                        scaleFactorY = (origBounds.h - dy) / origBounds.h;
-                    }
-
-                    if (scaleFactorX <= 0) scaleFactorX = 0.1;
-                    if (scaleFactorY <= 0) scaleFactorY = 0.1;
-
-                    // Apply scaling to font sizes
+                    let sfX = 1, sfY = 1;
+                    if (resizeHandle.includes('e')) sfX = (origBounds.w + dx) / origBounds.w;
+                    else if (resizeHandle.includes('w')) sfX = (origBounds.w - dx) / origBounds.w;
+                    if (resizeHandle.includes('s')) sfY = (origBounds.h + dy) / origBounds.h;
+                    else if (resizeHandle.includes('n')) sfY = (origBounds.h - dy) / origBounds.h;
+                    if (sfX <= 0) sfX = 0.1;
+                    if (sfY <= 0) sfY = 0.1;
                     const origObj = resizeStart.obj;
                     obj.chars.forEach((c, i) => {
                         if (origObj.chars[i]) {
-                            c.fontSize = Math.max(1, Math.round(origObj.chars[i].fontSize * scaleFactorY));
-                            c.scaleX = Math.max(10, Math.round((origObj.chars[i].scaleX || 100) * scaleFactorX / scaleFactorY));
+                            c.fontSize = Math.max(1, Math.round(origObj.chars[i].fontSize * sfY));
+                            c.scaleX = Math.max(10, Math.round((origObj.chars[i].scaleX || 100) * sfX / sfY));
                         }
                     });
-
                     render();
                     updateLayerProps();
                 }
             } else if (isSelecting && editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
-                if (obj) {
-                    selectedCharEnd = getCharIndexAt(obj, x, y);
-                    render();
-                }
+                if (obj) { selectedCharEnd = getCharIndexAt(obj, x, y); render(); }
             } else if (isDragging && selectedObjId) {
                 const obj = textObjects.find(o => o.id === selectedObjId);
-                if (obj) {
-                    obj.x = x - dragOffset.x;
-                    obj.y = y - dragOffset.y;
-                    updateLayerProps();
-                    render();
-                }
+                if (obj) { obj.x = x - dragOffset.x; obj.y = y - dragOffset.y; updateLayerProps(); render(); }
             } else if (currentTool === 'select' && selectedObjId && !editingObjId) {
                 const obj = textObjects.find(o => o.id === selectedObjId);
                 if (obj) {
@@ -426,9 +508,7 @@
                     if (handle) {
                         const cursors = { nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize', e: 'e-resize', se: 'se-resize', s: 's-resize', sw: 'sw-resize', w: 'w-resize' };
                         canvas.style.cursor = cursors[handle];
-                    } else {
-                        canvas.style.cursor = 'default';
-                    }
+                    } else canvas.style.cursor = 'default';
                 }
             }
         });
@@ -442,78 +522,35 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'v' || e.key === 'V') {
-                if (!editingObjId && document.activeElement.tagName !== 'INPUT') {
-                    setTool('select');
-                    return;
-                }
-            }
-            if (e.key === 't' || e.key === 'T') {
-                if (!editingObjId && document.activeElement.tagName !== 'INPUT') {
-                    setTool('text');
-                    return;
-                }
-            }
-
+            if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
+            if ((e.key === 't' || e.key === 'T') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('text'); return; }
             if (!editingObjId) return;
             if ((e.target.tagName === 'INPUT' && e.target.id !== 'imeInput') || e.target.tagName === 'SELECT') return;
             if (isComposing) return;
-
             const obj = textObjects.find(o => o.id === editingObjId);
             if (!obj) return;
 
             if (e.key === 'Backspace') {
                 e.preventDefault();
                 if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
-                    const start = Math.min(selectedCharStart, selectedCharEnd);
-                    const end = Math.max(selectedCharStart, selectedCharEnd);
-                    obj.chars.splice(start, end - start);
-                    cursorPos = start;
-                    selectedCharStart = -1;
-                    selectedCharEnd = -1;
-                } else if (cursorPos > 0) {
-                    obj.chars.splice(cursorPos - 1, 1);
-                    cursorPos--;
-                }
+                    const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
+                } else if (cursorPos > 0) { obj.chars.splice(cursorPos - 1, 1); cursorPos--; }
                 render();
             } else if (e.key === 'Delete') {
                 e.preventDefault();
                 if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
-                    const start = Math.min(selectedCharStart, selectedCharEnd);
-                    const end = Math.max(selectedCharStart, selectedCharEnd);
-                    obj.chars.splice(start, end - start);
-                    cursorPos = start;
-                    selectedCharStart = -1;
-                    selectedCharEnd = -1;
-                } else if (cursorPos < obj.chars.length) {
-                    obj.chars.splice(cursorPos, 1);
-                }
+                    const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
+                } else if (cursorPos < obj.chars.length) obj.chars.splice(cursorPos, 1);
                 render();
-            } else if (e.key === 'ArrowLeft') {
-                if (cursorPos > 0) cursorPos--;
-                selectedCharStart = -1;
-                render();
-            } else if (e.key === 'ArrowRight') {
-                if (cursorPos < obj.chars.length) cursorPos++;
-                selectedCharStart = -1;
-                render();
-            } else if (e.key === 'Escape') {
-                exitEditMode();
-                setTool('select');
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                insertText('\n');
-            } else if (e.key === 'a' && e.ctrlKey) {
-                e.preventDefault();
-                selectedCharStart = 0;
-                selectedCharEnd = obj.chars.length;
-                render();
-                updateCharInfo();
-            } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-                // IME入力中またはimeInputにフォーカス中はスキップ（IMEで処理される）
-                if (document.activeElement === imeInput) {
-                    return;
-                }
+            } else if (e.key === 'ArrowLeft') { if (cursorPos > 0) cursorPos--; selectedCharStart = -1; render(); }
+            else if (e.key === 'ArrowRight') { if (cursorPos < obj.chars.length) cursorPos++; selectedCharStart = -1; render(); }
+            else if (e.key === 'Escape') { exitEditMode(); setTool('select'); }
+            else if (e.key === 'Enter') { e.preventDefault(); insertText('\n'); }
+            else if (e.key === 'a' && e.ctrlKey) { e.preventDefault(); selectedCharStart = 0; selectedCharEnd = obj.chars.length; render(); updateCharInfo(); }
+            else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                if (document.activeElement === imeInput) return;
                 e.preventDefault();
                 insertText(e.key);
             }
@@ -522,82 +559,52 @@
 
         function getCharIndexAt(obj, x, y) {
             const lines = getLines(obj);
-            const lineHeight = getLineHeight(obj) * (obj.lineHeight || 1.2);
-            const totalHeight = lines.length * lineHeight;
-
+            const lh = getLineHeight(obj) * (obj.lineHeight || 1.2);
+            const th = lines.length * lh;
             let startY = obj.y;
             if (obj.verticalAlign === 'top') startY = obj.y;
-            else if (obj.verticalAlign === 'bottom') startY = obj.y - totalHeight + lineHeight;
-            else startY = obj.y - totalHeight / 2 + lineHeight / 2;
-
-            let charIndex = 0;
+            else if (obj.verticalAlign === 'bottom') startY = obj.y - th + lh;
+            else startY = obj.y - th / 2 + lh / 2;
+            let ci = 0;
             for (let li = 0; li < lines.length; li++) {
-                const line = lines[li];
-                const lineY = startY + li * lineHeight;
-                const lineWidth = getLineWidth(line);
-                let lineX = obj.x;
-                if (obj.textAlign === 'center') lineX = obj.x - lineWidth / 2;
-                else if (obj.textAlign === 'right') lineX = obj.x - lineWidth;
-
-                if (y >= lineY - lineHeight / 2 && y < lineY + lineHeight / 2) {
-                    let posX = lineX;
+                const line = lines[li], lineY = startY + li * lh, lw = getLineWidth(line);
+                let lx = obj.x;
+                if (obj.textAlign === 'center') lx = obj.x - lw / 2;
+                else if (obj.textAlign === 'right') lx = obj.x - lw;
+                if (y >= lineY - lh / 2 && y < lineY + lh / 2) {
+                    let px = lx;
                     for (let i = 0; i < line.length; i++) {
-                        const c = line[i];
-                        const w = getCharWidth(c);
-                        if (x < posX + w / 2) return charIndex + i;
-                        posX += w;
+                        const w = getCharWidth(line[i]);
+                        if (x < px + w / 2) return ci + i;
+                        px += w;
                     }
-                    return charIndex + line.length;
+                    return ci + line.length;
                 }
-                charIndex += line.length + 1;
+                ci += line.length + 1;
             }
             return obj.chars.length;
         }
 
         function getLines(obj) {
             const lines = [[]];
-            obj.chars.forEach(c => {
-                if (c.char === '\n') lines.push([]);
-                else lines[lines.length - 1].push(c);
-            });
+            obj.chars.forEach(c => { if (c.char === '\n') lines.push([]); else lines[lines.length - 1].push(c); });
             return lines;
         }
 
         function getCharWidth(c) {
-            const displayChar = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
-            const fontSize = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
-            ctx.font = `bold ${fontSize}px "${c.fontFamily}"`;
-            const baseWidth = ctx.measureText(displayChar).width;
-            const scaledWidth = baseWidth * (c.scaleX || 100) / 100;
-            return scaledWidth + (c.tracking || 0) + (c.kerning || 0);
+            const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) + (c.kerning || 0);
         }
 
-        function getLineWidth(line) {
-            let w = 0;
-            line.forEach(c => { w += getCharWidth(c); });
-            return w;
-        }
-
-        function getLineHeight(obj) {
-            let maxSize = 72;
-            obj.chars.forEach(c => { if (c.fontSize > maxSize) maxSize = c.fontSize; });
-            return maxSize;
-        }
+        function getLineWidth(line) { return line.reduce((w, c) => w + getCharWidth(c), 0); }
+        function getLineHeight(obj) { return Math.max(...obj.chars.map(c => c.fontSize), 72); }
 
         function createTextObject(text, x, y) {
             const style = getDefaultStyle();
             const chars = text.split('').map(char => ({ char, ...style }));
-            const obj = {
-                id: Date.now(),
-                name: 'テキスト ' + (textObjects.length + 1),
-                x, y,
-                rotation: 0,
-                opacity: 100,
-                lineHeight: 1.2,
-                textAlign: 'left',
-                verticalAlign: 'middle',
-                chars
-            };
+            const obj = { id: Date.now(), name: 'テキスト ' + (textObjects.length + 1), x, y, rotation: 0, opacity: 100, lineHeight: 1.2, textAlign: 'left', verticalAlign: 'middle', chars };
             textObjects.push(obj);
             selectObject(obj.id);
             updateLayerList();
@@ -606,186 +613,116 @@
 
         function findObjectAt(x, y) {
             for (let i = textObjects.length - 1; i >= 0; i--) {
-                const obj = textObjects[i];
-                const bounds = getObjectBounds(obj);
-                if (x >= bounds.x - 10 && x <= bounds.x + bounds.w + 10 &&
-                    y >= bounds.y - 10 && y <= bounds.y + bounds.h + 10) {
-                    return obj;
-                }
+                const obj = textObjects[i], b = getObjectBounds(obj);
+                if (x >= b.x - 10 && x <= b.x + b.w + 10 && y >= b.y - 10 && y <= b.y + b.h + 10) return obj;
             }
             return null;
         }
 
         function getObjectBounds(obj) {
-            const lines = getLines(obj);
-            const baseLineHeight = getLineHeight(obj);
-            const lineHeight = baseLineHeight * (obj.lineHeight || 1.2);
-            let maxWidth = 0;
-            lines.forEach(line => {
-                const w = getLineWidth(line);
-                if (w > maxWidth) maxWidth = w;
-            });
-            const totalHeight = lines.length * lineHeight;
-
+            const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2);
+            let mw = 0;
+            lines.forEach(l => { const w = getLineWidth(l); if (w > mw) mw = w; });
+            const th = lines.length * lh;
             let left = obj.x;
-            if (obj.textAlign === 'center') left = obj.x - maxWidth / 2;
-            else if (obj.textAlign === 'right') left = obj.x - maxWidth;
-
-            let top = obj.y - lineHeight / 2;
-            if (obj.verticalAlign === 'top') top = obj.y - lineHeight / 2;
-            else if (obj.verticalAlign === 'bottom') top = obj.y - totalHeight + lineHeight / 2;
-            else top = obj.y - totalHeight / 2;
-
-            return { x: left, y: top, w: maxWidth || 10, h: totalHeight || lineHeight };
+            if (obj.textAlign === 'center') left = obj.x - mw / 2;
+            else if (obj.textAlign === 'right') left = obj.x - mw;
+            let top = obj.y - lh / 2;
+            if (obj.verticalAlign === 'bottom') top = obj.y - th + lh / 2;
+            else if (obj.verticalAlign === 'middle') top = obj.y - th / 2;
+            return { x: left, y: top, w: mw || 10, h: th || lh };
         }
 
-        function selectObject(id) {
-            selectedObjId = id;
-            updateLayerList();
-            updateLayerProps();
-            render();
-        }
+        function selectObject(id) { selectedObjId = id; updateLayerList(); updateLayerProps(); render(); }
 
         function enterEditMode(id) {
-            editingObjId = id;
-            selectedObjId = id;
+            editingObjId = id; selectedObjId = id;
             const obj = textObjects.find(o => o.id === id);
             cursorPos = obj ? obj.chars.length : 0;
             cursorVisible = true;
             if (cursorInterval) clearInterval(cursorInterval);
             cursorInterval = setInterval(() => { cursorVisible = !cursorVisible; render(); }, 500);
             imeInput.focus();
-            updateLayerList();
-            updateLayerProps();
+            updateLayerList(); updateLayerProps();
         }
 
         function exitEditMode() {
             if (editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
-                if (obj && obj.chars.length === 0) {
-                    textObjects = textObjects.filter(o => o.id !== editingObjId);
-                    selectedObjId = null;
-                }
+                if (obj && obj.chars.length === 0) { textObjects = textObjects.filter(o => o.id !== editingObjId); selectedObjId = null; }
             }
-            editingObjId = null;
-            selectedCharStart = -1;
-            selectedCharEnd = -1;
+            editingObjId = null; selectedCharStart = -1; selectedCharEnd = -1;
             if (cursorInterval) clearInterval(cursorInterval);
-            imeInput.blur();
-            updateLayerList();
-            render();
+            imeInput.blur(); updateLayerList(); render();
         }
 
         function applyStyle() {
             if (!editingObjId) return;
             const obj = textObjects.find(o => o.id === editingObjId);
-            if (!obj) return;
-
-            if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
-                const start = Math.min(selectedCharStart, selectedCharEnd);
-                const end = Math.max(selectedCharStart, selectedCharEnd);
-                const style = getDefaultStyle();
-                for (let i = start; i < end; i++) {
-                    Object.assign(obj.chars[i], style);
-                }
-                render();
-            }
+            if (!obj || selectedCharStart === -1 || selectedCharStart === selectedCharEnd) return;
+            const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+            const style = getDefaultStyle();
+            for (let i = s; i < en; i++) Object.assign(obj.chars[i], style);
+            render();
         }
 
-        function setTextAlign(align) {
-            document.querySelectorAll('[data-align]').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`[data-align="${align}"]`).classList.add('active');
-            if (selectedObjId) {
-                const obj = textObjects.find(o => o.id === selectedObjId);
-                if (obj) { obj.textAlign = align; render(); }
-            }
+        function setTextAlign(a) {
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-align="${a}"]`).classList.add('active');
+            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.textAlign = a; render(); } }
         }
 
-        function setVerticalAlign(align) {
-            document.querySelectorAll('[data-valign]').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`[data-valign="${align}"]`).classList.add('active');
-            if (selectedObjId) {
-                const obj = textObjects.find(o => o.id === selectedObjId);
-                if (obj) { obj.verticalAlign = align; render(); }
-            }
+        function setVerticalAlign(a) {
+            document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-valign="${a}"]`).classList.add('active');
+            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.verticalAlign = a; render(); } }
         }
 
         function updateCharInfo() {
             const info = document.getElementById('charInfo');
             if (editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
-                const count = Math.abs(selectedCharEnd - selectedCharStart);
-                info.textContent = `${count}文字選択中`;
-            } else {
-                info.textContent = '文字を選択してください';
-            }
+                info.textContent = `${Math.abs(selectedCharEnd - selectedCharStart)}文字選択中`;
+            } else info.textContent = '文字を選択してください';
         }
 
         function deleteSelected() {
             if (!selectedObjId) return;
             textObjects = textObjects.filter(o => o.id !== selectedObjId);
-            selectedObjId = null;
-            editingObjId = null;
-            updateLayerList();
-            updateLayerProps();
-            render();
+            selectedObjId = null; editingObjId = null;
+            updateLayerList(); updateLayerProps(); render();
         }
 
         function moveLayerUp() {
             if (!selectedObjId) return;
             const idx = textObjects.findIndex(o => o.id === selectedObjId);
-            if (idx < textObjects.length - 1) {
-                [textObjects[idx], textObjects[idx + 1]] = [textObjects[idx + 1], textObjects[idx]];
-                updateLayerList();
-                render();
-            }
+            if (idx < textObjects.length - 1) { [textObjects[idx], textObjects[idx + 1]] = [textObjects[idx + 1], textObjects[idx]]; updateLayerList(); render(); }
         }
 
         function moveLayerDown() {
             if (!selectedObjId) return;
             const idx = textObjects.findIndex(o => o.id === selectedObjId);
-            if (idx > 0) {
-                [textObjects[idx], textObjects[idx - 1]] = [textObjects[idx - 1], textObjects[idx]];
-                updateLayerList();
-                render();
-            }
+            if (idx > 0) { [textObjects[idx], textObjects[idx - 1]] = [textObjects[idx - 1], textObjects[idx]]; updateLayerList(); render(); }
         }
 
-        function updateLayerName() {
-            if (!selectedObjId) return;
-            const obj = textObjects.find(o => o.id === selectedObjId);
-            if (obj) { obj.name = document.getElementById('layerName').value; updateLayerList(); }
-        }
+        function updateLayerName() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.name = document.getElementById('layerName').value; updateLayerList(); } }
+        function updateLayerPosition() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.x = parseFloat(document.getElementById('layerX').value) || 0; obj.y = parseFloat(document.getElementById('layerY').value) || 0; render(); } }
+        function updateLayerRotation() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.rotation = parseFloat(document.getElementById('layerRotation').value) || 0; render(); } }
+        function updateLayerLineHeight() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.lineHeight = parseFloat(document.getElementById('layerLineHeight').value) || 1.2; render(); } }
+        function updateLayerOpacity() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.opacity = parseInt(document.getElementById('layerOpacity').value); document.getElementById('opacityVal').textContent = obj.opacity; render(); } }
 
-        function updateLayerPosition() {
+        function updateLayerSize() {
             if (!selectedObjId) return;
             const obj = textObjects.find(o => o.id === selectedObjId);
-            if (obj) {
-                obj.x = parseFloat(document.getElementById('layerX').value) || 0;
-                obj.y = parseFloat(document.getElementById('layerY').value) || 0;
-                render();
-            }
-        }
-
-        function updateLayerRotation() {
-            if (!selectedObjId) return;
-            const obj = textObjects.find(o => o.id === selectedObjId);
-            if (obj) { obj.rotation = parseFloat(document.getElementById('layerRotation').value) || 0; render(); }
-        }
-
-        function updateLayerLineHeight() {
-            if (!selectedObjId) return;
-            const obj = textObjects.find(o => o.id === selectedObjId);
-            if (obj) { obj.lineHeight = parseFloat(document.getElementById('layerLineHeight').value) || 1.2; render(); }
-        }
-
-        function updateLayerOpacity() {
-            if (!selectedObjId) return;
-            const obj = textObjects.find(o => o.id === selectedObjId);
-            if (obj) {
-                obj.opacity = parseInt(document.getElementById('layerOpacity').value);
-                document.getElementById('opacityVal').textContent = obj.opacity;
-                render();
-            }
+            if (!obj || !obj.chars.length) return;
+            const bounds = getObjectBounds(obj);
+            const newW = parseFloat(document.getElementById('layerWidth').value) || bounds.w;
+            const newH = parseFloat(document.getElementById('layerHeight').value) || bounds.h;
+            const sfX = newW / bounds.w, sfY = newH / bounds.h;
+            obj.chars.forEach(c => {
+                c.fontSize = Math.max(1, Math.round(c.fontSize * sfY));
+                c.scaleX = Math.max(10, Math.round((c.scaleX || 100) * sfX / sfY));
+            });
+            render();
         }
 
         function updateLayerProps() {
@@ -793,19 +730,20 @@
             if (!selectedObjId) { propsDiv.style.display = 'none'; return; }
             const obj = textObjects.find(o => o.id === selectedObjId);
             if (!obj) { propsDiv.style.display = 'none'; return; }
-
             propsDiv.style.display = 'block';
+            const bounds = getObjectBounds(obj);
             document.getElementById('layerName').value = obj.name || '';
             document.getElementById('layerX').value = obj.x.toFixed(1);
             document.getElementById('layerY').value = obj.y.toFixed(1);
+            document.getElementById('layerWidth').value = bounds.w.toFixed(1);
+            document.getElementById('layerHeight').value = bounds.h.toFixed(1);
             document.getElementById('layerRotation').value = obj.rotation || 0;
             document.getElementById('layerLineHeight').value = obj.lineHeight || 1.2;
             document.getElementById('layerOpacity').value = obj.opacity || 100;
             document.getElementById('opacityVal').textContent = obj.opacity || 100;
-
-            document.querySelectorAll('[data-align]').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-align="${obj.textAlign || 'left'}"]`)?.classList.add('active');
-            document.querySelectorAll('[data-valign]').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-valign="${obj.verticalAlign || 'middle'}"]`)?.classList.add('active');
         }
 
@@ -815,10 +753,7 @@
             textObjects.slice().reverse().forEach(obj => {
                 const div = document.createElement('div');
                 div.className = 'layer-item' + (obj.id === selectedObjId ? ' selected' : '');
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'layer-name';
-                nameSpan.textContent = obj.name || obj.chars.map(c => c.char).join('').substring(0, 10);
-                div.appendChild(nameSpan);
+                div.textContent = obj.name || obj.chars.map(c => c.char).join('').substring(0, 10);
                 div.onclick = () => { exitEditMode(); selectObject(obj.id); };
                 div.ondblclick = () => { setTool('text'); enterEditMode(obj.id); };
                 list.appendChild(div);
@@ -831,156 +766,169 @@
             textObjects.forEach(obj => {
                 ctx.save();
                 ctx.globalAlpha = (obj.opacity || 100) / 100;
+                if (obj.rotation) { ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation * Math.PI / 180); ctx.translate(-obj.x, -obj.y); }
 
-                if (obj.rotation) {
-                    ctx.translate(obj.x, obj.y);
-                    ctx.rotate(obj.rotation * Math.PI / 180);
-                    ctx.translate(-obj.x, -obj.y);
-                }
-
-                const lines = getLines(obj);
-                const baseLineHeight = getLineHeight(obj);
-                const lineHeight = baseLineHeight * (obj.lineHeight || 1.2);
-                const totalHeight = lines.length * lineHeight;
-
+                const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2), th = lines.length * lh;
                 let startY = obj.y;
                 if (obj.verticalAlign === 'top') startY = obj.y;
-                else if (obj.verticalAlign === 'bottom') startY = obj.y - totalHeight + lineHeight;
-                else startY = obj.y - totalHeight / 2 + lineHeight / 2;
+                else if (obj.verticalAlign === 'bottom') startY = obj.y - th + lh;
+                else startY = obj.y - th / 2 + lh / 2;
 
-                let charIndex = 0;
+                let ci = 0;
                 for (let li = 0; li < lines.length; li++) {
-                    const line = lines[li];
-                    const lineY = startY + li * lineHeight;
-                    const lineWidth = getLineWidth(line);
+                    const line = lines[li], lineY = startY + li * lh, lw = getLineWidth(line);
+                    let lx = obj.x;
+                    if (obj.textAlign === 'center') lx = obj.x - lw / 2;
+                    else if (obj.textAlign === 'right') lx = obj.x - lw;
 
-                    let lineX = obj.x;
-                    if (obj.textAlign === 'center') lineX = obj.x - lineWidth / 2;
-                    else if (obj.textAlign === 'right') lineX = obj.x - lineWidth;
-
-                    // 選択範囲ハイライト
+                    // Selection highlight
                     if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
-                        const start = Math.min(selectedCharStart, selectedCharEnd);
-                        const end = Math.max(selectedCharStart, selectedCharEnd);
-                        let hlX = lineX;
-                        let hlStartX = null;
-                        let hlW = 0;
-
+                        const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                        let hlX = lx, hlSX = null, hlW = 0;
                         for (let i = 0; i < line.length; i++) {
-                            const globalIdx = charIndex + i;
-                            const w = getCharWidth(line[i]);
-                            if (globalIdx >= start && globalIdx < end) {
-                                if (hlStartX === null) hlStartX = hlX;
-                                hlW += w;
-                            }
+                            const gi = ci + i, w = getCharWidth(line[i]);
+                            if (gi >= s && gi < en) { if (hlSX === null) hlSX = hlX; hlW += w; }
                             hlX += w;
                         }
-
-                        if (hlStartX !== null && hlW > 0) {
-                            ctx.fillStyle = 'rgba(0,120,212,0.3)';
-                            ctx.fillRect(hlStartX, lineY - lineHeight / 2, hlW, lineHeight);
-                        }
+                        if (hlSX !== null && hlW > 0) { ctx.fillStyle = 'rgba(0,120,212,0.3)'; ctx.fillRect(hlSX, lineY - lh / 2, hlW, lh); }
                     }
 
-                    // 文字描画
-                    let posX = lineX;
-                    line.forEach((c, i) => {
-                        const displayChar = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
-                        const fontSize = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
-
+                    // Draw characters
+                    let px = lx;
+                    line.forEach(c => {
+                        const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
                         ctx.save();
-                        ctx.font = `bold ${fontSize}px "${c.fontFamily}"`;
+                        ctx.font = `bold ${fs}px "${c.fontFamily}"`;
                         ctx.textBaseline = 'middle';
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
 
-                        const baseWidth = ctx.measureText(displayChar).width;
-                        const scaleX = (c.scaleX || 100) / 100;
-                        const charY = lineY - (c.baselineShift || 0);
-
-                        ctx.translate(posX, charY);
+                        const bw = ctx.measureText(dc).width, sx = (c.scaleX || 100) / 100, cy = lineY - (c.baselineShift || 0);
+                        ctx.translate(px, cy);
                         if (c.slant) ctx.transform(1, 0, Math.tan(c.slant * Math.PI / 180), 1, 0, 0);
-                        ctx.scale(scaleX, 1);
+                        ctx.scale(sx, 1);
 
-                        if (c.strokeEnabled) {
-                            ctx.strokeStyle = c.strokeColor;
-                            ctx.lineWidth = c.strokeWidth * 2;
-                            ctx.lineJoin = 'round';
-                            ctx.strokeText(displayChar, 0, 0);
+                        // Shadow
+                        if (c.shadowEnabled) {
+                            const sa = (c.shadowAngle || 45) * Math.PI / 180;
+                            const sd = c.shadowDistance || 5;
+                            const sox = Math.cos(sa) * sd, soy = Math.sin(sa) * sd;
+                            ctx.save();
+                            ctx.globalAlpha *= (c.shadowOpacity || 50) / 100;
+                            ctx.shadowColor = c.shadowColor || '#000';
+                            ctx.shadowBlur = c.shadowBlur || 5;
+                            ctx.shadowOffsetX = sox;
+                            ctx.shadowOffsetY = soy;
+                            ctx.fillStyle = c.shadowColor || '#000';
+                            ctx.fillText(dc, 0, 0);
+                            ctx.restore();
                         }
-                        ctx.fillStyle = c.color;
-                        ctx.fillText(displayChar, 0, 0);
+
+                        // Strokes
+                        const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                        strokes.slice().reverse().forEach(st => {
+                            if (!st.enabled) return;
+                            ctx.save();
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                            ctx.strokeStyle = st.color;
+                            ctx.lineWidth = st.width * 2;
+                            ctx.lineJoin = 'round';
+                            if (st.type === 'depth') {
+                                for (let d = st.width; d > 0; d--) {
+                                    ctx.strokeStyle = st.color;
+                                    ctx.lineWidth = 2;
+                                    ctx.save();
+                                    ctx.translate(d * 0.7, d * 0.7);
+                                    ctx.strokeText(dc, 0, 0);
+                                    ctx.restore();
+                                }
+                            } else if (st.type === 'drop') {
+                                ctx.save();
+                                ctx.translate(st.width, st.width);
+                                ctx.fillStyle = st.color;
+                                ctx.fillText(dc, 0, 0);
+                                ctx.restore();
+                            } else {
+                                ctx.strokeText(dc, 0, 0);
+                            }
+                            ctx.restore();
+                        });
+
+                        // Fill
+                        if (c.fillType === 'linear' || c.fillType === 'radial') {
+                            const gw = bw * sx, gh = fs;
+                            let grad;
+                            if (c.fillType === 'linear') {
+                                const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                grad = ctx.createLinearGradient(-dx, -dy, dx, dy);
+                            } else {
+                                grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(gw, gh) / 2);
+                            }
+                            grad.addColorStop(0, c.color);
+                            grad.addColorStop(1, c.color2 || '#888');
+                            ctx.fillStyle = grad;
+                        } else {
+                            ctx.fillStyle = c.color;
+                        }
+                        ctx.fillText(dc, 0, 0);
+
+                        // Gloss
+                        if (c.glossEnabled) {
+                            ctx.save();
+                            ctx.globalAlpha = (c.glossOpacity || 50) / 100;
+                            ctx.beginPath();
+                            ctx.rect(-bw / 2, -fs / 2, bw, fs / 4);
+                            ctx.clip();
+                            ctx.shadowColor = c.glossColor || '#fff';
+                            ctx.shadowBlur = c.glossBlur || 5;
+                            ctx.fillStyle = c.glossColor || '#fff';
+                            ctx.fillRect(-bw / 2, -fs / 2, bw, c.glossWidth || 10);
+                            ctx.restore();
+                        }
 
                         ctx.restore();
-                        posX += getCharWidth(c);
+                        px += getCharWidth(c);
                     });
-
-                    charIndex += line.length + 1;
+                    ci += line.length + 1;
                 }
 
-                // カーソル
+                // Cursor
                 if (obj.id === editingObjId && cursorVisible && selectedCharStart === -1) {
                     let cLine = 0, cIdx = 0, count = 0;
                     for (let li = 0; li < lines.length; li++) {
-                        if (cursorPos <= count + lines[li].length) {
-                            cLine = li;
-                            cIdx = cursorPos - count;
-                            break;
-                        }
+                        if (cursorPos <= count + lines[li].length) { cLine = li; cIdx = cursorPos - count; break; }
                         count += lines[li].length + 1;
                     }
-
-                    const line = lines[cLine] || [];
-                    const lineY = startY + cLine * lineHeight;
-                    const lineWidth = getLineWidth(line);
-                    let curLineX = obj.x;
-                    if (obj.textAlign === 'center') curLineX = obj.x - lineWidth / 2;
-                    else if (obj.textAlign === 'right') curLineX = obj.x - lineWidth;
-
-                    let cX = curLineX;
-                    for (let i = 0; i < cIdx; i++) {
-                        cX += getCharWidth(line[i]);
-                    }
-
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(cX, lineY - lineHeight / 2);
-                    ctx.lineTo(cX, lineY + lineHeight / 2);
-                    ctx.stroke();
+                    const line = lines[cLine] || [], lineY = startY + cLine * lh, lw = getLineWidth(line);
+                    let clx = obj.x;
+                    if (obj.textAlign === 'center') clx = obj.x - lw / 2;
+                    else if (obj.textAlign === 'right') clx = obj.x - lw;
+                    let cX = clx;
+                    for (let i = 0; i < cIdx; i++) cX += getCharWidth(line[i]);
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(cX, lineY - lh / 2); ctx.lineTo(cX, lineY + lh / 2); ctx.stroke();
                 }
 
                 ctx.restore();
 
-                // 選択枠とハンドル
+                // Selection box and handles
                 if (obj.id === selectedObjId && obj.id !== editingObjId) {
-                    const bounds = getObjectBounds(obj);
-                    ctx.strokeStyle = '#0078d4';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 3]);
-                    ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
+                    const b = getObjectBounds(obj);
+                    ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
                     ctx.setLineDash([]);
-
-                    // ハンドル描画
                     const handles = [
-                        { x: bounds.x, y: bounds.y },
-                        { x: bounds.x + bounds.w / 2, y: bounds.y },
-                        { x: bounds.x + bounds.w, y: bounds.y },
-                        { x: bounds.x + bounds.w, y: bounds.y + bounds.h / 2 },
-                        { x: bounds.x + bounds.w, y: bounds.y + bounds.h },
-                        { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h },
-                        { x: bounds.x, y: bounds.y + bounds.h },
-                        { x: bounds.x, y: bounds.y + bounds.h / 2 }
+                        { x: b.x, y: b.y }, { x: b.x + b.w / 2, y: b.y }, { x: b.x + b.w, y: b.y },
+                        { x: b.x + b.w, y: b.y + b.h / 2 }, { x: b.x + b.w, y: b.y + b.h },
+                        { x: b.x + b.w / 2, y: b.y + b.h }, { x: b.x, y: b.y + b.h }, { x: b.x, y: b.y + b.h / 2 }
                     ];
-                    ctx.fillStyle = '#fff';
-                    ctx.strokeStyle = '#0078d4';
-                    ctx.lineWidth = 1;
-                    handles.forEach(h => {
-                        ctx.fillRect(h.x - 4, h.y - 4, 8, 8);
-                        ctx.strokeRect(h.x - 4, h.y - 4, 8, 8);
-                    });
+                    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
+                    handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                 }
             });
 
-            document.getElementById('statusText').textContent = editingObjId ? '編集中 (Escで終了)' : `オブジェクト: ${textObjects.length}`;
+            document.getElementById('statusText').textContent = editingObjId ? '編集中 (Esc終了)' : `オブジェクト: ${textObjects.length}`;
         }
 
         function changeResolution() {
@@ -999,8 +947,8 @@
         }
 
         function saveProject() {
-            const project = { version: '1.5', resolution: document.getElementById('resolution').value, objects: textObjects };
-            const blob = new Blob([JSON.stringify(project)], {type: 'application/json'});
+            const project = { version: '1.6', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
             link.href = URL.createObjectURL(blob);
@@ -1026,12 +974,9 @@
                         if (obj.lineHeight === undefined) obj.lineHeight = 1.2;
                         obj.chars.forEach(c => {
                             if (c.scaleX === undefined) c.scaleX = 100;
-                            if (c.kerning === undefined) c.kerning = 0;
-                            if (c.tracking === undefined) c.tracking = 0;
-                            if (c.baselineShift === undefined) c.baselineShift = 0;
-                            if (c.slant === undefined) c.slant = 0;
-                            if (c.smallCaps === undefined) c.smallCaps = false;
-                            if (c.smallCapsSize === undefined) c.smallCapsSize = 70;
+                            if (c.opacity === undefined) c.opacity = 100;
+                            if (c.fillType === undefined) c.fillType = 'solid';
+                            if (!c.strokes) c.strokes = [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
                         });
                     });
                     selectedObjId = null; editingObjId = null;
