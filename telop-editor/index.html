@@ -283,6 +283,7 @@
             <button class="btn btn-small btn-secondary" onclick="addGradientStop()">+ 色追加</button>
             <div class="row2" id="gradientAngleRow">
                 <div><label>角度°</label><input type="number" id="gradientAngle" value="0" step="1" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="gradientBlur" min="0" max="100" value="0" step="1" onchange="applyStyle()"></div>
             </div>
 
             <h4>光沢</h4>
@@ -594,6 +595,7 @@
                 color2: gradStops[gradStops.length - 1]?.color || '#888888',
                 gradientStops: gradStops,
                 gradientAngle: parseInt(document.getElementById('gradientAngle').value),
+                gradientBlur: parseInt(document.getElementById('gradientBlur').value),
                 opacity: parseInt(document.getElementById('charOpacity').value),
                 strokes: getStrokesFromUI(),
                 shadowEnabled: document.getElementById('shadowEnabled').checked,
@@ -1070,6 +1072,14 @@
         function getLineWidth(line) { return line.reduce((w, c) => w + getCharWidth(c), 0); }
         function getLineHeight(obj) { return Math.max(...obj.chars.map(c => c.fontSize), 72); }
 
+        // Vertical text helpers
+        function getCharHeight(c) {
+            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+            return fs * (c.lineHeight || 1.2) + (c.tracking || 0);
+        }
+        function getVerticalLineHeight(line) { return line.reduce((h, c) => h + getCharHeight(c), 0); }
+        function getVerticalLineWidth(obj) { return Math.max(...obj.chars.map(c => c.fontSize), 72); }
+
         function createTextObject(text, x, y, vertical = false) {
             const style = getDefaultStyle();
             const chars = text.split('').map(char => ({ char, ...style }));
@@ -1283,6 +1293,32 @@
                 return { x: obj.x, y: obj.y, w: 10, h: 72 };
             }
 
+            // 縦書きテキストの場合
+            if (obj.vertical) {
+                const lines = getLines(obj);
+                const colWidth = getVerticalLineWidth(obj) * (obj.lineHeight || 1.2);
+                const totalWidth = lines.length * colWidth;
+
+                let maxHeight = 0;
+                lines.forEach(l => {
+                    const h = getVerticalLineHeight(l);
+                    if (h > maxHeight) maxHeight = h;
+                });
+
+                // X位置（右から左へ）
+                let right = obj.x;
+                if (obj.textAlign === 'center') right = obj.x + totalWidth / 2;
+                else if (obj.textAlign === 'left') right = obj.x + totalWidth;
+
+                // Y位置
+                let top = obj.y;
+                if (obj.verticalAlign === 'bottom') top = obj.y - maxHeight;
+                else if (obj.verticalAlign === 'middle') top = obj.y - maxHeight / 2;
+
+                return { x: right - totalWidth, y: top, w: totalWidth || 10, h: maxHeight || 72 };
+            }
+
+            // 横書きテキストの場合
             const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2);
             let mw = 0;
             lines.forEach(l => { const w = getLineWidth(l); if (w > mw) mw = w; });
@@ -1811,6 +1847,132 @@
                 // テキストオブジェクトの描画
                 if (!obj.chars) { ctx.restore(); return; }
 
+                // 縦書きテキストの場合
+                if (obj.vertical) {
+                    const lines = getLines(obj);
+                    const colWidth = getVerticalLineWidth(obj) * (obj.lineHeight || 1.2);
+                    const totalWidth = lines.length * colWidth;
+
+                    // 開始X位置（右から左へ描画）
+                    let startX = obj.x;
+                    if (obj.textAlign === 'center') startX = obj.x + totalWidth / 2 - colWidth / 2;
+                    else if (obj.textAlign === 'left') startX = obj.x + totalWidth - colWidth;
+
+                    // Get bounds for balloon and name tag
+                    const bounds = getObjectBounds(obj);
+                    drawBalloon(ctx, obj, bounds);
+
+                    let ci = 0;
+                    for (let li = 0; li < lines.length; li++) {
+                        const line = lines[li];
+                        const colX = startX - li * colWidth;
+                        const lineH = getVerticalLineHeight(line);
+
+                        // 開始Y位置（縦揃え）
+                        let startY = obj.y;
+                        if (obj.verticalAlign === 'top') startY = obj.y;
+                        else if (obj.verticalAlign === 'bottom') startY = obj.y - lineH;
+                        else startY = obj.y - lineH / 2;
+
+                        // Draw characters vertically
+                        let py = startY;
+                        line.forEach(c => {
+                            const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+                            ctx.save();
+                            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                            ctx.textBaseline = 'top';
+                            ctx.textAlign = 'center';
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+
+                            const bw = ctx.measureText(dc).width;
+                            const sx = (c.scaleX || 100) / 100;
+                            const cx = colX - (c.baselineShift || 0);
+
+                            ctx.translate(cx, py);
+                            if (c.slant) ctx.transform(1, Math.tan(c.slant * Math.PI / 180), 0, 1, 0, 0);
+
+                            // Shadow
+                            if (c.shadowEnabled) {
+                                const sa = (c.shadowAngle || 45) * Math.PI / 180;
+                                const sd = c.shadowDistance || 5;
+                                const sox = Math.cos(sa) * sd, soy = Math.sin(sa) * sd;
+                                ctx.save();
+                                ctx.scale(1, sx);
+                                ctx.translate(sox, soy / sx);
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (c.shadowOpacity || 50) / 100;
+                                ctx.shadowColor = c.shadowColor || '#000';
+                                ctx.shadowBlur = c.shadowBlur || 5;
+                                ctx.fillStyle = c.shadowColor || '#000';
+                                ctx.fillText(dc, 0, 0);
+                                ctx.restore();
+                            }
+
+                            ctx.scale(1, sx);
+
+                            // Strokes
+                            const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                            strokes.slice().reverse().forEach(st => {
+                                if (!st.enabled) return;
+                                ctx.save();
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                                ctx.strokeStyle = st.color;
+                                ctx.lineWidth = st.width * 2;
+                                ctx.lineJoin = st.join || 'round';
+                                ctx.strokeText(dc, 0, 0);
+                                ctx.restore();
+                            });
+
+                            // Fill
+                            if (c.fillType === 'linear' || c.fillType === 'radial') {
+                                const gh = fs, gw = bw;
+                                let grad;
+                                if (c.fillType === 'linear') {
+                                    const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                    const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                    grad = ctx.createLinearGradient(-dx, gh / 2 - dy, dx, gh / 2 + dy);
+                                } else {
+                                    grad = ctx.createRadialGradient(0, gh / 2, 0, 0, gh / 2, Math.max(gw, gh) / 2);
+                                }
+                                if (c.gradientStops && c.gradientStops.length >= 2) {
+                                    c.gradientStops.forEach((stop, i) => {
+                                        const startPos = Math.max(0, stop.pos / 100);
+                                        const endPos = Math.min(1, stop.endPos / 100);
+                                        if (i === 0) grad.addColorStop(0, stop.color);
+                                        else grad.addColorStop(startPos + 0.001, stop.color);
+                                        if (i === c.gradientStops.length - 1) grad.addColorStop(1, stop.color);
+                                        else grad.addColorStop(endPos - 0.001, stop.color);
+                                    });
+                                } else {
+                                    grad.addColorStop(0, c.color);
+                                    grad.addColorStop(1, c.color2 || '#888');
+                                }
+                                ctx.fillStyle = grad;
+                            } else {
+                                ctx.fillStyle = c.color;
+                            }
+                            ctx.fillText(dc, 0, 0);
+
+                            ctx.restore();
+                            py += getCharHeight(c);
+                        });
+                        ci += line.length + 1;
+                    }
+
+                    // Selection box for vertical text
+                    if (obj.id === selectedObjId && obj.id !== editingObjId) {
+                        const b = bounds;
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
+                        ctx.setLineDash([]);
+                    }
+
+                    drawNameTag(ctx, obj, bounds);
+                    ctx.restore();
+                    return;
+                }
+
+                // 横書きテキストの描画
                 const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2), th = lines.length * lh;
                 let startY = obj.y;
                 if (obj.verticalAlign === 'top') startY = obj.y;
@@ -1923,32 +2085,66 @@
 
                         // Fill
                         if (c.fillType === 'linear' || c.fillType === 'radial') {
-                            const gw = bw * sx, gh = fs;
+                            // Use character width in current coordinate system (after scale)
+                            const gw = bw, gh = fs;
+                            const centerX = gw / 2; // Character center X
                             let grad;
                             if (c.fillType === 'linear') {
                                 const a = (c.gradientAngle || 0) * Math.PI / 180;
                                 const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
-                                grad = ctx.createLinearGradient(-dx, -dy, dx, dy);
+                                // Center gradient at character center
+                                grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
                             } else {
-                                grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(gw, gh) / 2);
+                                grad = ctx.createRadialGradient(centerX, 0, 0, centerX, 0, Math.max(gw, gh) / 2);
                             }
-                            // Use multiple color stops based on ratio
+                            // Use multiple color stops based on ratio with blur support
                             if (c.gradientStops && c.gradientStops.length >= 2) {
-                                // Each color occupies its exact range with sharp boundaries
+                                const blur = (c.gradientBlur || 0) / 100; // 0-1 range
+
                                 c.gradientStops.forEach((stop, i) => {
                                     const startPos = Math.max(0, stop.pos / 100);
                                     const endPos = Math.min(1, stop.endPos / 100);
-                                    // Place color at start and end of its range
-                                    if (i === 0) {
-                                        grad.addColorStop(0, stop.color);
+
+                                    if (blur === 0) {
+                                        // Sharp boundaries
+                                        if (i === 0) {
+                                            grad.addColorStop(0, stop.color);
+                                        } else {
+                                            grad.addColorStop(startPos + 0.001, stop.color);
+                                        }
+                                        if (i === c.gradientStops.length - 1) {
+                                            grad.addColorStop(1, stop.color);
+                                        } else {
+                                            grad.addColorStop(endPos - 0.001, stop.color);
+                                        }
                                     } else {
-                                        // Tiny offset to create sharp transition
-                                        grad.addColorStop(startPos + 0.001, stop.color);
-                                    }
-                                    if (i === c.gradientStops.length - 1) {
-                                        grad.addColorStop(1, stop.color);
-                                    } else {
-                                        grad.addColorStop(endPos - 0.001, stop.color);
+                                        // Smooth transitions with blur
+                                        const blurAmount = blur * 0.5; // Max 50% of range for blur
+
+                                        if (i === 0) {
+                                            grad.addColorStop(0, stop.color);
+                                            // Blend towards next color
+                                            if (i < c.gradientStops.length - 1) {
+                                                const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                                if (blendEnd > 0) grad.addColorStop(blendEnd, stop.color);
+                                            }
+                                        } else if (i === c.gradientStops.length - 1) {
+                                            // Blend from previous color
+                                            const blendStart = Math.max(startPos, startPos + blurAmount);
+                                            if (blendStart < 1) grad.addColorStop(blendStart, stop.color);
+                                            grad.addColorStop(1, stop.color);
+                                        } else {
+                                            // Middle colors - blend on both sides
+                                            const blendStart = Math.max(startPos, startPos + blurAmount);
+                                            const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                            if (blendStart < blendEnd) {
+                                                grad.addColorStop(blendStart, stop.color);
+                                                grad.addColorStop(blendEnd, stop.color);
+                                            } else {
+                                                // Range too small, just use midpoint
+                                                grad.addColorStop((startPos + endPos) / 2, stop.color);
+                                            }
+                                        }
                                     }
                                 });
                             } else {
