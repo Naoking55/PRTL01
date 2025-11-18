@@ -44,7 +44,7 @@
         .row2 { display: flex; gap: 4px; }
         .row2 > div { flex: 1; }
         .row2 label { font-size: 10px; }
-        #imeInput { position: absolute; left: -9999px; opacity: 0; }
+        #imeInput { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; border: none; outline: none; background: transparent; }
     </style>
 </head>
 <body>
@@ -217,18 +217,30 @@
         }
 
         // IME入力対応
-        imeInput.addEventListener('compositionstart', () => { isComposing = true; });
+        imeInput.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
         imeInput.addEventListener('compositionend', (e) => {
             isComposing = false;
-            if (editingObjId && e.data) {
-                insertText(e.data);
+            const text = e.data || imeInput.value;
+            if (editingObjId && text) {
+                insertText(text);
             }
             imeInput.value = '';
         });
         imeInput.addEventListener('input', (e) => {
-            if (!isComposing && editingObjId && e.data) {
-                insertText(e.data);
-                imeInput.value = '';
+            if (!isComposing && editingObjId) {
+                const text = e.data || imeInput.value;
+                if (text) {
+                    insertText(text);
+                    imeInput.value = '';
+                }
+            }
+        });
+        // フォーカスを維持
+        imeInput.addEventListener('blur', () => {
+            if (editingObjId) {
+                setTimeout(() => imeInput.focus(), 0);
             }
         });
 
