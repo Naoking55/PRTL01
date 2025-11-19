@@ -6204,6 +6204,14 @@
             let gradient = null;
 
             const colouring = block.querySelector('face > shader > colouring');
+
+            // デバッグ: colouringの中身を確認
+            if (colouring) {
+                console.log(`[PRSL Debug] ${name} - colouring children:`,
+                    Array.from(colouring.children).map(c => c.tagName));
+                console.log(`[PRSL Debug] ${name} - colouring innerHTML:`, colouring.innerHTML.substring(0, 500));
+            }
+
             if (colouring) {
                 // グラデーションチェック（linear_gradient）
                 const linearGrad = colouring.querySelector('linear_gradient');
