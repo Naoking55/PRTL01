@@ -790,6 +790,7 @@
         let editingControlPoint = null;  // 編集中の制御点 {pointIndex, type: 'cp1'|'cp2'|'anchor'}
         let textEditSaveTimer = null;  // テキスト編集Undoのデバウンスタイマー
         let lastSavedState = null;  // 最後に保存した状態（重複保存を防ぐ）
+        let clipboard = null;  // コピーしたオブジェクト
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -1963,6 +1964,23 @@
                 redo();
                 return;
             }
+            // Copy/Paste ショートカット
+            if (e.ctrlKey && e.key === 'c' && !editingObjId) {
+                e.preventDefault();
+                copySelected();
+                return;
+            }
+            if (e.ctrlKey && e.key === 'v' && !editingObjId) {
+                e.preventDefault();
+                pasteObject();
+                return;
+            }
+            // Delete ショートカット
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !editingObjId && selectedObjId) {
+                e.preventDefault();
+                deleteSelected();
+                return;
+            }
             if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
             if ((e.key === 't' || e.key === 'T') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('text'); return; }
             if ((e.key === 'r' || e.key === 'R') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('rotate'); return; }
@@ -2767,6 +2785,27 @@
             if (editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
                 info.textContent = `${Math.abs(selectedCharEnd - selectedCharStart)}文字選択中`;
             } else info.textContent = '文字を選択してください';
+        }
+
+        function copySelected() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            clipboard = JSON.parse(JSON.stringify(obj));
+        }
+
+        function pasteObject() {
+            if (!clipboard) return;
+            saveState();
+            const newObj = JSON.parse(JSON.stringify(clipboard));
+            newObj.id = Date.now();
+            newObj.x += 20;  // オフセット
+            newObj.y += 20;
+            newObj.name = (newObj.name || 'Object') + ' (コピー)';
+            textObjects.push(newObj);
+            selectObject(newObj.id);
+            updateLayerList();
+            render();
         }
 
         function deleteSelected() {
