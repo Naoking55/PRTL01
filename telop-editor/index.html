@@ -403,6 +403,7 @@
                 <option value="solid">ベタ塗り</option>
                 <option value="linear">線形グラデーション</option>
                 <option value="radial">円形グラデーション</option>
+                <option value="none">透明（塗りなし）</option>
             </select>
             <div id="gradientStops">
                 <div class="gradient-stop" data-pos="0">
@@ -2026,8 +2027,16 @@
                 height: h,
                 rotation: 0,
                 opacity: 100,
+                // 塗り設定
+                fillType: 'solid',  // solid, linear, radial, none
                 fill: '#ffffff',
                 fillOpacity: 100,
+                gradientStops: [
+                    { color: '#ffffff', ratio: 50, pos: 0, endPos: 50 },
+                    { color: '#888888', ratio: 50, pos: 50, endPos: 100 }
+                ],
+                gradientAngle: 0,
+                // ストローク設定
                 stroke: '#000000',
                 strokeWidth: 2,
                 strokeOpacity: 100,
@@ -2155,6 +2164,19 @@
                     y: obj.y - obj.height / 2,
                     w: obj.width,
                     h: obj.height
+                };
+            }
+
+            // パス上文字オブジェクトの場合
+            if (obj.type === 'pathText' && obj.path) {
+                const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
+                const xs = absPath.map(p => p.x), ys = absPath.map(p => p.y);
+                const maxFs = obj.chars ? Math.max(...obj.chars.map(c => c.fontSize), 72) : 72;
+                return {
+                    x: Math.min(...xs) - maxFs / 2,
+                    y: Math.min(...ys) - maxFs / 2,
+                    w: Math.max(...xs) - Math.min(...xs) + maxFs,
+                    h: Math.max(...ys) - Math.min(...ys) + maxFs
                 };
             }
 
@@ -2354,9 +2376,40 @@
             ctx.save();
 
             // 塗りつぶし
-            if (obj.fill && obj.fillOpacity > 0) {
+            const fillType = obj.fillType || 'solid';
+            if (fillType !== 'none' && obj.fillOpacity > 0) {
                 ctx.globalAlpha = (obj.fillOpacity || 100) / 100;
-                ctx.fillStyle = obj.fill;
+
+                // グラデーション設定
+                if (fillType === 'linear' || fillType === 'radial') {
+                    let grad;
+                    if (fillType === 'linear') {
+                        const a = (obj.gradientAngle || 0) * Math.PI / 180;
+                        const dx = Math.cos(a) * hw, dy = Math.sin(a) * hh;
+                        grad = ctx.createLinearGradient(obj.x - dx, obj.y - dy, obj.x + dx, obj.y + dy);
+                    } else {
+                        grad = ctx.createRadialGradient(obj.x, obj.y, 0, obj.x, obj.y, Math.max(hw, hh));
+                    }
+
+                    // グラデーションストップ
+                    if (obj.gradientStops && obj.gradientStops.length >= 2) {
+                        obj.gradientStops.forEach((stop, i) => {
+                            if (i === 0) {
+                                grad.addColorStop(0, stop.color);
+                            } else if (i === obj.gradientStops.length - 1) {
+                                grad.addColorStop(1, stop.color);
+                            } else {
+                                grad.addColorStop(stop.pos / 100, stop.color);
+                            }
+                        });
+                    } else {
+                        grad.addColorStop(0, obj.fill || '#ffffff');
+                        grad.addColorStop(1, '#888888');
+                    }
+                    ctx.fillStyle = grad;
+                } else {
+                    ctx.fillStyle = obj.fill || '#ffffff';
+                }
 
                 if (obj.type === 'rect') {
                     ctx.fillRect(obj.x - hw, obj.y - hh, obj.width, obj.height);
@@ -2894,34 +2947,36 @@
                             });
 
                             // Fill
-                            if (c.fillType === 'linear' || c.fillType === 'radial') {
-                                const gh = fs, gw = bw;
-                                let grad;
-                                if (c.fillType === 'linear') {
-                                    const a = (c.gradientAngle || 0) * Math.PI / 180;
-                                    const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
-                                    grad = ctx.createLinearGradient(-dx, gh / 2 - dy, dx, gh / 2 + dy);
+                            if (c.fillType !== 'none') {
+                                if (c.fillType === 'linear' || c.fillType === 'radial') {
+                                    const gh = fs, gw = bw;
+                                    let grad;
+                                    if (c.fillType === 'linear') {
+                                        const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                        const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                        grad = ctx.createLinearGradient(-dx, gh / 2 - dy, dx, gh / 2 + dy);
+                                    } else {
+                                        grad = ctx.createRadialGradient(0, gh / 2, 0, 0, gh / 2, Math.max(gw, gh) / 2);
+                                    }
+                                    if (c.gradientStops && c.gradientStops.length >= 2) {
+                                        c.gradientStops.forEach((stop, i) => {
+                                            const startPos = Math.max(0, stop.pos / 100);
+                                            const endPos = Math.min(1, stop.endPos / 100);
+                                            if (i === 0) grad.addColorStop(0, stop.color);
+                                            else grad.addColorStop(startPos + 0.001, stop.color);
+                                            if (i === c.gradientStops.length - 1) grad.addColorStop(1, stop.color);
+                                            else grad.addColorStop(endPos - 0.001, stop.color);
+                                        });
+                                    } else {
+                                        grad.addColorStop(0, c.color);
+                                        grad.addColorStop(1, c.color2 || '#888');
+                                    }
+                                    ctx.fillStyle = grad;
                                 } else {
-                                    grad = ctx.createRadialGradient(0, gh / 2, 0, 0, gh / 2, Math.max(gw, gh) / 2);
+                                    ctx.fillStyle = c.color;
                                 }
-                                if (c.gradientStops && c.gradientStops.length >= 2) {
-                                    c.gradientStops.forEach((stop, i) => {
-                                        const startPos = Math.max(0, stop.pos / 100);
-                                        const endPos = Math.min(1, stop.endPos / 100);
-                                        if (i === 0) grad.addColorStop(0, stop.color);
-                                        else grad.addColorStop(startPos + 0.001, stop.color);
-                                        if (i === c.gradientStops.length - 1) grad.addColorStop(1, stop.color);
-                                        else grad.addColorStop(endPos - 0.001, stop.color);
-                                    });
-                                } else {
-                                    grad.addColorStop(0, c.color);
-                                    grad.addColorStop(1, c.color2 || '#888');
-                                }
-                                ctx.fillStyle = grad;
-                            } else {
-                                ctx.fillStyle = c.color;
+                                ctx.fillText(dc, 0, 0);
                             }
-                            ctx.fillText(dc, 0, 0);
 
                             ctx.restore();
                             py += getCharHeight(c);
@@ -3080,19 +3135,20 @@
                         });
 
                         // Fill
-                        if (c.fillType === 'linear' || c.fillType === 'radial') {
-                            // Use character width in current coordinate system (after scale)
-                            const gw = bw, gh = fs;
-                            const centerX = gw / 2; // Character center X
-                            let grad;
-                            if (c.fillType === 'linear') {
-                                const a = (c.gradientAngle || 0) * Math.PI / 180;
-                                const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
-                                // Center gradient at character center
-                                grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
-                            } else {
-                                grad = ctx.createRadialGradient(centerX, 0, 0, centerX, 0, Math.max(gw, gh) / 2);
-                            }
+                        if (c.fillType !== 'none') {
+                            if (c.fillType === 'linear' || c.fillType === 'radial') {
+                                // Use character width in current coordinate system (after scale)
+                                const gw = bw, gh = fs;
+                                const centerX = gw / 2; // Character center X
+                                let grad;
+                                if (c.fillType === 'linear') {
+                                    const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                    const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                    // Center gradient at character center
+                                    grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
+                                } else {
+                                    grad = ctx.createRadialGradient(centerX, 0, 0, centerX, 0, Math.max(gw, gh) / 2);
+                                }
                             // Use multiple color stops based on ratio with blur support
                             if (c.gradientStops && c.gradientStops.length >= 2) {
                                 const blur = (c.gradientBlur || 0) / 100; // 0-1 range
@@ -3147,11 +3203,12 @@
                                 grad.addColorStop(0, c.color);
                                 grad.addColorStop(1, c.color2 || '#888');
                             }
-                            ctx.fillStyle = grad;
-                        } else {
-                            ctx.fillStyle = c.color;
+                                ctx.fillStyle = grad;
+                            } else {
+                                ctx.fillStyle = c.color;
+                            }
+                            ctx.fillText(dc, 0, 0);
                         }
-                        ctx.fillText(dc, 0, 0);
 
                         // Gloss - horizontal line at text center, clipped to text shape
                         if (c.glossEnabled) {
