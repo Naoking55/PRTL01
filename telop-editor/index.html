@@ -6190,10 +6190,11 @@
             const isItalic = fontStyle.toLowerCase().includes('italic') ||
                              block.querySelector('text_specification > italic')?.textContent === 'true';
 
-            // 字間・行間
+            // 字間・行間・その他
             const tracking = parseFloat(block.querySelector('text_specification > tracking')?.textContent) || 0;
             const leading = parseFloat(block.querySelector('text_specification > leading')?.textContent) || 0;
             const slant = parseFloat(block.querySelector('text_specification > slant')?.textContent) || 0;
+            const scaleX = parseFloat(block.querySelector('text_specification > aspect')?.textContent) || 100;
 
             // ヘルパー関数: RGBAカラーを抽出
             function extractColor(elem) {
@@ -6469,7 +6470,7 @@
                 }
             }
 
-            return { name, fontFamily, fontSize, isBold, isItalic, tracking, leading, slant, fillColor, fillOpacity, gradient, strokes, shadow, gloss };
+            return { name, fontFamily, fontSize, isBold, isItalic, tracking, leading, slant, scaleX, fillColor, fillOpacity, gradient, strokes, shadow, gloss };
         }
 
         function displayPRSLStyles() {
@@ -6668,6 +6669,7 @@
                 c.opacity = style.fillOpacity || 100;
                 c.tracking = style.tracking || 0;
                 c.slant = style.slant || 0;
+                c.scaleX = style.scaleX || 100;
 
                 // グラデーション/塗り
                 if (style.gradient && style.gradient.stops && style.gradient.stops.length >= 2) {
