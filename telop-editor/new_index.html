@@ -3787,8 +3787,33 @@
                             ctx.fillText(dc, px + charW / 2, ly);
                             ctx.restore();
                         } else {
+                            // エッジタイプ：内側の奥行きストロークの形状全体を囲む
                             ctx.lineWidth = cumulativeWidth * 2;
-                            ctx.strokeText(dc, px + charW / 2, ly);
+
+                            // 内側に奥行きストロークがあるか確認
+                            let hasInnerDepth = false;
+                            for (let j = 0; j < i; j++) {
+                                const innerSt = enabledStrokes[j];
+                                if (innerSt.type === 'depth') {
+                                    hasInnerDepth = true;
+                                    const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
+                                    const depthDx = Math.cos(depthAngle);
+                                    const depthDy = Math.sin(depthAngle);
+
+                                    // 奥行きの全ての層に対してエッジを描画
+                                    for (let d = innerSt.width; d >= 0; d--) {
+                                        ctx.save();
+                                        ctx.translate(d * depthDx, d * depthDy);
+                                        ctx.strokeText(dc, px + charW / 2, ly);
+                                        ctx.restore();
+                                    }
+                                }
+                            }
+
+                            // 内側に奥行きがない場合は通常描画
+                            if (!hasInnerDepth) {
+                                ctx.strokeText(dc, px + charW / 2, ly);
+                            }
                         }
                         ctx.restore();
                     }
@@ -4186,8 +4211,33 @@
                                 ctx.fillText(dc, 0, 0);
                                 ctx.restore();
                             } else {
+                                // エッジタイプ：内側の奥行きストロークの形状全体を囲む
                                 ctx.lineWidth = cumulativeWidth * 2;
-                                ctx.strokeText(dc, 0, 0);
+
+                                // 内側に奥行きストロークがあるか確認
+                                let hasInnerDepth = false;
+                                for (let j = 0; j < i; j++) {
+                                    const innerSt = enabledStrokes[j];
+                                    if (innerSt.type === 'depth') {
+                                        hasInnerDepth = true;
+                                        const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
+                                        const depthDx = Math.cos(depthAngle);
+                                        const depthDy = Math.sin(depthAngle);
+
+                                        // 奥行きの全ての層に対してエッジを描画
+                                        for (let d = innerSt.width; d >= 0; d--) {
+                                            ctx.save();
+                                            ctx.translate(d * depthDx, d * depthDy);
+                                            ctx.strokeText(dc, 0, 0);
+                                            ctx.restore();
+                                        }
+                                    }
+                                }
+
+                                // 内側に奥行きがない場合は通常描画
+                                if (!hasInnerDepth) {
+                                    ctx.strokeText(dc, 0, 0);
+                                }
                             }
                             ctx.restore();
                         }
@@ -4509,8 +4559,33 @@
                                     ctx.fillText(dc, 0, 0);
                                     ctx.restore();
                                 } else {
+                                    // エッジタイプ：内側の奥行きストロークの形状全体を囲む
                                     ctx.lineWidth = cumulativeWidth * 2;
-                                    ctx.strokeText(dc, 0, 0);
+
+                                    // 内側に奥行きストロークがあるか確認
+                                    let hasInnerDepth = false;
+                                    for (let sj = 0; sj < si; sj++) {
+                                        const innerSt = enabledStrokes[sj];
+                                        if (innerSt.type === 'depth') {
+                                            hasInnerDepth = true;
+                                            const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
+                                            const depthDx = Math.cos(depthAngle);
+                                            const depthDy = Math.sin(depthAngle);
+
+                                            // 奥行きの全ての層に対してエッジを描画
+                                            for (let d = innerSt.width; d >= 0; d--) {
+                                                ctx.save();
+                                                ctx.translate(d * depthDx, d * depthDy);
+                                                ctx.strokeText(dc, 0, 0);
+                                                ctx.restore();
+                                            }
+                                        }
+                                    }
+
+                                    // 内側に奥行きがない場合は通常描画
+                                    if (!hasInnerDepth) {
+                                        ctx.strokeText(dc, 0, 0);
+                                    }
                                 }
                                 ctx.restore();
                             }
@@ -4784,9 +4859,33 @@
                                 ctx.fillText(dc, 0, 0);
                                 ctx.restore();
                             } else {
-                                // エッジタイプ
+                                // エッジタイプ：内側の奥行きストロークの形状全体を囲む
                                 ctx.lineWidth = cumulativeWidth * 2;
-                                ctx.strokeText(dc, 0, 0);
+
+                                // 内側に奥行きストロークがあるか確認
+                                let hasInnerDepth = false;
+                                for (let sj = 0; sj < si; sj++) {
+                                    const innerSt = enabledStrokes[sj];
+                                    if (innerSt.type === 'depth') {
+                                        hasInnerDepth = true;
+                                        const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
+                                        const depthDx = Math.cos(depthAngle);
+                                        const depthDy = Math.sin(depthAngle);
+
+                                        // 奥行きの全ての層に対してエッジを描画
+                                        for (let d = innerSt.width; d >= 0; d--) {
+                                            ctx.save();
+                                            ctx.translate(d * depthDx, d * depthDy);
+                                            ctx.strokeText(dc, 0, 0);
+                                            ctx.restore();
+                                        }
+                                    }
+                                }
+
+                                // 内側に奥行きがない場合は通常描画
+                                if (!hasInnerDepth) {
+                                    ctx.strokeText(dc, 0, 0);
+                                }
                             }
                             ctx.restore();
                         }
