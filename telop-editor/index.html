@@ -485,8 +485,69 @@
             canvas.addEventListener('mouseup', onCanvasMouseUp);
             canvas.addEventListener('mouseleave', onCanvasMouseUp);
 
+            // キーボードイベント
+            document.addEventListener('keydown', onKeyDown);
+
             render();
         };
+
+        // キーボードイベント
+        function onKeyDown(e) {
+            const obj = getSelectedObject();
+
+            // テキスト入力中は無視
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+
+            switch (e.key) {
+                case 'Delete':
+                case 'Backspace':
+                    if (obj) {
+                        e.preventDefault();
+                        deleteSelectedObject();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.x -= e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.x += e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowUp':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.y -= e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.y += e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'Escape':
+                    selectedObjectId = null;
+                    updateObjectList();
+                    updatePropertyPanel();
+                    render();
+                    break;
+            }
+        }
 
         // キャンバス座標を取得
         function getCanvasCoords(e) {
@@ -1566,9 +1627,125 @@
                 `適用完了: ${style.name}`;
         }
 
-        // PRTL書き出し（プレースホルダ）
+        // PRTL書き出し
         function exportPRTL() {
-            alert('PRTL書き出し機能は開発中です');
+            if (objects.length === 0) {
+                alert('オブジェクトがありません');
+                return;
+            }
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            let xml = `<?xml version="1.0" encoding="UTF-16"?>\n`;
+            xml += `<PremiereData Version="3">\n`;
+            xml += `  <TitleSpecifics>\n`;
+            xml += `    <Width>${width}</Width>\n`;
+            xml += `    <Height>${height}</Height>\n`;
+            xml += `    <PixelAspectRatio>1.0</PixelAspectRatio>\n`;
+            xml += `    <FieldType>progressiveScan</FieldType>\n`;
+            xml += `    <AudioStreamSpecs></AudioStreamSpecs>\n`;
+
+            // DrawObjects
+            xml += `    <DrawObjects>\n`;
+            xml += `      <NumDrawObjects>${objects.length}</NumDrawObjects>\n`;
+
+            objects.forEach((obj, i) => {
+                xml += `      <DrawObject Index="${i}">\n`;
+                xml += `        <DrawClassName>cTextDraw</DrawClassName>\n`;
+                xml += `        <DrawObjectPaintingRange>normalLayout</DrawObjectPaintingRange>\n`;
+                xml += `        <DrawObjectLayoutInfo>\n`;
+                xml += `          <TextLineReferenceArraySize>1</TextLineReferenceArraySize>\n`;
+                xml += `          <TextLineReferenceIndex0>${i}</TextLineReferenceIndex0>\n`;
+                xml += `        </DrawObjectLayoutInfo>\n`;
+                xml += `        <DrawObjectPosition>\n`;
+                xml += `          <HorizontalPos>${Math.round(obj.x)}</HorizontalPos>\n`;
+                xml += `          <VerticalPos>${Math.round(obj.y)}</VerticalPos>\n`;
+                xml += `        </DrawObjectPosition>\n`;
+                xml += `      </DrawObject>\n`;
+            });
+
+            xml += `    </DrawObjects>\n`;
+
+            // TextLines
+            xml += `    <TextLines>\n`;
+            xml += `      <NumTextLines>${objects.length}</NumTextLines>\n`;
+
+            objects.forEach((obj, i) => {
+                const c = obj.chars[0] || getDefaultStyle();
+                const runCount = obj.text.length + 1;
+                const rgb = hexToRgb(c.color || '#ffffff');
+
+                xml += `      <TextLine Index="${i}">\n`;
+                xml += `        <RunCount>${runCount}</RunCount>\n`;
+                xml += `        <Text>${escapeXml(obj.text)}</Text>\n`;
+                xml += `        <DispPrevTextStyles>1</DispPrevTextStyles>\n`;
+                xml += `        <TextStyleArraySize>1</TextStyleArraySize>\n`;
+                xml += `        <TextStyle Index="0">\n`;
+                xml += `          <RunStart>0</RunStart>\n`;
+                xml += `          <RunCount>${runCount}</RunCount>\n`;
+                xml += `          <DispPrevTextStyles>1</DispPrevTextStyles>\n`;
+                xml += `          <FontName>${escapeXml(c.fontFamily)}</FontName>\n`;
+                xml += `          <FontSize>${c.fontSize}</FontSize>\n`;
+                xml += `          <FontFace>${c.bold ? 'BoldFace' : 'RegularFace'}</FontFace>\n`;
+                xml += `          <FontColor>${rgb.r} ${rgb.g} ${rgb.b}</FontColor>\n`;
+                xml += `          <PainterStyleID>4099</PainterStyleID>\n`;
+                xml += `        </TextStyle>\n`;
+                xml += `        <MarginArraySize>0</MarginArraySize>\n`;
+                xml += `        <VerticalAlignmentAttribute>top</VerticalAlignmentAttribute>\n`;
+                xml += `        <HorizontalAlignmentAttribute>center</HorizontalAlignmentAttribute>\n`;
+                xml += `        <LeadingType>auto</LeadingType>\n`;
+                xml += `        <LeadingValue>${c.leading || 120}</LeadingValue>\n`;
+                xml += `        <BaselineShift>0</BaselineShift>\n`;
+                xml += `        <LineBasedParagraphAlignment>false</LineBasedParagraphAlignment>\n`;
+                xml += `      </TextLine>\n`;
+            });
+
+            xml += `    </TextLines>\n`;
+
+            // MergeGroups, PainterStyles (minimal)
+            xml += `    <MergeGroups>\n`;
+            xml += `      <NumMergeGroups>0</NumMergeGroups>\n`;
+            xml += `    </MergeGroups>\n`;
+            xml += `    <PainterStyles>\n`;
+            xml += `      <NumPainterStyles>0</NumPainterStyles>\n`;
+            xml += `    </PainterStyles>\n`;
+            xml += `    <ShaderReferences>\n`;
+            xml += `      <NumShaderReferences>0</NumShaderReferences>\n`;
+            xml += `    </ShaderReferences>\n`;
+
+            xml += `  </TitleSpecifics>\n`;
+            xml += `</PremiereData>\n`;
+
+            // UTF-16 LE BOM付きで書き出し
+            const blob = new Blob(['\ufeff' + xml], { type: 'text/xml;charset=utf-16le' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'output.prtl';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            document.getElementById('statusBar').textContent = 'PRTL書き出し完了';
+        }
+
+        // 16進数色をRGBに変換
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 255, g: 255, b: 255 };
+        }
+
+        // XMLエスケープ
+        function escapeXml(str) {
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&apos;');
         }
 
         // PRTL読み込み（プレースホルダ）
