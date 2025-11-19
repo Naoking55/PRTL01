@@ -1,0 +1,2736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>テロップエディタ v2.5</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', 'Yu Gothic UI', sans-serif; background: #1e1e1e; color: #e0e0e0; display: flex; height: 100vh; }
+
+        /* Sidebar styles */
+        .sidebar { width: 340px; background: linear-gradient(180deg, #2d2d2d 0%, #252525 100%); padding: 12px; overflow-y: auto; border-right: 1px solid #3a3a3a; }
+        .sidebar h3 { color: #fff; margin: 12px 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar h4 { color: #8a8a8a; margin: 8px 0 4px; font-size: 10px; font-weight: 500; }
+        .sidebar label { display: block; margin: 5px 0 2px; font-size: 10px; color: #aaa; }
+        .sidebar input, .sidebar select {
+            width: 100%; padding: 6px 8px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 11px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .sidebar input:focus, .sidebar select:focus {
+            outline: none;
+            border-color: #0078d4;
+            background: #404040;
+        }
+        .sidebar input[type="color"] { height: 28px; padding: 3px; cursor: pointer; }
+        .sidebar input[type="range"] { padding: 0; accent-color: #0078d4; }
+        .sidebar input[type="checkbox"] { width: auto; margin-right: 6px; accent-color: #0078d4; }
+
+        /* Buttons */
+        .btn {
+            width: 100%; padding: 8px 12px; margin: 3px 0;
+            cursor: pointer; border: none; border-radius: 4px;
+            font-size: 11px; font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: linear-gradient(180deg, #0084e8 0%, #0068b8 100%); color: #fff; }
+        .btn-primary:hover { background: linear-gradient(180deg, #0094f8 0%, #0078d4 100%); }
+        .btn-secondary { background: #4a4a4a; color: #fff; }
+        .btn-secondary:hover { background: #555; }
+        .btn-danger { background: #c42b1c; color: #fff; }
+        .btn-danger:hover { background: #d43; }
+        .btn-small { width: auto; padding: 4px 8px; margin: 2px; font-size: 10px; }
+
+        /* Layer list */
+        .layer-list { background: #1a1a1a; border-radius: 4px; max-height: 80px; overflow-y: auto; border: 1px solid #3a3a3a; }
+        .layer-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a; font-size: 10px; transition: background 0.15s; }
+        .layer-item:hover { background: #3a3a3a; }
+        .layer-item.selected { background: #0078d4; color: #fff; }
+
+        /* Align buttons */
+        .align-buttons { display: flex; gap: 2px; margin: 4px 0; }
+        .align-btn {
+            flex: 1; padding: 6px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 10px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .align-btn:hover { background: #4a4a4a; color: #fff; }
+        .align-btn.active { background: #0078d4; color: #fff; border-color: #0078d4; }
+
+        /* Main area */
+        .main { flex: 1; display: flex; flex-direction: column; padding: 0; min-width: 0; background: #1a1a1a; }
+        .toolbar {
+            display: flex; gap: 8px; padding: 8px 12px;
+            align-items: center; flex-shrink: 0;
+            background: #2d2d2d;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        .toolbar select {
+            padding: 5px 8px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        /* Canvas container */
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #141414;
+            overflow: hidden;
+            position: relative;
+            min-height: 0;
+        }
+        #canvas {
+            background: repeating-conic-gradient(#2a2a2a 0% 25%, #1e1e1e 0% 50%) 50% / 16px 16px;
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        /* Bottom toolbar */
+        .bottom-toolbar {
+            display: flex;
+            padding: 6px 12px;
+            background: #2d2d2d;
+            border-top: 1px solid #3a3a3a;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+        .tool-group {
+            display: flex;
+            gap: 1px;
+            padding: 0 8px;
+            border-right: 1px solid #3a3a3a;
+        }
+        .tool-group:last-child { border-right: none; }
+        .tool-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #aaa;
+            transition: all 0.15s;
+        }
+        .tool-icon:hover { background: #3a3a3a; color: #fff; }
+        .tool-icon.active { background: #0078d4; color: #fff; border-color: #0078d4; }
+        .tool-icon svg { width: 16px; height: 16px; fill: currentColor; }
+        .tool-icon span { font-size: 11px; font-weight: bold; }
+
+        /* Status bar */
+        .status {
+            padding: 6px 12px;
+            background: #252525;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            flex-shrink: 0;
+            color: #888;
+            border-top: 1px solid #3a3a3a;
+        }
+
+        /* Property sections */
+        .char-info { font-size: 9px; color: #666; margin-top: 4px; }
+        .prop-section { background: #1a1a1a; padding: 8px; border-radius: 4px; margin: 6px 0; border: 1px solid #2a2a2a; }
+        .prop-row { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+        .prop-label { font-size: 10px; width: 50px; color: #888; }
+        .prop-input { flex: 1; }
+        .prop-input input { width: 100%; }
+        .row2 { display: flex; gap: 4px; }
+        .row2 > div { flex: 1; }
+        .row2 label { font-size: 9px; }
+        .row3 { display: flex; gap: 4px; }
+        .row3 > div { flex: 1; }
+        .row3 label { font-size: 9px; }
+
+        /* Collapsible sections */
+        .collapsible { cursor: pointer; user-select: none; }
+        .collapsible::before { content: '▼ '; font-size: 8px; color: #666; }
+        .collapsible.collapsed::before { content: '▶ '; }
+        .collapse-content { display: block; }
+        .collapse-content.hidden { display: none; }
+
+        /* Other elements */
+        #imeInput { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; border: none; outline: none; background: transparent; }
+        .stroke-item { background: #2a2a2a; padding: 8px; margin: 4px 0; border-radius: 4px; border: 1px solid #3a3a3a; }
+        .stroke-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .gradient-stop { position: relative; padding-right: 24px; }
+        .gradient-stop .remove-stop {
+            position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+            background: #c42b1c; color: #fff; border: none; border-radius: 3px;
+            width: 18px; height: 18px; font-size: 11px; cursor: pointer; display: none;
+        }
+        .gradient-stop:nth-child(n+3) .remove-stop { display: block; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5a5a5a; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>レイヤー</h3>
+        <div class="layer-list" id="layerList"></div>
+        <div style="display:flex;gap:3px;margin-top:6px;">
+            <button class="btn btn-small btn-secondary" onclick="moveLayerUp()">↑</button>
+            <button class="btn btn-small btn-secondary" onclick="moveLayerDown()">↓</button>
+            <button class="btn btn-small btn-secondary" onclick="alignToCenter('h')">縦中央</button>
+            <button class="btn btn-small btn-secondary" onclick="alignToCenter('v')">横中央</button>
+            <button class="btn btn-small btn-danger" onclick="deleteSelected()">削除</button>
+        </div>
+
+        <div class="prop-section" id="layerProps" style="display:none;">
+            <div class="row2">
+                <div><label>名前</label><input type="text" id="layerName" onchange="updateLayerName()"></div>
+            </div>
+            <div class="row2">
+                <div><label>X</label><input type="number" id="layerX" step="0.1" onchange="updateLayerPosition()"></div>
+                <div><label>Y</label><input type="number" id="layerY" step="0.1" onchange="updateLayerPosition()"></div>
+            </div>
+            <div class="row2">
+                <div><label>幅</label><input type="number" id="layerWidth" step="0.1" onchange="updateLayerSize()"></div>
+                <div><label>高さ</label><input type="number" id="layerHeight" step="0.1" onchange="updateLayerSize()"></div>
+            </div>
+            <div class="row2">
+                <div><label>回転°</label><input type="number" id="layerRotation" step="0.1" value="0" onchange="updateLayerRotation()"></div>
+                <div><label>行間</label><input type="number" id="layerLineHeight" step="0.1" value="1.2" onchange="updateLayerLineHeight()"></div>
+            </div>
+            <div class="prop-row">
+                <span class="prop-label">不透明度</span>
+                <input type="range" id="layerOpacity" min="0" max="100" value="100" oninput="updateLayerOpacity()"><span id="opacityVal">100</span>%
+            </div>
+        </div>
+
+        <h3 class="collapsible" onclick="toggleCollapse(this)">文字スタイル</h3>
+        <div class="collapse-content">
+            <div class="char-info" id="charInfo">文字を選択してください</div>
+
+            <label>フォント</label>
+            <select id="fontFamily" onchange="applyStyle()">
+                <option value="Yu Gothic UI">Yu Gothic UI</option>
+                <option value="Meiryo">メイリオ</option>
+                <option value="MS Gothic">MS ゴシック</option>
+                <option value="Arial">Arial</option>
+                <option value="Impact">Impact</option>
+            </select>
+
+            <div class="row2">
+                <div><label>サイズ</label><input type="number" id="fontSize" min="1" value="72" onchange="applyStyle()"></div>
+                <div><label>縦横比%</label><input type="number" id="charScaleX" min="10" max="400" value="100" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>カーニング</label><input type="number" id="charKerning" step="1" value="0" onchange="applyStyle()"></div>
+                <div><label>トラッキング</label><input type="number" id="charTracking" step="1" value="0" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>ベースライン</label><input type="number" id="charBaseline" step="1" value="0" onchange="applyStyle()"></div>
+                <div><label>傾き°</label><input type="number" id="charSlant" step="0.1" value="0" onchange="applyStyle()"></div>
+            </div>
+
+            <div class="row2">
+                <div><label>不透明度%</label><input type="number" id="charOpacity" min="0" max="100" value="100" onchange="applyStyle()"></div>
+            </div>
+
+            <label><input type="checkbox" id="charSmallCaps" onchange="applyStyle()"> スモールキャップス</label>
+            <div class="row2">
+                <div><label>サイズ%</label><input type="number" id="charSmallCapsSize" min="10" max="100" value="70" onchange="applyStyle()"></div>
+            </div>
+
+            <h4>塗り</h4>
+            <label>種類</label>
+            <select id="fillType" onchange="applyStyle()">
+                <option value="solid">ベタ塗り</option>
+                <option value="linear">線形グラデーション</option>
+                <option value="radial">円形グラデーション</option>
+            </select>
+            <div id="gradientStops">
+                <div class="gradient-stop" data-pos="0">
+                    <div class="row2">
+                        <div><label>色1</label><input type="color" class="grad-color" value="#ffffff" onchange="applyStyle()"></div>
+                        <div><label>比率</label><input type="number" class="grad-ratio" value="50" min="1" max="100" onchange="applyStyle()"></div>
+                    </div>
+                </div>
+                <div class="gradient-stop" data-pos="100">
+                    <div class="row2">
+                        <div><label>色2</label><input type="color" class="grad-color" value="#888888" onchange="applyStyle()"></div>
+                        <div><label>比率</label><input type="number" class="grad-ratio" value="50" min="1" max="100" onchange="applyStyle()"></div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-small btn-secondary" onclick="addGradientStop()">+ 色追加</button>
+            <div class="row2" id="gradientAngleRow">
+                <div><label>角度°</label><input type="number" id="gradientAngle" value="0" step="1" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="gradientBlur" min="0" max="100" value="0" step="1" onchange="applyStyle()"></div>
+            </div>
+
+            <h4>光沢</h4>
+            <label><input type="checkbox" id="glossEnabled" onchange="applyStyle()"> 有効</label>
+            <div class="row2">
+                <div><label>太さ</label><input type="number" id="glossWidth" min="1" max="50" value="10" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="glossBlur" min="0" max="30" value="5" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="glossColor" value="#ffffff" onchange="applyStyle()"></div>
+                <div><label>不透明度%</label><input type="number" id="glossOpacity" min="0" max="100" value="50" onchange="applyStyle()"></div>
+            </div>
+
+            <label>横揃え</label>
+            <div class="align-buttons">
+                <button class="align-btn active" data-align="left" onclick="setTextAlign('left')">左</button>
+                <button class="align-btn" data-align="center" onclick="setTextAlign('center')">中央</button>
+                <button class="align-btn" data-align="right" onclick="setTextAlign('right')">右</button>
+            </div>
+
+            <label>縦揃え</label>
+            <div class="align-buttons">
+                <button class="align-btn" data-valign="top" onclick="setVerticalAlign('top')">上</button>
+                <button class="align-btn active" data-valign="middle" onclick="setVerticalAlign('middle')">中央</button>
+                <button class="align-btn" data-valign="bottom" onclick="setVerticalAlign('bottom')">下</button>
+            </div>
+        </div>
+
+        <h3 class="collapsible" onclick="toggleCollapse(this)">縁取り</h3>
+        <div class="collapse-content">
+            <div id="strokeList"></div>
+            <button class="btn btn-small btn-secondary" onclick="addStroke()">+ ストローク追加</button>
+        </div>
+
+        <h3 class="collapsible" onclick="toggleCollapse(this)">影</h3>
+        <div class="collapse-content">
+            <label><input type="checkbox" id="shadowEnabled" onchange="applyStyle()"> 有効</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="shadowColor" value="#000000" onchange="applyStyle()"></div>
+                <div><label>不透明度%</label><input type="number" id="shadowOpacity" min="0" max="100" value="50" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>角度°</label><input type="number" id="shadowAngle" value="45" step="1" onchange="applyStyle()"></div>
+                <div><label>距離</label><input type="number" id="shadowDistance" value="5" step="1" onchange="applyStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>サイズ</label><input type="number" id="shadowSize" value="0" step="1" onchange="applyStyle()"></div>
+                <div><label>ぼかし</label><input type="number" id="shadowBlur" value="5" step="1" onchange="applyStyle()"></div>
+            </div>
+        </div>
+
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">名前タグ</h3>
+        <div class="collapse-content hidden">
+            <label><input type="checkbox" id="nameTagEnabled" onchange="updateNameTag()"> 有効</label>
+            <label>名前</label>
+            <input type="text" id="nameTagText" placeholder="話者名" onchange="updateNameTag()">
+            <label>フォント</label>
+            <select id="nameTagFont" onchange="updateNameTag()">
+                <option value="Yu Gothic UI">Yu Gothic UI</option>
+                <option value="Meiryo">メイリオ</option>
+                <option value="MS Gothic">MS ゴシック</option>
+                <option value="Arial">Arial</option>
+                <option value="Impact">Impact</option>
+            </select>
+            <div class="row2">
+                <div><label>位置</label><select id="nameTagPosition" onchange="updateNameTag()">
+                    <option value="top-left">左上</option>
+                    <option value="top-center">中央上</option>
+                    <option value="top-right">右上</option>
+                    <option value="bottom-left">左下</option>
+                    <option value="bottom-center">中央下</option>
+                    <option value="bottom-right">右下</option>
+                </select></div>
+                <div><label>間隔</label><input type="number" id="nameTagGap" value="10" step="1" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>文字色</label><input type="color" id="nameTagColor" value="#ffffff" onchange="updateNameTag()"></div>
+                <div><label>サイズ</label><input type="number" id="nameTagSize" value="36" min="1" onchange="updateNameTag()"></div>
+            </div>
+            <h4>背景</h4>
+            <label><input type="checkbox" id="nameTagBgEnabled" checked onchange="updateNameTag()"> 背景表示</label>
+            <div class="row2">
+                <div><label>形状</label><select id="nameTagBgShape" onchange="updateNameTag()">
+                    <option value="rect">四角形</option>
+                    <option value="rounded">角丸</option>
+                    <option value="pill">ピル型</option>
+                </select></div>
+                <div><label>角丸</label><input type="number" id="nameTagBgRadius" value="5" min="0" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>背景色</label><input type="color" id="nameTagBgColor" value="#0078d4" onchange="updateNameTag()"></div>
+                <div><label>不透明度%</label><input type="number" id="nameTagBgOpacity" min="0" max="100" value="100" onchange="updateNameTag()"></div>
+            </div>
+            <div class="row2">
+                <div><label>余白X</label><input type="number" id="nameTagPadX" value="10" min="0" onchange="updateNameTag()"></div>
+                <div><label>余白Y</label><input type="number" id="nameTagPadY" value="5" min="0" onchange="updateNameTag()"></div>
+            </div>
+            <h4>縁取り</h4>
+            <label><input type="checkbox" id="nameTagStrokeEnabled" onchange="updateNameTag()"> 縁取り表示</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="nameTagStrokeColor" value="#ffffff" onchange="updateNameTag()"></div>
+                <div><label>太さ</label><input type="number" id="nameTagStrokeWidth" value="2" min="0" onchange="updateNameTag()"></div>
+            </div>
+        </div>
+
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">吹き出し</h3>
+        <div class="collapse-content hidden">
+            <label><input type="checkbox" id="balloonEnabled" onchange="updateBalloon()"> 有効</label>
+            <div class="row2">
+                <div><label>形状</label><select id="balloonShape" onchange="updateBalloon()">
+                    <option value="rounded">角丸四角</option>
+                    <option value="ellipse">楕円</option>
+                    <option value="cloud">雲形</option>
+                </select></div>
+                <div><label>角丸</label><input type="number" id="balloonRadius" value="20" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <div class="row2">
+                <div><label>余白X</label><input type="number" id="balloonPadX" value="30" min="0" onchange="updateBalloon()"></div>
+                <div><label>余白Y</label><input type="number" id="balloonPadY" value="20" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <h4>塗り</h4>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="balloonFill" value="#ffffff" onchange="updateBalloon()"></div>
+                <div><label>不透明度%</label><input type="number" id="balloonFillOpacity" min="0" max="100" value="100" onchange="updateBalloon()"></div>
+            </div>
+            <h4>縁取り</h4>
+            <label><input type="checkbox" id="balloonStrokeEnabled" checked onchange="updateBalloon()"> 縁取り表示</label>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="balloonStrokeColor" value="#000000" onchange="updateBalloon()"></div>
+                <div><label>太さ</label><input type="number" id="balloonStrokeWidth" value="3" min="0" onchange="updateBalloon()"></div>
+            </div>
+            <h4>しっぽ</h4>
+            <label><input type="checkbox" id="balloonTailEnabled" checked onchange="updateBalloon()"> しっぽ表示</label>
+            <div class="row2">
+                <div><label>方向</label><select id="balloonTailDir" onchange="updateBalloon()">
+                    <option value="bottom">下</option>
+                    <option value="top">上</option>
+                    <option value="left">左</option>
+                    <option value="right">右</option>
+                    <option value="bottom-left">左下</option>
+                    <option value="bottom-right">右下</option>
+                </select></div>
+                <div><label>位置%</label><input type="number" id="balloonTailPos" value="50" min="0" max="100" onchange="updateBalloon()"></div>
+            </div>
+            <div class="row2">
+                <div><label>幅</label><input type="number" id="balloonTailWidth" value="20" min="1" onchange="updateBalloon()"></div>
+                <div><label>長さ</label><input type="number" id="balloonTailLength" value="30" min="1" onchange="updateBalloon()"></div>
+            </div>
+        </div>
+
+        <h3>出力</h3>
+        <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
+        <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
+        <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
+    </div>
+
+    <div class="main">
+        <div class="toolbar">
+            <select id="resolution" onchange="changeResolution()">
+                <option value="1920x1080">1920×1080</option>
+                <option value="3840x2160">3840×2160</option>
+            </select>
+            <span id="toolHint" style="font-size:10px;color:#666;">選択ツール (V)</span>
+        </div>
+        <div class="canvas-container">
+            <canvas id="canvas" width="1920" height="1080"></canvas>
+        </div>
+        <div class="bottom-toolbar">
+            <!-- 選択/回転ツール -->
+            <div class="tool-group">
+                <button class="tool-icon active" id="toolSelect" onclick="setTool('select')" title="選択 (V)">
+                    <svg viewBox="0 0 24 24"><path d="M7 2l10 10-4 1 3 5-2 1-3-5-4 4z"/></svg>
+                </button>
+                <button class="tool-icon" id="toolRotate" onclick="setTool('rotate')" title="回転 (R)">
+                    <svg viewBox="0 0 24 24"><path d="M12 6v3l4-4-4-4v3a8 8 0 00-8 8h2a6 6 0 016-6zm8 2a8 8 0 01-8 8v-3l-4 4 4 4v-3a8 8 0 008-8h-2z"/></svg>
+                </button>
+            </div>
+            <!-- テキストツール -->
+            <div class="tool-group">
+                <button class="tool-icon" id="toolText" onclick="setTool('text')" title="横書きテキスト (T)">
+                    <span>T</span>
+                </button>
+                <button class="tool-icon" id="toolTextV" onclick="setTool('textV')" title="縦書きテキスト">
+                    <span style="font-size:9px;">↓T</span>
+                </button>
+            </div>
+            <!-- 図形ツール -->
+            <div class="tool-group">
+                <button class="tool-icon" id="toolRect" onclick="setTool('rect')" title="長方形">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-icon" id="toolRoundRect" onclick="setTool('roundRect')" title="角丸長方形">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-icon" id="toolEllipse" onclick="setTool('ellipse')" title="楕円">
+                    <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-icon" id="toolTriangle" onclick="setTool('triangle')" title="三角形">
+                    <svg viewBox="0 0 24 24"><path d="M12 4L3 20h18z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-icon" id="toolLine" onclick="setTool('line')" title="ライン">
+                    <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+            </div>
+            <!-- ペンツール -->
+            <div class="tool-group">
+                <button class="tool-icon" id="toolPen" onclick="setTool('pen')" title="ペン">
+                    <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z M3 17l4-4 3 3-4 4-3-3z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-icon" id="toolPathText" onclick="setTool('pathText')" title="パス上文字">
+                    <svg viewBox="0 0 24 24"><path d="M3 17c3-2 6-6 9-6s6 4 9 6" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="10" font-size="8" fill="currentColor" text-anchor="middle">T</text></svg>
+                </button>
+            </div>
+        </div>
+        <div class="status">
+            <span id="statusText">準備完了</span>
+            <span id="resolution-display">1920×1080</span>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+    <input type="text" id="imeInput" autocomplete="off">
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imeInput = document.getElementById('imeInput');
+
+        let textObjects = [];
+        let selectedObjId = null;
+        let selectedCharStart = -1;
+        let selectedCharEnd = -1;
+        let isDragging = false;
+        let isSelecting = false;
+        let isResizing = false;
+        let isRotating = false;
+        let isDrawingShape = false;
+        let resizeHandle = null;
+        let dragOffset = { x: 0, y: 0 };
+        let resizeStart = {};
+        let rotateStart = {};
+        let shapeStart = {};
+        let tempShape = null;
+        let scale = 1;
+        let editingObjId = null;
+        let cursorPos = 0;
+        let cursorVisible = true;
+        let cursorInterval = null;
+        let currentTool = 'select';
+        let isComposing = false;
+        let pathPoints = [];  // パス描画中のポイント
+        let isDrawingPath = false;
+
+        function toggleCollapse(el) {
+            el.classList.toggle('collapsed');
+            el.nextElementSibling.classList.toggle('hidden');
+        }
+
+        function getGradientStopsFromUI() {
+            const rawStops = [];
+            document.querySelectorAll('.gradient-stop').forEach(el => {
+                rawStops.push({
+                    color: el.querySelector('.grad-color').value,
+                    ratio: parseInt(el.querySelector('.grad-ratio').value) || 1
+                });
+            });
+
+            // Calculate positions from ratios
+            const total = rawStops.reduce((sum, s) => sum + s.ratio, 0);
+            const stops = [];
+            let cumulative = 0;
+
+            rawStops.forEach((s, i) => {
+                // Start position of this color's range
+                const startPos = cumulative / total * 100;
+                cumulative += s.ratio;
+                // End position of this color's range
+                const endPos = cumulative / total * 100;
+
+                stops.push({
+                    color: s.color,
+                    ratio: s.ratio,
+                    pos: startPos,
+                    endPos: endPos
+                });
+            });
+
+            return stops;
+        }
+
+        function addGradientStop() {
+            const container = document.getElementById('gradientStops');
+            const stops = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'gradient-stop';
+            div.innerHTML = `
+                <div class="row2">
+                    <div><label>色${stops + 1}</label><input type="color" class="grad-color" value="#cccccc" onchange="applyStyle()"></div>
+                    <div><label>比率</label><input type="number" class="grad-ratio" value="30" min="1" max="100" onchange="applyStyle()"></div>
+                </div>
+                <button class="remove-stop" onclick="this.parentElement.remove();applyStyle()">×</button>
+            `;
+            container.appendChild(div);
+            applyStyle();
+        }
+
+        function getDefaultStyle() {
+            const gradStops = getGradientStopsFromUI();
+            return {
+                fontSize: parseInt(document.getElementById('fontSize').value),
+                fontFamily: document.getElementById('fontFamily').value,
+                fillType: document.getElementById('fillType').value,
+                color: gradStops[0]?.color || '#ffffff',
+                color2: gradStops[gradStops.length - 1]?.color || '#888888',
+                gradientStops: gradStops,
+                gradientAngle: parseInt(document.getElementById('gradientAngle').value),
+                gradientBlur: parseInt(document.getElementById('gradientBlur').value),
+                opacity: parseInt(document.getElementById('charOpacity').value),
+                strokes: getStrokesFromUI(),
+                shadowEnabled: document.getElementById('shadowEnabled').checked,
+                shadowColor: document.getElementById('shadowColor').value,
+                shadowOpacity: parseInt(document.getElementById('shadowOpacity').value),
+                shadowAngle: parseInt(document.getElementById('shadowAngle').value),
+                shadowDistance: parseInt(document.getElementById('shadowDistance').value),
+                shadowSize: parseInt(document.getElementById('shadowSize').value),
+                shadowBlur: parseInt(document.getElementById('shadowBlur').value),
+                glossEnabled: document.getElementById('glossEnabled').checked,
+                glossWidth: parseInt(document.getElementById('glossWidth').value),
+                glossBlur: parseInt(document.getElementById('glossBlur').value),
+                glossColor: document.getElementById('glossColor').value,
+                glossOpacity: parseInt(document.getElementById('glossOpacity').value),
+                scaleX: parseInt(document.getElementById('charScaleX').value),
+                kerning: parseInt(document.getElementById('charKerning').value),
+                tracking: parseInt(document.getElementById('charTracking').value),
+                baselineShift: parseInt(document.getElementById('charBaseline').value),
+                slant: parseFloat(document.getElementById('charSlant').value),
+                smallCaps: document.getElementById('charSmallCaps').checked,
+                smallCapsSize: parseInt(document.getElementById('charSmallCapsSize').value)
+            };
+        }
+
+        function getStrokesFromUI() {
+            const strokes = [];
+            document.querySelectorAll('.stroke-item').forEach((item, i) => {
+                strokes.push({
+                    enabled: item.querySelector('.stroke-enabled').checked,
+                    type: item.querySelector('.stroke-type').value,
+                    color: item.querySelector('.stroke-color').value,
+                    width: parseInt(item.querySelector('.stroke-width').value),
+                    opacity: parseInt(item.querySelector('.stroke-opacity').value),
+                    angle: parseInt(item.querySelector('.stroke-angle').value) || 45,
+                    join: item.querySelector('.stroke-join').value || 'round'
+                });
+            });
+            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45, join: 'round' }];
+        }
+
+        function addStroke() {
+            const list = document.getElementById('strokeList');
+            const idx = list.children.length;
+            const div = document.createElement('div');
+            div.className = 'stroke-item';
+            div.innerHTML = `
+                <div class="stroke-header">
+                    <label><input type="checkbox" class="stroke-enabled" checked onchange="applyStyle()"> ストローク${idx + 1}</label>
+                    <button class="btn btn-small btn-danger" onclick="this.parentElement.parentElement.remove();applyStyle()">×</button>
+                </div>
+                <div class="row2">
+                    <div><label>種類</label><select class="stroke-type" onchange="applyStyle()">
+                        <option value="edge">エッジ</option>
+                        <option value="depth">奥行き</option>
+                        <option value="drop">ドロップ</option>
+                    </select></div>
+                    <div><label>色</label><input type="color" class="stroke-color" value="#000000" onchange="applyStyle()"></div>
+                </div>
+                <div class="row2">
+                    <div><label>太さ</label><input type="number" class="stroke-width" value="4" min="0" max="50" onchange="applyStyle()"></div>
+                    <div><label>不透明度%</label><input type="number" class="stroke-opacity" value="100" min="0" max="100" onchange="applyStyle()"></div>
+                </div>
+                <div class="row2">
+                    <div><label>角度°</label><input type="number" class="stroke-angle" value="45" step="1" onchange="applyStyle()"></div>
+                    <div><label>角</label><select class="stroke-join" onchange="applyStyle()">
+                        <option value="round">丸み</option>
+                        <option value="miter">角</option>
+                        <option value="bevel">面取り</option>
+                    </select></div>
+                </div>
+            `;
+            list.appendChild(div);
+        }
+
+        // 初期ストローク
+        addStroke();
+
+        function setTool(tool) {
+            currentTool = tool;
+            // Update all tool icon states
+            document.querySelectorAll('.tool-icon').forEach(el => el.classList.remove('active'));
+            const toolEl = document.getElementById('tool' + tool.charAt(0).toUpperCase() + tool.slice(1));
+            if (toolEl) toolEl.classList.add('active');
+
+            // Set cursor and hint
+            const toolNames = {
+                select: '選択ツール (V)',
+                rotate: '回転ツール (R)',
+                text: '横書きテキスト (T)',
+                textV: '縦書きテキスト',
+                rect: '長方形ツール',
+                roundRect: '角丸長方形ツール',
+                ellipse: '楕円ツール',
+                triangle: '三角形ツール',
+                line: 'ラインツール',
+                pen: 'ペンツール',
+                pathText: 'パス上文字ツール'
+            };
+            document.getElementById('toolHint').textContent = toolNames[tool] || tool;
+
+            // Set cursor
+            if (tool === 'text' || tool === 'textV') {
+                canvas.style.cursor = 'text';
+            } else if (tool === 'rotate') {
+                canvas.style.cursor = 'grab';
+            } else if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'pathText'].includes(tool)) {
+                canvas.style.cursor = 'crosshair';
+            } else {
+                canvas.style.cursor = 'default';
+            }
+
+            if (tool === 'select' && editingObjId) exitEditMode();
+        }
+
+        function alignToCenter(axis) {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            const bounds = getObjectBounds(obj);
+
+            if (axis === 'h') {
+                // 縦中央 = 水平方向の中央
+                obj.x = canvas.width / 2;
+            } else if (axis === 'v') {
+                // 横中央 = 垂直方向の中央
+                obj.y = canvas.height / 2;
+            }
+
+            updateLayerProps();
+            render();
+        }
+
+        // IME入力対応
+        imeInput.addEventListener('compositionstart', () => { isComposing = true; });
+        imeInput.addEventListener('compositionend', (e) => {
+            isComposing = false;
+            const text = e.data || imeInput.value;
+            if (editingObjId && text) insertText(text);
+            imeInput.value = '';
+        });
+        imeInput.addEventListener('input', (e) => {
+            if (!isComposing && editingObjId) {
+                const text = e.data || imeInput.value;
+                if (text) { insertText(text); imeInput.value = ''; }
+            }
+        });
+        imeInput.addEventListener('blur', (e) => {
+            if (editingObjId) {
+                // 他の入力要素にフォーカスが移った場合はフォーカスを戻さない
+                setTimeout(() => {
+                    const active = document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'BUTTON')) {
+                        return;
+                    }
+                    imeInput.focus();
+                }, 0);
+            }
+        });
+
+        function insertText(text) {
+            const obj = textObjects.find(o => o.id === editingObjId);
+            if (!obj) return;
+            if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                const start = Math.min(selectedCharStart, selectedCharEnd);
+                const end = Math.max(selectedCharStart, selectedCharEnd);
+                obj.chars.splice(start, end - start);
+                cursorPos = start;
+                selectedCharStart = -1;
+                selectedCharEnd = -1;
+            }
+            const style = getDefaultStyle();
+            const chars = text.split('').map(char => ({ char, ...style }));
+            obj.chars.splice(cursorPos, 0, ...chars);
+            cursorPos += chars.length;
+            render();
+            updateLayerList();
+        }
+
+        function getHandleAtPoint(obj, x, y) {
+            const bounds = getObjectBounds(obj);
+            const handles = [
+                { type: 'nw', x: bounds.x, y: bounds.y },
+                { type: 'n', x: bounds.x + bounds.w / 2, y: bounds.y },
+                { type: 'ne', x: bounds.x + bounds.w, y: bounds.y },
+                { type: 'e', x: bounds.x + bounds.w, y: bounds.y + bounds.h / 2 },
+                { type: 'se', x: bounds.x + bounds.w, y: bounds.y + bounds.h },
+                { type: 's', x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h },
+                { type: 'sw', x: bounds.x, y: bounds.y + bounds.h },
+                { type: 'w', x: bounds.x, y: bounds.y + bounds.h / 2 }
+            ];
+            const hs = 8 / scale;
+            for (const h of handles) {
+                if (Math.abs(x - h.x) < hs && Math.abs(y - h.y) < hs) return h.type;
+            }
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            scale = canvas.width / rect.width;
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            if (currentTool === 'select') {
+                if (selectedObjId && !editingObjId) {
+                    const obj = textObjects.find(o => o.id === selectedObjId);
+                    if (obj) {
+                        const handle = getHandleAtPoint(obj, x, y);
+                        if (handle) {
+                            isResizing = true;
+                            resizeHandle = handle;
+                            const bounds = getObjectBounds(obj);
+                            resizeStart = { x, y, bounds, obj: JSON.parse(JSON.stringify(obj)) };
+                            return;
+                        }
+                    }
+                }
+                const obj = findObjectAt(x, y);
+                if (obj) {
+                    selectObject(obj.id);
+                    isDragging = true;
+                    dragOffset = { x: x - obj.x, y: y - obj.y };
+                } else {
+                    selectedObjId = null;
+                    updateLayerList();
+                    updateLayerProps();
+                    render();
+                }
+            } else if (currentTool === 'text') {
+                const obj = findObjectAt(x, y);
+                if (editingObjId) {
+                    if (obj && obj.id === editingObjId) {
+                        const charIdx = getCharIndexAt(obj, x, y);
+                        selectedCharStart = charIdx;
+                        selectedCharEnd = charIdx;
+                        cursorPos = charIdx;
+                        isSelecting = true;
+                        render();
+                    } else {
+                        exitEditMode();
+                        if (obj) {
+                            enterEditMode(obj.id);
+                            cursorPos = getCharIndexAt(obj, x, y);
+                        } else {
+                            createTextObject('', x, y);
+                            enterEditMode(textObjects[textObjects.length - 1].id);
+                        }
+                    }
+                } else if (obj) {
+                    enterEditMode(obj.id);
+                    cursorPos = getCharIndexAt(obj, x, y);
+                    render();
+                } else {
+                    createTextObject('', x, y);
+                    enterEditMode(textObjects[textObjects.length - 1].id);
+                }
+            } else if (currentTool === 'textV') {
+                // 縦書きテキスト
+                const obj = findObjectAt(x, y);
+                if (obj && obj.type === 'text') {
+                    enterEditMode(obj.id);
+                    cursorPos = getCharIndexAt(obj, x, y);
+                    render();
+                } else {
+                    createTextObject('', x, y, true); // vertical=true
+                    enterEditMode(textObjects[textObjects.length - 1].id);
+                }
+            } else if (currentTool === 'rotate') {
+                // 回転ツール
+                const obj = findObjectAt(x, y);
+                if (obj) {
+                    selectObject(obj.id);
+                    isRotating = true;
+                    const bounds = getObjectBounds(obj);
+                    const cx = obj.x, cy = obj.y;
+                    rotateStart = {
+                        angle: Math.atan2(y - cy, x - cx),
+                        rotation: obj.rotation || 0
+                    };
+                }
+            } else if (['rect', 'roundRect', 'ellipse', 'triangle', 'line'].includes(currentTool)) {
+                // 図形描画ツール
+                isDrawingShape = true;
+                shapeStart = { x, y };
+                tempShape = {
+                    type: currentTool,
+                    x1: x, y1: y,
+                    x2: x, y2: y
+                };
+            } else if (currentTool === 'pathText') {
+                // パス上文字ツール - ポイント追加
+                if (!isDrawingPath) {
+                    isDrawingPath = true;
+                    pathPoints = [{ x, y }];
+                } else {
+                    pathPoints.push({ x, y });
+                }
+                render();
+            }
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            // パス上文字ツール - パス完成
+            if (currentTool === 'pathText' && isDrawingPath && pathPoints.length >= 2) {
+                const rect = canvas.getBoundingClientRect();
+                scale = canvas.width / rect.width;
+                const text = prompt('パスに表示するテキストを入力:', 'サンプルテキスト');
+                if (text) {
+                    const pathTextObj = createPathTextObject(text, pathPoints);
+                    textObjects.push(pathTextObj);
+                    selectObject(pathTextObj.id);
+                    updateLayerList();
+                }
+                pathPoints = [];
+                isDrawingPath = false;
+                render();
+                return;
+            }
+
+            if (currentTool !== 'select') return;
+            const rect = canvas.getBoundingClientRect();
+            scale = canvas.width / rect.width;
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+            const obj = findObjectAt(x, y);
+            if (obj) {
+                setTool('text');
+                enterEditMode(obj.id);
+                cursorPos = getCharIndexAt(obj, x, y);
+                render();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * scale;
+            const y = (e.clientY - rect.top) * scale;
+
+            if (isResizing && resizeHandle) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (obj) {
+                    const dx = x - resizeStart.x;
+                    const dy = y - resizeStart.y;
+                    const origBounds = resizeStart.bounds;
+                    let sfX = 1, sfY = 1;
+                    if (resizeHandle.includes('e')) sfX = (origBounds.w + dx) / origBounds.w;
+                    else if (resizeHandle.includes('w')) sfX = (origBounds.w - dx) / origBounds.w;
+                    if (resizeHandle.includes('s')) sfY = (origBounds.h + dy) / origBounds.h;
+                    else if (resizeHandle.includes('n')) sfY = (origBounds.h - dy) / origBounds.h;
+                    if (sfX <= 0) sfX = 0.1;
+                    if (sfY <= 0) sfY = 0.1;
+                    const origObj = resizeStart.obj;
+                    obj.chars.forEach((c, i) => {
+                        if (origObj.chars[i]) {
+                            c.fontSize = Math.max(1, Math.round(origObj.chars[i].fontSize * sfY));
+                            c.scaleX = Math.max(10, Math.round((origObj.chars[i].scaleX || 100) * sfX / sfY));
+                        }
+                    });
+                    render();
+                    updateLayerProps();
+                }
+            } else if (isSelecting && editingObjId) {
+                const obj = textObjects.find(o => o.id === editingObjId);
+                if (obj) { selectedCharEnd = getCharIndexAt(obj, x, y); render(); }
+            } else if (isDragging && selectedObjId) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (obj) { obj.x = x - dragOffset.x; obj.y = y - dragOffset.y; updateLayerProps(); render(); }
+            } else if (currentTool === 'select' && selectedObjId && !editingObjId) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (obj) {
+                    const handle = getHandleAtPoint(obj, x, y);
+                    if (handle) {
+                        const cursors = { nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize', e: 'e-resize', se: 'se-resize', s: 's-resize', sw: 'sw-resize', w: 'w-resize' };
+                        canvas.style.cursor = cursors[handle];
+                    } else canvas.style.cursor = 'default';
+                }
+            } else if (isRotating && selectedObjId) {
+                // 回転処理
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (obj) {
+                    const cx = obj.x, cy = obj.y;
+                    const currentAngle = Math.atan2(y - cy, x - cx);
+                    const deltaAngle = (currentAngle - rotateStart.angle) * 180 / Math.PI;
+                    obj.rotation = rotateStart.rotation + deltaAngle;
+                    updateLayerProps();
+                    render();
+                }
+            } else if (isDrawingShape && tempShape) {
+                // 図形プレビュー
+                tempShape.x2 = x;
+                tempShape.y2 = y;
+                render();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            isSelecting = false;
+            isResizing = false;
+            resizeHandle = null;
+
+            // 回転終了
+            if (isRotating) {
+                isRotating = false;
+            }
+
+            // 図形描画完了
+            if (isDrawingShape && tempShape) {
+                const minSize = 5;
+                const w = Math.abs(tempShape.x2 - tempShape.x1);
+                const h = Math.abs(tempShape.y2 - tempShape.y1);
+                if (w > minSize || h > minSize) {
+                    createShapeObject(tempShape);
+                }
+                isDrawingShape = false;
+                tempShape = null;
+                render();
+            }
+
+            updateCharInfo();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
+            if ((e.key === 't' || e.key === 'T') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('text'); return; }
+            if ((e.key === 'r' || e.key === 'R') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('rotate'); return; }
+            if (!editingObjId) return;
+            if ((e.target.tagName === 'INPUT' && e.target.id !== 'imeInput') || e.target.tagName === 'SELECT') return;
+            if (isComposing) return;
+            const obj = textObjects.find(o => o.id === editingObjId);
+            if (!obj) return;
+
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
+                } else if (cursorPos > 0) { obj.chars.splice(cursorPos - 1, 1); cursorPos--; }
+                render();
+            } else if (e.key === 'Delete') {
+                e.preventDefault();
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                    obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
+                } else if (cursorPos < obj.chars.length) obj.chars.splice(cursorPos, 1);
+                render();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedCharStart = -1;
+
+                if (obj.vertical) {
+                    // 縦書き: Up/Downで文字移動、Left/Rightで列移動
+                    if (e.key === 'ArrowUp') {
+                        if (cursorPos > 0) cursorPos--;
+                    } else if (e.key === 'ArrowDown') {
+                        if (cursorPos < obj.chars.length) cursorPos++;
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                        // 列移動
+                        const lines = getLines(obj);
+                        let cCol = 0, cIdx = 0, count = 0;
+                        for (let li = 0; li < lines.length; li++) {
+                            if (cursorPos <= count + lines[li].length) { cCol = li; cIdx = cursorPos - count; break; }
+                            count += lines[li].length + 1;
+                        }
+                        if (e.key === 'ArrowLeft') {
+                            // 次の列（右から左なので次の列は左）
+                            if (cCol < lines.length - 1) {
+                                let newCount = 0;
+                                for (let li = 0; li <= cCol; li++) newCount += lines[li].length + 1;
+                                cursorPos = Math.min(newCount + cIdx, newCount + lines[cCol + 1].length);
+                            }
+                        } else {
+                            // 前の列
+                            if (cCol > 0) {
+                                let newCount = 0;
+                                for (let li = 0; li < cCol - 1; li++) newCount += lines[li].length + 1;
+                                cursorPos = Math.min(newCount + cIdx, newCount + lines[cCol - 1].length);
+                            }
+                        }
+                    }
+                } else {
+                    // 横書き: Left/Rightで文字移動、Up/Downで行移動
+                    if (e.key === 'ArrowLeft') {
+                        if (cursorPos > 0) cursorPos--;
+                    } else if (e.key === 'ArrowRight') {
+                        if (cursorPos < obj.chars.length) cursorPos++;
+                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        // 行移動
+                        const lines = getLines(obj);
+                        let cLine = 0, cIdx = 0, count = 0;
+                        for (let li = 0; li < lines.length; li++) {
+                            if (cursorPos <= count + lines[li].length) { cLine = li; cIdx = cursorPos - count; break; }
+                            count += lines[li].length + 1;
+                        }
+                        if (e.key === 'ArrowUp' && cLine > 0) {
+                            let newCount = 0;
+                            for (let li = 0; li < cLine - 1; li++) newCount += lines[li].length + 1;
+                            cursorPos = Math.min(newCount + cIdx, newCount + lines[cLine - 1].length);
+                        } else if (e.key === 'ArrowDown' && cLine < lines.length - 1) {
+                            let newCount = 0;
+                            for (let li = 0; li <= cLine; li++) newCount += lines[li].length + 1;
+                            cursorPos = Math.min(newCount + cIdx, newCount + lines[cLine + 1].length);
+                        }
+                    }
+                }
+                render();
+            }
+            else if (e.key === 'Escape') {
+                if (isDrawingPath) {
+                    // Cancel path drawing
+                    pathPoints = [];
+                    isDrawingPath = false;
+                    render();
+                } else {
+                    exitEditMode();
+                    setTool('select');
+                }
+            }
+            else if (e.key === 'Enter') { e.preventDefault(); insertText('\n'); }
+            else if (e.key === 'a' && e.ctrlKey) { e.preventDefault(); selectedCharStart = 0; selectedCharEnd = obj.chars.length; render(); updateCharInfo(); }
+            else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                if (document.activeElement === imeInput) return;
+                e.preventDefault();
+                insertText(e.key);
+            }
+            updateLayerList();
+        });
+
+        function getCharIndexAt(obj, x, y) {
+            const lines = getLines(obj);
+
+            // 縦書きの場合
+            if (obj.vertical) {
+                const colWidth = getVerticalLineWidth(obj) * (obj.lineHeight || 1.2);
+                const totalWidth = lines.length * colWidth;
+
+                let startX = obj.x;
+                if (obj.textAlign === 'center') startX = obj.x + totalWidth / 2 - colWidth / 2;
+                else if (obj.textAlign === 'left') startX = obj.x + totalWidth - colWidth;
+
+                let ci = 0;
+                for (let li = 0; li < lines.length; li++) {
+                    const line = lines[li];
+                    const colX = startX - li * colWidth;
+                    const lineH = getVerticalLineHeight(line);
+
+                    let startY = obj.y;
+                    if (obj.verticalAlign === 'top') startY = obj.y;
+                    else if (obj.verticalAlign === 'bottom') startY = obj.y - lineH;
+                    else startY = obj.y - lineH / 2;
+
+                    // Check if x is in this column
+                    if (x >= colX - colWidth / 2 && x < colX + colWidth / 2) {
+                        let py = startY;
+                        for (let i = 0; i < line.length; i++) {
+                            const h = getCharHeight(line[i]);
+                            if (y < py + h / 2) return ci + i;
+                            py += h;
+                        }
+                        return ci + line.length;
+                    }
+                    ci += line.length + 1;
+                }
+                return obj.chars.length;
+            }
+
+            // 横書きの場合
+            const lh = getLineHeight(obj) * (obj.lineHeight || 1.2);
+            const th = lines.length * lh;
+            let startY = obj.y;
+            if (obj.verticalAlign === 'top') startY = obj.y;
+            else if (obj.verticalAlign === 'bottom') startY = obj.y - th + lh;
+            else startY = obj.y - th / 2 + lh / 2;
+            let ci = 0;
+            for (let li = 0; li < lines.length; li++) {
+                const line = lines[li], lineY = startY + li * lh, lw = getLineWidth(line);
+                let lx = obj.x;
+                if (obj.textAlign === 'center') lx = obj.x - lw / 2;
+                else if (obj.textAlign === 'right') lx = obj.x - lw;
+                if (y >= lineY - lh / 2 && y < lineY + lh / 2) {
+                    let px = lx;
+                    for (let i = 0; i < line.length; i++) {
+                        const w = getCharWidth(line[i]);
+                        if (x < px + w / 2) return ci + i;
+                        px += w;
+                    }
+                    return ci + line.length;
+                }
+                ci += line.length + 1;
+            }
+            return obj.chars.length;
+        }
+
+        function getLines(obj) {
+            const lines = [[]];
+            obj.chars.forEach(c => { if (c.char === '\n') lines.push([]); else lines[lines.length - 1].push(c); });
+            return lines;
+        }
+
+        function getCharWidth(c) {
+            const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) + (c.kerning || 0);
+        }
+
+        function getLineWidth(line) { return line.reduce((w, c) => w + getCharWidth(c), 0); }
+        function getLineHeight(obj) { return Math.max(...obj.chars.map(c => c.fontSize), 72); }
+
+        // Vertical text helpers
+        function getCharHeight(c) {
+            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+            return fs * (c.lineHeight || 1.2) + (c.tracking || 0);
+        }
+        function getVerticalLineHeight(line) { return line.reduce((h, c) => h + getCharHeight(c), 0); }
+        function getVerticalLineWidth(obj) { return Math.max(...obj.chars.map(c => c.fontSize), 72); }
+
+        function createTextObject(text, x, y, vertical = false) {
+            const style = getDefaultStyle();
+            const chars = text.split('').map(char => ({ char, ...style }));
+            const obj = {
+                id: Date.now(),
+                type: 'text',
+                name: (vertical ? '縦書き ' : 'テキスト ') + (textObjects.length + 1),
+                x, y,
+                rotation: 0,
+                opacity: 100,
+                lineHeight: 1.2,
+                textAlign: 'left',
+                verticalAlign: 'middle',
+                vertical: vertical,
+                chars,
+                // Name tag properties
+                nameTag: {
+                    enabled: false,
+                    text: '',
+                    font: 'Yu Gothic UI',
+                    position: 'top-left',
+                    gap: 10,
+                    color: '#ffffff',
+                    size: 36,
+                    bgEnabled: true,
+                    bgShape: 'rounded',
+                    bgRadius: 5,
+                    bgColor: '#0078d4',
+                    bgOpacity: 100,
+                    padX: 10,
+                    padY: 5,
+                    strokeEnabled: false,
+                    strokeColor: '#ffffff',
+                    strokeWidth: 2
+                },
+                // Balloon properties
+                balloon: {
+                    enabled: false,
+                    shape: 'rounded',
+                    radius: 20,
+                    padX: 30,
+                    padY: 20,
+                    fill: '#ffffff',
+                    fillOpacity: 100,
+                    strokeEnabled: true,
+                    strokeColor: '#000000',
+                    strokeWidth: 3,
+                    tailEnabled: true,
+                    tailDir: 'bottom',
+                    tailPos: 50,
+                    tailWidth: 20,
+                    tailLength: 30
+                }
+            };
+            textObjects.push(obj);
+            selectObject(obj.id);
+            updateLayerList();
+            render();
+        }
+
+        function createPathTextObject(text, points) {
+            const style = getDefaultStyle();
+            const chars = text.split('').map(char => ({ char, ...style }));
+
+            // Calculate bounding box and center
+            const xs = points.map(p => p.x), ys = points.map(p => p.y);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+
+            const obj = {
+                id: Date.now(),
+                type: 'pathText',
+                name: 'パス上文字 ' + (textObjects.length + 1),
+                x: cx, y: cy,
+                rotation: 0,
+                opacity: 100,
+                chars,
+                // Store path points relative to center
+                path: points.map(p => ({ x: p.x - cx, y: p.y - cy })),
+                pathOffset: 0,  // Offset along path for text start
+                // Name tag and balloon (disabled for path text)
+                nameTag: { enabled: false },
+                balloon: { enabled: false }
+            };
+            return obj;
+        }
+
+        // Calculate total length of path
+        function getPathLength(points) {
+            let len = 0;
+            for (let i = 1; i < points.length; i++) {
+                const dx = points[i].x - points[i-1].x;
+                const dy = points[i].y - points[i-1].y;
+                len += Math.sqrt(dx * dx + dy * dy);
+            }
+            return len;
+        }
+
+        // Get point and angle at distance along path
+        function getPointAtDistance(points, dist) {
+            let accumulated = 0;
+            for (let i = 1; i < points.length; i++) {
+                const dx = points[i].x - points[i-1].x;
+                const dy = points[i].y - points[i-1].y;
+                const segLen = Math.sqrt(dx * dx + dy * dy);
+
+                if (accumulated + segLen >= dist) {
+                    const t = (dist - accumulated) / segLen;
+                    return {
+                        x: points[i-1].x + dx * t,
+                        y: points[i-1].y + dy * t,
+                        angle: Math.atan2(dy, dx)
+                    };
+                }
+                accumulated += segLen;
+            }
+            // Return last point
+            const last = points[points.length - 1];
+            const prev = points[points.length - 2] || points[0];
+            return {
+                x: last.x,
+                y: last.y,
+                angle: Math.atan2(last.y - prev.y, last.x - prev.x)
+            };
+        }
+
+        function createShapeObject(shape) {
+            const x = Math.min(shape.x1, shape.x2);
+            const y = Math.min(shape.y1, shape.y2);
+            const w = Math.abs(shape.x2 - shape.x1);
+            const h = Math.abs(shape.y2 - shape.y1);
+
+            const obj = {
+                id: Date.now(),
+                type: shape.type,
+                name: getShapeName(shape.type) + ' ' + (textObjects.length + 1),
+                x: x + w / 2,
+                y: y + h / 2,
+                width: w,
+                height: h,
+                rotation: 0,
+                opacity: 100,
+                fill: '#ffffff',
+                fillOpacity: 100,
+                stroke: '#000000',
+                strokeWidth: 2,
+                strokeOpacity: 100,
+                cornerRadius: shape.type === 'roundRect' ? 20 : 0
+            };
+
+            textObjects.push(obj);
+            selectObject(obj.id);
+            updateLayerList();
+            render();
+        }
+
+        function getShapeName(type) {
+            const names = {
+                rect: '長方形',
+                roundRect: '角丸長方形',
+                ellipse: '楕円',
+                triangle: '三角形',
+                line: 'ライン'
+            };
+            return names[type] || '図形';
+        }
+
+        function updateNameTag() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.nameTag) obj.nameTag = {};
+            obj.nameTag.enabled = document.getElementById('nameTagEnabled').checked;
+            obj.nameTag.text = document.getElementById('nameTagText').value;
+            obj.nameTag.font = document.getElementById('nameTagFont').value;
+            obj.nameTag.position = document.getElementById('nameTagPosition').value;
+            obj.nameTag.gap = parseInt(document.getElementById('nameTagGap').value) || 10;
+            obj.nameTag.color = document.getElementById('nameTagColor').value;
+            obj.nameTag.size = parseInt(document.getElementById('nameTagSize').value) || 36;
+            obj.nameTag.bgEnabled = document.getElementById('nameTagBgEnabled').checked;
+            obj.nameTag.bgShape = document.getElementById('nameTagBgShape').value;
+            obj.nameTag.bgRadius = parseInt(document.getElementById('nameTagBgRadius').value) || 5;
+            obj.nameTag.bgColor = document.getElementById('nameTagBgColor').value;
+            obj.nameTag.bgOpacity = parseInt(document.getElementById('nameTagBgOpacity').value) || 100;
+            obj.nameTag.padX = parseInt(document.getElementById('nameTagPadX').value) || 10;
+            obj.nameTag.padY = parseInt(document.getElementById('nameTagPadY').value) || 5;
+            obj.nameTag.strokeEnabled = document.getElementById('nameTagStrokeEnabled').checked;
+            obj.nameTag.strokeColor = document.getElementById('nameTagStrokeColor').value;
+            obj.nameTag.strokeWidth = parseInt(document.getElementById('nameTagStrokeWidth').value) || 2;
+            render();
+        }
+
+        function updateBalloon() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.balloon) obj.balloon = {};
+            obj.balloon.enabled = document.getElementById('balloonEnabled').checked;
+            obj.balloon.shape = document.getElementById('balloonShape').value;
+            obj.balloon.radius = parseInt(document.getElementById('balloonRadius').value) || 20;
+            obj.balloon.padX = parseInt(document.getElementById('balloonPadX').value) || 30;
+            obj.balloon.padY = parseInt(document.getElementById('balloonPadY').value) || 20;
+            obj.balloon.fill = document.getElementById('balloonFill').value;
+            obj.balloon.fillOpacity = parseInt(document.getElementById('balloonFillOpacity').value) || 100;
+            obj.balloon.strokeEnabled = document.getElementById('balloonStrokeEnabled').checked;
+            obj.balloon.strokeColor = document.getElementById('balloonStrokeColor').value;
+            obj.balloon.strokeWidth = parseInt(document.getElementById('balloonStrokeWidth').value) || 3;
+            obj.balloon.tailEnabled = document.getElementById('balloonTailEnabled').checked;
+            obj.balloon.tailDir = document.getElementById('balloonTailDir').value;
+            obj.balloon.tailPos = parseInt(document.getElementById('balloonTailPos').value) || 50;
+            obj.balloon.tailWidth = parseInt(document.getElementById('balloonTailWidth').value) || 20;
+            obj.balloon.tailLength = parseInt(document.getElementById('balloonTailLength').value) || 30;
+            render();
+        }
+
+        function loadNameTagUI(obj) {
+            if (!obj.nameTag) return;
+            document.getElementById('nameTagEnabled').checked = obj.nameTag.enabled || false;
+            document.getElementById('nameTagText').value = obj.nameTag.text || '';
+            document.getElementById('nameTagFont').value = obj.nameTag.font || 'Yu Gothic UI';
+            document.getElementById('nameTagPosition').value = obj.nameTag.position || 'top-left';
+            document.getElementById('nameTagGap').value = obj.nameTag.gap || 10;
+            document.getElementById('nameTagColor').value = obj.nameTag.color || '#ffffff';
+            document.getElementById('nameTagSize').value = obj.nameTag.size || 36;
+            document.getElementById('nameTagBgEnabled').checked = obj.nameTag.bgEnabled !== false;
+            document.getElementById('nameTagBgShape').value = obj.nameTag.bgShape || 'rounded';
+            document.getElementById('nameTagBgRadius').value = obj.nameTag.bgRadius || 5;
+            document.getElementById('nameTagBgColor').value = obj.nameTag.bgColor || '#0078d4';
+            document.getElementById('nameTagBgOpacity').value = obj.nameTag.bgOpacity || 100;
+            document.getElementById('nameTagPadX').value = obj.nameTag.padX || 10;
+            document.getElementById('nameTagPadY').value = obj.nameTag.padY || 5;
+            document.getElementById('nameTagStrokeEnabled').checked = obj.nameTag.strokeEnabled || false;
+            document.getElementById('nameTagStrokeColor').value = obj.nameTag.strokeColor || '#ffffff';
+            document.getElementById('nameTagStrokeWidth').value = obj.nameTag.strokeWidth || 2;
+        }
+
+        function loadBalloonUI(obj) {
+            if (!obj.balloon) return;
+            document.getElementById('balloonEnabled').checked = obj.balloon.enabled || false;
+            document.getElementById('balloonShape').value = obj.balloon.shape || 'rounded';
+            document.getElementById('balloonRadius').value = obj.balloon.radius || 20;
+            document.getElementById('balloonPadX').value = obj.balloon.padX || 30;
+            document.getElementById('balloonPadY').value = obj.balloon.padY || 20;
+            document.getElementById('balloonFill').value = obj.balloon.fill || '#ffffff';
+            document.getElementById('balloonFillOpacity').value = obj.balloon.fillOpacity || 100;
+            document.getElementById('balloonStrokeEnabled').checked = obj.balloon.strokeEnabled !== false;
+            document.getElementById('balloonStrokeColor').value = obj.balloon.strokeColor || '#000000';
+            document.getElementById('balloonStrokeWidth').value = obj.balloon.strokeWidth || 3;
+            document.getElementById('balloonTailEnabled').checked = obj.balloon.tailEnabled !== false;
+            document.getElementById('balloonTailDir').value = obj.balloon.tailDir || 'bottom';
+            document.getElementById('balloonTailPos').value = obj.balloon.tailPos || 50;
+            document.getElementById('balloonTailWidth').value = obj.balloon.tailWidth || 20;
+            document.getElementById('balloonTailLength').value = obj.balloon.tailLength || 30;
+        }
+
+        function findObjectAt(x, y) {
+            for (let i = textObjects.length - 1; i >= 0; i--) {
+                const obj = textObjects[i], b = getObjectBounds(obj);
+                if (x >= b.x - 10 && x <= b.x + b.w + 10 && y >= b.y - 10 && y <= b.y + b.h + 10) return obj;
+            }
+            return null;
+        }
+
+        function getObjectBounds(obj) {
+            // 図形オブジェクトの場合
+            if (['rect', 'roundRect', 'ellipse', 'triangle', 'line'].includes(obj.type)) {
+                return {
+                    x: obj.x - obj.width / 2,
+                    y: obj.y - obj.height / 2,
+                    w: obj.width,
+                    h: obj.height
+                };
+            }
+
+            // テキストオブジェクトの場合
+            if (!obj.chars || obj.chars.length === 0) {
+                return { x: obj.x, y: obj.y, w: 10, h: 72 };
+            }
+
+            // 縦書きテキストの場合
+            if (obj.vertical) {
+                const lines = getLines(obj);
+                const colWidth = getVerticalLineWidth(obj) * (obj.lineHeight || 1.2);
+                const totalWidth = lines.length * colWidth;
+
+                let maxHeight = 0;
+                lines.forEach(l => {
+                    const h = getVerticalLineHeight(l);
+                    if (h > maxHeight) maxHeight = h;
+                });
+
+                // X位置（右から左へ）
+                let right = obj.x;
+                if (obj.textAlign === 'center') right = obj.x + totalWidth / 2;
+                else if (obj.textAlign === 'left') right = obj.x + totalWidth;
+
+                // Y位置
+                let top = obj.y;
+                if (obj.verticalAlign === 'bottom') top = obj.y - maxHeight;
+                else if (obj.verticalAlign === 'middle') top = obj.y - maxHeight / 2;
+
+                return { x: right - totalWidth, y: top, w: totalWidth || 10, h: maxHeight || 72 };
+            }
+
+            // 横書きテキストの場合
+            const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2);
+            let mw = 0;
+            lines.forEach(l => { const w = getLineWidth(l); if (w > mw) mw = w; });
+            const th = lines.length * lh;
+            let left = obj.x;
+            if (obj.textAlign === 'center') left = obj.x - mw / 2;
+            else if (obj.textAlign === 'right') left = obj.x - mw;
+            let top = obj.y - lh / 2;
+            if (obj.verticalAlign === 'bottom') top = obj.y - th + lh / 2;
+            else if (obj.verticalAlign === 'middle') top = obj.y - th / 2;
+            return { x: left, y: top, w: mw || 10, h: th || lh };
+        }
+
+        function selectObject(id) { selectedObjId = id; updateLayerList(); updateLayerProps(); render(); }
+
+        function enterEditMode(id) {
+            editingObjId = id; selectedObjId = id;
+            const obj = textObjects.find(o => o.id === id);
+            cursorPos = obj ? obj.chars.length : 0;
+            cursorVisible = true;
+            if (cursorInterval) clearInterval(cursorInterval);
+            cursorInterval = setInterval(() => { cursorVisible = !cursorVisible; render(); }, 500);
+            imeInput.focus();
+            updateLayerList(); updateLayerProps();
+        }
+
+        function exitEditMode() {
+            if (editingObjId) {
+                const obj = textObjects.find(o => o.id === editingObjId);
+                if (obj && obj.chars.length === 0) { textObjects = textObjects.filter(o => o.id !== editingObjId); selectedObjId = null; }
+            }
+            editingObjId = null; selectedCharStart = -1; selectedCharEnd = -1;
+            if (cursorInterval) clearInterval(cursorInterval);
+            imeInput.blur(); updateLayerList(); render();
+        }
+
+        function applyStyle() {
+            if (!editingObjId) return;
+            const obj = textObjects.find(o => o.id === editingObjId);
+            if (!obj || selectedCharStart === -1 || selectedCharStart === selectedCharEnd) return;
+            const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+            const style = getDefaultStyle();
+            for (let i = s; i < en; i++) Object.assign(obj.chars[i], style);
+            render();
+        }
+
+        function setTextAlign(a) {
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-align="${a}"]`).classList.add('active');
+            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.textAlign = a; render(); } }
+        }
+
+        function setVerticalAlign(a) {
+            document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-valign="${a}"]`).classList.add('active');
+            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.verticalAlign = a; render(); } }
+        }
+
+        function updateCharInfo() {
+            const info = document.getElementById('charInfo');
+            if (editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                info.textContent = `${Math.abs(selectedCharEnd - selectedCharStart)}文字選択中`;
+            } else info.textContent = '文字を選択してください';
+        }
+
+        function deleteSelected() {
+            if (!selectedObjId) return;
+            textObjects = textObjects.filter(o => o.id !== selectedObjId);
+            selectedObjId = null; editingObjId = null;
+            updateLayerList(); updateLayerProps(); render();
+        }
+
+        function moveLayerUp() {
+            if (!selectedObjId) return;
+            const idx = textObjects.findIndex(o => o.id === selectedObjId);
+            if (idx < textObjects.length - 1) { [textObjects[idx], textObjects[idx + 1]] = [textObjects[idx + 1], textObjects[idx]]; updateLayerList(); render(); }
+        }
+
+        function moveLayerDown() {
+            if (!selectedObjId) return;
+            const idx = textObjects.findIndex(o => o.id === selectedObjId);
+            if (idx > 0) { [textObjects[idx], textObjects[idx - 1]] = [textObjects[idx - 1], textObjects[idx]]; updateLayerList(); render(); }
+        }
+
+        function updateLayerName() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.name = document.getElementById('layerName').value; updateLayerList(); } }
+        function updateLayerPosition() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.x = parseFloat(document.getElementById('layerX').value) || 0; obj.y = parseFloat(document.getElementById('layerY').value) || 0; render(); } }
+        function updateLayerRotation() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.rotation = parseFloat(document.getElementById('layerRotation').value) || 0; render(); } }
+        function updateLayerLineHeight() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.lineHeight = parseFloat(document.getElementById('layerLineHeight').value) || 1.2; render(); } }
+        function updateLayerOpacity() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.opacity = parseInt(document.getElementById('layerOpacity').value); document.getElementById('opacityVal').textContent = obj.opacity; render(); } }
+
+        function updateLayerSize() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.chars.length) return;
+            const bounds = getObjectBounds(obj);
+            const newW = parseFloat(document.getElementById('layerWidth').value) || bounds.w;
+            const newH = parseFloat(document.getElementById('layerHeight').value) || bounds.h;
+            const sfX = newW / bounds.w, sfY = newH / bounds.h;
+            obj.chars.forEach(c => {
+                c.fontSize = Math.max(1, Math.round(c.fontSize * sfY));
+                c.scaleX = Math.max(10, Math.round((c.scaleX || 100) * sfX / sfY));
+            });
+            render();
+        }
+
+        function updateLayerProps() {
+            const propsDiv = document.getElementById('layerProps');
+            if (!selectedObjId) { propsDiv.style.display = 'none'; return; }
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) { propsDiv.style.display = 'none'; return; }
+            propsDiv.style.display = 'block';
+            const bounds = getObjectBounds(obj);
+            document.getElementById('layerName').value = obj.name || '';
+            document.getElementById('layerX').value = obj.x.toFixed(1);
+            document.getElementById('layerY').value = obj.y.toFixed(1);
+            document.getElementById('layerWidth').value = bounds.w.toFixed(1);
+            document.getElementById('layerHeight').value = bounds.h.toFixed(1);
+            document.getElementById('layerRotation').value = obj.rotation || 0;
+            document.getElementById('layerLineHeight').value = obj.lineHeight || 1.2;
+            document.getElementById('layerOpacity').value = obj.opacity || 100;
+            document.getElementById('opacityVal').textContent = obj.opacity || 100;
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-align="${obj.textAlign || 'left'}"]`)?.classList.add('active');
+            document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-valign="${obj.verticalAlign || 'middle'}"]`)?.classList.add('active');
+            // Load name tag and balloon UI
+            loadNameTagUI(obj);
+            loadBalloonUI(obj);
+        }
+
+        function updateLayerList() {
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
+            textObjects.slice().reverse().forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'layer-item' + (obj.id === selectedObjId ? ' selected' : '');
+                div.textContent = obj.name || obj.chars.map(c => c.char).join('').substring(0, 10);
+                div.onclick = () => { exitEditMode(); selectObject(obj.id); };
+                div.ondblclick = () => { setTool('text'); enterEditMode(obj.id); };
+                list.appendChild(div);
+            });
+        }
+
+        function drawRoundedRect(ctx, x, y, w, h, r) {
+            r = Math.min(r, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function drawShape(ctx, obj) {
+            const hw = obj.width / 2;
+            const hh = obj.height / 2;
+
+            ctx.save();
+
+            // 塗りつぶし
+            if (obj.fill && obj.fillOpacity > 0) {
+                ctx.globalAlpha = (obj.fillOpacity || 100) / 100;
+                ctx.fillStyle = obj.fill;
+
+                if (obj.type === 'rect') {
+                    ctx.fillRect(obj.x - hw, obj.y - hh, obj.width, obj.height);
+                } else if (obj.type === 'roundRect') {
+                    drawRoundedRect(ctx, obj.x - hw, obj.y - hh, obj.width, obj.height, obj.cornerRadius || 20);
+                    ctx.fill();
+                } else if (obj.type === 'ellipse') {
+                    ctx.beginPath();
+                    ctx.ellipse(obj.x, obj.y, hw, hh, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (obj.type === 'triangle') {
+                    ctx.beginPath();
+                    ctx.moveTo(obj.x, obj.y - hh);
+                    ctx.lineTo(obj.x + hw, obj.y + hh);
+                    ctx.lineTo(obj.x - hw, obj.y + hh);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // 縁取り
+            if (obj.stroke && obj.strokeWidth > 0 && obj.strokeOpacity > 0) {
+                ctx.globalAlpha = (obj.strokeOpacity || 100) / 100;
+                ctx.strokeStyle = obj.stroke;
+                ctx.lineWidth = obj.strokeWidth;
+
+                if (obj.type === 'rect') {
+                    ctx.strokeRect(obj.x - hw, obj.y - hh, obj.width, obj.height);
+                } else if (obj.type === 'roundRect') {
+                    drawRoundedRect(ctx, obj.x - hw, obj.y - hh, obj.width, obj.height, obj.cornerRadius || 20);
+                    ctx.stroke();
+                } else if (obj.type === 'ellipse') {
+                    ctx.beginPath();
+                    ctx.ellipse(obj.x, obj.y, hw, hh, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (obj.type === 'triangle') {
+                    ctx.beginPath();
+                    ctx.moveTo(obj.x, obj.y - hh);
+                    ctx.lineTo(obj.x + hw, obj.y + hh);
+                    ctx.lineTo(obj.x - hw, obj.y + hh);
+                    ctx.closePath();
+                    ctx.stroke();
+                } else if (obj.type === 'line') {
+                    ctx.beginPath();
+                    ctx.moveTo(obj.x - hw, obj.y - hh);
+                    ctx.lineTo(obj.x + hw, obj.y + hh);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawBalloon(ctx, obj, bounds) {
+            const b = obj.balloon;
+            if (!b || !b.enabled) return;
+
+            const padX = b.padX || 30;
+            const padY = b.padY || 20;
+            const bx = bounds.x - padX;
+            const by = bounds.y - padY;
+            const bw = bounds.w + padX * 2;
+            const bh = bounds.h + padY * 2;
+            const radius = b.radius || 20;
+
+            ctx.save();
+
+            // Calculate tail points
+            let tailPoints = null;
+            if (b.tailEnabled) {
+                const tailWidth = b.tailWidth || 20;
+                const tailLength = b.tailLength || 30;
+                const tailPos = (b.tailPos || 50) / 100;
+                const tailDir = b.tailDir || 'bottom';
+
+                let tx, ty, t1x, t1y, t2x, t2y, tipX, tipY;
+
+                if (tailDir === 'bottom' || tailDir === 'bottom-left' || tailDir === 'bottom-right') {
+                    tx = bx + bw * tailPos;
+                    ty = by + bh;
+                    t1x = tx - tailWidth / 2;
+                    t2x = tx + tailWidth / 2;
+                    t1y = t2y = ty;
+                    tipX = tailDir === 'bottom-left' ? tx - tailLength : (tailDir === 'bottom-right' ? tx + tailLength : tx);
+                    tipY = ty + tailLength;
+                } else if (tailDir === 'top') {
+                    tx = bx + bw * tailPos;
+                    ty = by;
+                    t1x = tx - tailWidth / 2;
+                    t2x = tx + tailWidth / 2;
+                    t1y = t2y = ty;
+                    tipX = tx;
+                    tipY = ty - tailLength;
+                } else if (tailDir === 'left') {
+                    tx = bx;
+                    ty = by + bh * tailPos;
+                    t1y = ty - tailWidth / 2;
+                    t2y = ty + tailWidth / 2;
+                    t1x = t2x = tx;
+                    tipX = tx - tailLength;
+                    tipY = ty;
+                } else { // right
+                    tx = bx + bw;
+                    ty = by + bh * tailPos;
+                    t1y = ty - tailWidth / 2;
+                    t2y = ty + tailWidth / 2;
+                    t1x = t2x = tx;
+                    tipX = tx + tailLength;
+                    tipY = ty;
+                }
+                tailPoints = { t1x, t1y, t2x, t2y, tipX, tipY, dir: tailDir };
+            }
+
+            // For rounded rectangle, draw body and tail as single unified path
+            if (b.shape !== 'ellipse' && b.shape !== 'cloud') {
+                const r = Math.min(radius, bw / 2, bh / 2);
+
+                ctx.beginPath();
+                ctx.moveTo(bx + r, by);
+
+                // Top edge
+                if (tailPoints && tailPoints.dir === 'top') {
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                }
+                ctx.lineTo(bx + bw - r, by);
+                ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+
+                // Right edge
+                if (tailPoints && tailPoints.dir === 'right') {
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                }
+                ctx.lineTo(bx + bw, by + bh - r);
+                ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+
+                // Bottom edge
+                if (tailPoints && (tailPoints.dir === 'bottom' || tailPoints.dir === 'bottom-left' || tailPoints.dir === 'bottom-right')) {
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                }
+                ctx.lineTo(bx + r, by + bh);
+                ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+
+                // Left edge
+                if (tailPoints && tailPoints.dir === 'left') {
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t1x, tailPoints.t1y);
+                }
+                ctx.lineTo(bx, by + r);
+                ctx.quadraticCurveTo(bx, by, bx + r, by);
+                ctx.closePath();
+
+                // Fill
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                // Stroke
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
+                    ctx.stroke();
+                }
+            } else if (b.shape === 'ellipse') {
+                // Ellipse shape
+                ctx.beginPath();
+                ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+                ctx.closePath();
+
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                // Draw tail separately for ellipse
+                if (tailPoints) {
+                    ctx.beginPath();
+                    ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // Stroke
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
+                    ctx.beginPath();
+                    ctx.ellipse(bx + bw / 2, by + bh / 2, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    if (tailPoints) {
+                        ctx.beginPath();
+                        ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                        ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                        ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                        ctx.stroke();
+                    }
+                }
+            } else {
+                // Cloud shape
+                const cx = bx + bw / 2, cy = by + bh / 2;
+                const rx = bw / 2, ry = bh / 2;
+                const bumps = 8;
+
+                ctx.beginPath();
+                for (let i = 0; i < bumps; i++) {
+                    const angle = (i / bumps) * Math.PI * 2;
+                    const px = cx + Math.cos(angle) * rx * 0.8;
+                    const py = cy + Math.sin(angle) * ry * 0.8;
+                    const bumpR = Math.min(rx, ry) * 0.4;
+                    if (i === 0) ctx.moveTo(px + bumpR, py);
+                    ctx.arc(px, py, bumpR, 0, Math.PI * 2);
+                }
+                ctx.closePath();
+
+                ctx.globalAlpha = (b.fillOpacity || 100) / 100;
+                ctx.fillStyle = b.fill || '#ffffff';
+                ctx.fill();
+
+                if (tailPoints) {
+                    ctx.beginPath();
+                    ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                    ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                    ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                if (b.strokeEnabled) {
+                    ctx.strokeStyle = b.strokeColor || '#000000';
+                    ctx.lineWidth = b.strokeWidth || 3;
+                    for (let i = 0; i < bumps; i++) {
+                        const angle = (i / bumps) * Math.PI * 2;
+                        const px = cx + Math.cos(angle) * rx * 0.8;
+                        const py = cy + Math.sin(angle) * ry * 0.8;
+                        const bumpR = Math.min(rx, ry) * 0.4;
+                        ctx.beginPath();
+                        ctx.arc(px, py, bumpR, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+
+                    if (tailPoints) {
+                        ctx.beginPath();
+                        ctx.moveTo(tailPoints.t1x, tailPoints.t1y);
+                        ctx.lineTo(tailPoints.tipX, tailPoints.tipY);
+                        ctx.lineTo(tailPoints.t2x, tailPoints.t2y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawNameTag(ctx, obj, bounds) {
+            const nt = obj.nameTag;
+            if (!nt || !nt.enabled || !nt.text) return;
+
+            const fontSize = nt.size || 36;
+            const fontFamily = nt.font || 'Yu Gothic UI';
+            const padX = nt.padX || 10;
+            const padY = nt.padY || 5;
+            const gap = nt.gap || 10;
+
+            ctx.save();
+            ctx.font = `bold ${fontSize}px "${fontFamily}"`;
+            const textWidth = ctx.measureText(nt.text).width;
+            const textHeight = fontSize;
+
+            // Calculate position based on position setting
+            let nx, ny;
+            const pos = nt.position || 'top-left';
+
+            if (pos.includes('left')) {
+                nx = bounds.x;
+            } else if (pos.includes('right')) {
+                nx = bounds.x + bounds.w - textWidth - padX * 2;
+            } else {
+                nx = bounds.x + (bounds.w - textWidth - padX * 2) / 2;
+            }
+
+            if (pos.includes('top')) {
+                ny = bounds.y - gap - textHeight - padY * 2;
+            } else {
+                ny = bounds.y + bounds.h + gap;
+            }
+
+            // Draw background
+            if (nt.bgEnabled) {
+                ctx.globalAlpha = (nt.bgOpacity || 100) / 100;
+                const bgW = textWidth + padX * 2;
+                const bgH = textHeight + padY * 2;
+
+                let radius = nt.bgRadius || 5;
+                if (nt.bgShape === 'pill') {
+                    radius = bgH / 2;
+                } else if (nt.bgShape === 'rect') {
+                    radius = 0;
+                }
+
+                drawRoundedRect(ctx, nx, ny, bgW, bgH, radius);
+                ctx.fillStyle = nt.bgColor || '#0078d4';
+                ctx.fill();
+
+                // Background stroke
+                if (nt.strokeEnabled) {
+                    ctx.strokeStyle = nt.strokeColor || '#ffffff';
+                    ctx.lineWidth = nt.strokeWidth || 2;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw text
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = nt.color || '#ffffff';
+            ctx.textBaseline = 'top';
+            ctx.fillText(nt.text, nx + padX, ny + padY);
+
+            ctx.restore();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            textObjects.forEach(obj => {
+                ctx.save();
+                ctx.globalAlpha = (obj.opacity || 100) / 100;
+                if (obj.rotation) { ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation * Math.PI / 180); ctx.translate(-obj.x, -obj.y); }
+
+                // 図形オブジェクトの描画
+                if (['rect', 'roundRect', 'ellipse', 'triangle', 'line'].includes(obj.type)) {
+                    drawShape(ctx, obj);
+                    ctx.restore();
+
+                    // 選択枠
+                    if (obj.id === selectedObjId) {
+                        const hw = obj.width / 2, hh = obj.height / 2;
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(obj.x - hw - 5, obj.y - hh - 5, obj.width + 10, obj.height + 10);
+                        ctx.setLineDash([]);
+                        const handles = [
+                            { x: obj.x - hw, y: obj.y - hh }, { x: obj.x, y: obj.y - hh }, { x: obj.x + hw, y: obj.y - hh },
+                            { x: obj.x + hw, y: obj.y }, { x: obj.x + hw, y: obj.y + hh },
+                            { x: obj.x, y: obj.y + hh }, { x: obj.x - hw, y: obj.y + hh }, { x: obj.x - hw, y: obj.y }
+                        ];
+                        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
+                        handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
+                    }
+                    return;
+                }
+
+                // パス上文字オブジェクトの描画
+                if (obj.type === 'pathText' && obj.path && obj.chars) {
+                    // Convert relative path points to absolute
+                    const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
+                    const pathLen = getPathLength(absPath);
+
+                    // Draw path line (faded)
+                    if (obj.id === selectedObjId) {
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(0, 120, 212, 0.3)';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(absPath[0].x, absPath[0].y);
+                        for (let i = 1; i < absPath.length; i++) {
+                            ctx.lineTo(absPath[i].x, absPath[i].y);
+                        }
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.restore();
+                    }
+
+                    // Calculate total text width
+                    let totalTextWidth = 0;
+                    obj.chars.forEach(c => { totalTextWidth += getCharWidth(c); });
+
+                    // Start position along path (center text by default)
+                    let dist = (pathLen - totalTextWidth) / 2 + (obj.pathOffset || 0);
+
+                    // Draw each character along path
+                    obj.chars.forEach(c => {
+                        const charW = getCharWidth(c);
+                        const pos = getPointAtDistance(absPath, dist + charW / 2);
+
+                        const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+
+                        ctx.save();
+                        ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+
+                        ctx.translate(pos.x, pos.y);
+                        ctx.rotate(pos.angle);
+
+                        // Strokes
+                        const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                        strokes.slice().reverse().forEach(st => {
+                            if (!st.enabled) return;
+                            ctx.save();
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                            ctx.strokeStyle = st.color;
+                            ctx.lineWidth = st.width * 2;
+                            ctx.lineJoin = st.join || 'round';
+                            ctx.strokeText(dc, 0, 0);
+                            ctx.restore();
+                        });
+
+                        // Fill
+                        ctx.fillStyle = c.color;
+                        ctx.fillText(dc, 0, 0);
+
+                        ctx.restore();
+                        dist += charW;
+                    });
+
+                    // Selection box
+                    if (obj.id === selectedObjId && obj.id !== editingObjId) {
+                        const xs = absPath.map(p => p.x), ys = absPath.map(p => p.y);
+                        const minX = Math.min(...xs), maxX = Math.max(...xs);
+                        const minY = Math.min(...ys), maxY = Math.max(...ys);
+                        const maxFs = Math.max(...obj.chars.map(c => c.fontSize));
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(minX - maxFs/2 - 5, minY - maxFs/2 - 5, maxX - minX + maxFs + 10, maxY - minY + maxFs + 10);
+                        ctx.setLineDash([]);
+                    }
+
+                    ctx.restore();
+                    return;
+                }
+
+                // テキストオブジェクトの描画
+                if (!obj.chars) { ctx.restore(); return; }
+
+                // 縦書きテキストの場合
+                if (obj.vertical) {
+                    const lines = getLines(obj);
+                    const colWidth = getVerticalLineWidth(obj) * (obj.lineHeight || 1.2);
+                    const totalWidth = lines.length * colWidth;
+
+                    // 開始X位置（右から左へ描画）
+                    let startX = obj.x;
+                    if (obj.textAlign === 'center') startX = obj.x + totalWidth / 2 - colWidth / 2;
+                    else if (obj.textAlign === 'left') startX = obj.x + totalWidth - colWidth;
+
+                    // Get bounds for balloon and name tag
+                    const bounds = getObjectBounds(obj);
+                    drawBalloon(ctx, obj, bounds);
+
+                    let ci = 0;
+                    for (let li = 0; li < lines.length; li++) {
+                        const line = lines[li];
+                        const colX = startX - li * colWidth;
+                        const lineH = getVerticalLineHeight(line);
+
+                        // 開始Y位置（縦揃え）
+                        let startY = obj.y;
+                        if (obj.verticalAlign === 'top') startY = obj.y;
+                        else if (obj.verticalAlign === 'bottom') startY = obj.y - lineH;
+                        else startY = obj.y - lineH / 2;
+
+                        // Selection highlight for vertical text
+                        if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                            const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                            let hlY = startY, hlSY = null, hlH = 0;
+                            for (let i = 0; i < line.length; i++) {
+                                const gi = ci + i, h = getCharHeight(line[i]);
+                                if (gi >= s && gi < en) { if (hlSY === null) hlSY = hlY; hlH += h; }
+                                hlY += h;
+                            }
+                            if (hlSY !== null && hlH > 0) {
+                                ctx.fillStyle = 'rgba(0,120,212,0.3)';
+                                ctx.fillRect(colX - colWidth / 2, hlSY, colWidth, hlH);
+                            }
+                        }
+
+                        // Draw characters vertically
+                        let py = startY;
+                        line.forEach(c => {
+                            const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                            const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+                            ctx.save();
+                            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                            ctx.textBaseline = 'top';
+                            ctx.textAlign = 'center';
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+
+                            const bw = ctx.measureText(dc).width;
+                            const sx = (c.scaleX || 100) / 100;
+                            const cx = colX - (c.baselineShift || 0);
+
+                            ctx.translate(cx, py);
+                            if (c.slant) ctx.transform(1, Math.tan(c.slant * Math.PI / 180), 0, 1, 0, 0);
+
+                            // Shadow
+                            if (c.shadowEnabled) {
+                                const sa = (c.shadowAngle || 45) * Math.PI / 180;
+                                const sd = c.shadowDistance || 5;
+                                const sox = Math.cos(sa) * sd, soy = Math.sin(sa) * sd;
+                                ctx.save();
+                                ctx.scale(1, sx);
+                                ctx.translate(sox, soy / sx);
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (c.shadowOpacity || 50) / 100;
+                                ctx.shadowColor = c.shadowColor || '#000';
+                                ctx.shadowBlur = c.shadowBlur || 5;
+                                ctx.fillStyle = c.shadowColor || '#000';
+                                ctx.fillText(dc, 0, 0);
+                                ctx.restore();
+                            }
+
+                            ctx.scale(1, sx);
+
+                            // Strokes
+                            const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                            strokes.slice().reverse().forEach(st => {
+                                if (!st.enabled) return;
+                                ctx.save();
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                                ctx.strokeStyle = st.color;
+                                ctx.lineWidth = st.width * 2;
+                                ctx.lineJoin = st.join || 'round';
+                                ctx.strokeText(dc, 0, 0);
+                                ctx.restore();
+                            });
+
+                            // Fill
+                            if (c.fillType === 'linear' || c.fillType === 'radial') {
+                                const gh = fs, gw = bw;
+                                let grad;
+                                if (c.fillType === 'linear') {
+                                    const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                    const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                    grad = ctx.createLinearGradient(-dx, gh / 2 - dy, dx, gh / 2 + dy);
+                                } else {
+                                    grad = ctx.createRadialGradient(0, gh / 2, 0, 0, gh / 2, Math.max(gw, gh) / 2);
+                                }
+                                if (c.gradientStops && c.gradientStops.length >= 2) {
+                                    c.gradientStops.forEach((stop, i) => {
+                                        const startPos = Math.max(0, stop.pos / 100);
+                                        const endPos = Math.min(1, stop.endPos / 100);
+                                        if (i === 0) grad.addColorStop(0, stop.color);
+                                        else grad.addColorStop(startPos + 0.001, stop.color);
+                                        if (i === c.gradientStops.length - 1) grad.addColorStop(1, stop.color);
+                                        else grad.addColorStop(endPos - 0.001, stop.color);
+                                    });
+                                } else {
+                                    grad.addColorStop(0, c.color);
+                                    grad.addColorStop(1, c.color2 || '#888');
+                                }
+                                ctx.fillStyle = grad;
+                            } else {
+                                ctx.fillStyle = c.color;
+                            }
+                            ctx.fillText(dc, 0, 0);
+
+                            ctx.restore();
+                            py += getCharHeight(c);
+                        });
+                        ci += line.length + 1;
+                    }
+
+                    // Cursor for vertical text
+                    if (obj.id === editingObjId && cursorVisible && selectedCharStart === -1) {
+                        let cCol = 0, cIdx = 0, count = 0;
+                        for (let li = 0; li < lines.length; li++) {
+                            if (cursorPos <= count + lines[li].length) { cCol = li; cIdx = cursorPos - count; break; }
+                            count += lines[li].length + 1;
+                        }
+                        const line = lines[cCol] || [];
+                        const colX = startX - cCol * colWidth;
+                        const lineH = getVerticalLineHeight(line);
+
+                        let cStartY = obj.y;
+                        if (obj.verticalAlign === 'top') cStartY = obj.y;
+                        else if (obj.verticalAlign === 'bottom') cStartY = obj.y - lineH;
+                        else cStartY = obj.y - lineH / 2;
+
+                        let cY = cStartY;
+                        for (let i = 0; i < cIdx; i++) cY += getCharHeight(line[i]);
+
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(colX - colWidth / 2, cY);
+                        ctx.lineTo(colX + colWidth / 2, cY);
+                        ctx.stroke();
+                    }
+
+                    // Selection box for vertical text
+                    if (obj.id === selectedObjId && obj.id !== editingObjId) {
+                        const b = bounds;
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
+                        ctx.setLineDash([]);
+                    }
+
+                    drawNameTag(ctx, obj, bounds);
+                    ctx.restore();
+                    return;
+                }
+
+                // 横書きテキストの描画
+                const lines = getLines(obj), blh = getLineHeight(obj), lh = blh * (obj.lineHeight || 1.2), th = lines.length * lh;
+                let startY = obj.y;
+                if (obj.verticalAlign === 'top') startY = obj.y;
+                else if (obj.verticalAlign === 'bottom') startY = obj.y - th + lh;
+                else startY = obj.y - th / 2 + lh / 2;
+
+                // Get bounds for balloon and name tag
+                const bounds = getObjectBounds(obj);
+
+                // Draw balloon (behind text)
+                drawBalloon(ctx, obj, bounds);
+
+                let ci = 0;
+                for (let li = 0; li < lines.length; li++) {
+                    const line = lines[li], lineY = startY + li * lh, lw = getLineWidth(line);
+                    let lx = obj.x;
+                    if (obj.textAlign === 'center') lx = obj.x - lw / 2;
+                    else if (obj.textAlign === 'right') lx = obj.x - lw;
+
+                    // Selection highlight
+                    if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                        const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
+                        let hlX = lx, hlSX = null, hlW = 0;
+                        for (let i = 0; i < line.length; i++) {
+                            const gi = ci + i, w = getCharWidth(line[i]);
+                            if (gi >= s && gi < en) { if (hlSX === null) hlSX = hlX; hlW += w; }
+                            hlX += w;
+                        }
+                        if (hlSX !== null && hlW > 0) { ctx.fillStyle = 'rgba(0,120,212,0.3)'; ctx.fillRect(hlSX, lineY - lh / 2, hlW, lh); }
+                    }
+
+                    // Draw characters
+                    let px = lx;
+                    line.forEach(c => {
+                        const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+                        ctx.save();
+                        ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                        ctx.textBaseline = 'middle';
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+
+                        const bw = ctx.measureText(dc).width, sx = (c.scaleX || 100) / 100, cy = lineY - (c.baselineShift || 0);
+                        ctx.translate(px, cy);
+                        if (c.slant) ctx.transform(1, 0, Math.tan(c.slant * Math.PI / 180), 1, 0, 0);
+
+                        // Shadow (draw before scale to avoid offset distortion)
+                        if (c.shadowEnabled) {
+                            const sa = (c.shadowAngle || 45) * Math.PI / 180;
+                            const sd = c.shadowDistance || 5;
+                            const sox = Math.cos(sa) * sd, soy = Math.sin(sa) * sd;
+                            ctx.save();
+                            ctx.scale(sx, 1);
+                            ctx.translate(sox / sx, soy); // Adjust for scale
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (c.shadowOpacity || 50) / 100;
+
+                            // Apply blur effect
+                            ctx.shadowColor = c.shadowColor || '#000';
+                            ctx.shadowBlur = c.shadowBlur || 5;
+                            ctx.shadowOffsetX = 0;
+                            ctx.shadowOffsetY = 0;
+
+                            // Shadow size (expansion) using stroke
+                            const shadowSize = c.shadowSize || 0;
+                            if (shadowSize > 0) {
+                                ctx.lineWidth = shadowSize * 2;
+                                ctx.lineJoin = 'round';
+                                ctx.strokeStyle = c.shadowColor || '#000';
+                                ctx.strokeText(dc, 0, 0);
+                            }
+
+                            ctx.fillStyle = c.shadowColor || '#000';
+                            ctx.fillText(dc, 0, 0);
+                            ctx.restore();
+                        }
+
+                        ctx.scale(sx, 1);
+
+                        // Strokes
+                        const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100, join: 'round' }];
+                        strokes.slice().reverse().forEach(st => {
+                            if (!st.enabled) return;
+                            ctx.save();
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                            ctx.strokeStyle = st.color;
+                            ctx.lineWidth = st.width * 2;
+                            ctx.lineJoin = st.join || 'round';
+                            if (st.type === 'depth') {
+                                const depthAngle = (st.angle || 45) * Math.PI / 180;
+                                const depthDx = Math.cos(depthAngle);
+                                const depthDy = Math.sin(depthAngle);
+                                for (let d = st.width; d > 0; d--) {
+                                    ctx.strokeStyle = st.color;
+                                    ctx.lineWidth = 2;
+                                    ctx.save();
+                                    ctx.translate(d * depthDx, d * depthDy);
+                                    ctx.strokeText(dc, 0, 0);
+                                    ctx.restore();
+                                }
+                            } else if (st.type === 'drop') {
+                                ctx.save();
+                                ctx.translate(st.width, st.width);
+                                ctx.fillStyle = st.color;
+                                ctx.fillText(dc, 0, 0);
+                                ctx.restore();
+                            } else {
+                                ctx.strokeText(dc, 0, 0);
+                            }
+                            ctx.restore();
+                        });
+
+                        // Fill
+                        if (c.fillType === 'linear' || c.fillType === 'radial') {
+                            // Use character width in current coordinate system (after scale)
+                            const gw = bw, gh = fs;
+                            const centerX = gw / 2; // Character center X
+                            let grad;
+                            if (c.fillType === 'linear') {
+                                const a = (c.gradientAngle || 0) * Math.PI / 180;
+                                const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                // Center gradient at character center
+                                grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
+                            } else {
+                                grad = ctx.createRadialGradient(centerX, 0, 0, centerX, 0, Math.max(gw, gh) / 2);
+                            }
+                            // Use multiple color stops based on ratio with blur support
+                            if (c.gradientStops && c.gradientStops.length >= 2) {
+                                const blur = (c.gradientBlur || 0) / 100; // 0-1 range
+
+                                c.gradientStops.forEach((stop, i) => {
+                                    const startPos = Math.max(0, stop.pos / 100);
+                                    const endPos = Math.min(1, stop.endPos / 100);
+
+                                    if (blur === 0) {
+                                        // Sharp boundaries
+                                        if (i === 0) {
+                                            grad.addColorStop(0, stop.color);
+                                        } else {
+                                            grad.addColorStop(startPos + 0.001, stop.color);
+                                        }
+                                        if (i === c.gradientStops.length - 1) {
+                                            grad.addColorStop(1, stop.color);
+                                        } else {
+                                            grad.addColorStop(endPos - 0.001, stop.color);
+                                        }
+                                    } else {
+                                        // Smooth transitions with blur
+                                        const blurAmount = blur * 0.5; // Max 50% of range for blur
+
+                                        if (i === 0) {
+                                            grad.addColorStop(0, stop.color);
+                                            // Blend towards next color
+                                            if (i < c.gradientStops.length - 1) {
+                                                const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                                if (blendEnd > 0) grad.addColorStop(blendEnd, stop.color);
+                                            }
+                                        } else if (i === c.gradientStops.length - 1) {
+                                            // Blend from previous color
+                                            const blendStart = Math.max(startPos, startPos + blurAmount);
+                                            if (blendStart < 1) grad.addColorStop(blendStart, stop.color);
+                                            grad.addColorStop(1, stop.color);
+                                        } else {
+                                            // Middle colors - blend on both sides
+                                            const blendStart = Math.max(startPos, startPos + blurAmount);
+                                            const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                            if (blendStart < blendEnd) {
+                                                grad.addColorStop(blendStart, stop.color);
+                                                grad.addColorStop(blendEnd, stop.color);
+                                            } else {
+                                                // Range too small, just use midpoint
+                                                grad.addColorStop((startPos + endPos) / 2, stop.color);
+                                            }
+                                        }
+                                    }
+                                });
+                            } else {
+                                grad.addColorStop(0, c.color);
+                                grad.addColorStop(1, c.color2 || '#888');
+                            }
+                            ctx.fillStyle = grad;
+                        } else {
+                            ctx.fillStyle = c.color;
+                        }
+                        ctx.fillText(dc, 0, 0);
+
+                        // Gloss - horizontal line at text center, clipped to text shape
+                        if (c.glossEnabled) {
+                            const glossWidth = c.glossWidth || 10;
+                            const glossBlur = c.glossBlur || 5;
+                            const glossCol = c.glossColor || '#ffffff';
+                            const glossOpacity = (c.glossOpacity || 50) / 100;
+
+                            // Parse color to get rgb values
+                            const r = parseInt(glossCol.slice(1, 3), 16);
+                            const g = parseInt(glossCol.slice(3, 5), 16);
+                            const bb = parseInt(glossCol.slice(5, 7), 16);
+
+                            // Use temporary canvas for clipping
+                            const tempCanvas = document.createElement('canvas');
+                            tempCanvas.width = bw * 2 + 40;
+                            tempCanvas.height = fs * 2 + 40;
+                            const tempCtx = tempCanvas.getContext('2d');
+                            const tcx = tempCanvas.width / 2;
+                            const tcy = tempCanvas.height / 2;
+
+                            // Draw text as mask
+                            tempCtx.font = ctx.font;
+                            tempCtx.textBaseline = 'middle';
+                            tempCtx.textAlign = 'center';
+                            tempCtx.fillStyle = '#fff';
+                            tempCtx.fillText(dc, tcx, tcy);
+
+                            // Apply gloss only inside text shape
+                            tempCtx.globalCompositeOperation = 'source-in';
+
+                            // Calculate gloss band position - center of text with offset
+                            // Position the gloss line slightly above center for a natural highlight effect
+                            const glossY = tcy - fs * 0.1; // Slightly above center
+                            const bandHeight = glossWidth;
+                            const fadeHeight = glossBlur;
+                            const totalHeight = bandHeight + fadeHeight * 2;
+
+                            // Create horizontal gloss band with soft edges
+                            const glossGrad = tempCtx.createLinearGradient(0, glossY - totalHeight/2, 0, glossY + totalHeight/2);
+
+                            // Gradient: transparent -> opaque -> opaque -> transparent
+                            glossGrad.addColorStop(0, `rgba(${r},${g},${bb},0)`);
+                            if (fadeHeight > 0) {
+                                const fadeRatio = fadeHeight / totalHeight;
+                                glossGrad.addColorStop(fadeRatio, `rgba(${r},${g},${bb},${glossOpacity})`);
+                                glossGrad.addColorStop(1 - fadeRatio, `rgba(${r},${g},${bb},${glossOpacity})`);
+                            } else {
+                                glossGrad.addColorStop(0.01, `rgba(${r},${g},${bb},${glossOpacity})`);
+                                glossGrad.addColorStop(0.99, `rgba(${r},${g},${bb},${glossOpacity})`);
+                            }
+                            glossGrad.addColorStop(1, `rgba(${r},${g},${bb},0)`);
+
+                            tempCtx.fillStyle = glossGrad;
+                            tempCtx.fillRect(0, glossY - totalHeight/2, tempCanvas.width, totalHeight);
+
+                            // Draw gloss overlay on main canvas
+                            ctx.drawImage(tempCanvas, -tcx, -tcy);
+                        }
+
+                        ctx.restore();
+                        px += getCharWidth(c);
+                    });
+                    ci += line.length + 1;
+                }
+
+                // Cursor
+                if (obj.id === editingObjId && cursorVisible && selectedCharStart === -1) {
+                    let cLine = 0, cIdx = 0, count = 0;
+                    for (let li = 0; li < lines.length; li++) {
+                        if (cursorPos <= count + lines[li].length) { cLine = li; cIdx = cursorPos - count; break; }
+                        count += lines[li].length + 1;
+                    }
+                    const line = lines[cLine] || [], lineY = startY + cLine * lh, lw = getLineWidth(line);
+                    let clx = obj.x;
+                    if (obj.textAlign === 'center') clx = obj.x - lw / 2;
+                    else if (obj.textAlign === 'right') clx = obj.x - lw;
+                    let cX = clx;
+                    for (let i = 0; i < cIdx; i++) cX += getCharWidth(line[i]);
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(cX, lineY - lh / 2); ctx.lineTo(cX, lineY + lh / 2); ctx.stroke();
+                }
+
+                ctx.restore();
+
+                // Draw name tag (after text)
+                drawNameTag(ctx, obj, bounds);
+
+                // Selection box and handles
+                if (obj.id === selectedObjId && obj.id !== editingObjId) {
+                    const b = getObjectBounds(obj);
+                    ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
+                    ctx.setLineDash([]);
+                    const handles = [
+                        { x: b.x, y: b.y }, { x: b.x + b.w / 2, y: b.y }, { x: b.x + b.w, y: b.y },
+                        { x: b.x + b.w, y: b.y + b.h / 2 }, { x: b.x + b.w, y: b.y + b.h },
+                        { x: b.x + b.w / 2, y: b.y + b.h }, { x: b.x, y: b.y + b.h }, { x: b.x, y: b.y + b.h / 2 }
+                    ];
+                    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
+                    handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
+                }
+            });
+
+            // 図形描画プレビュー
+            if (tempShape && isDrawingShape) {
+                ctx.save();
+                ctx.strokeStyle = '#0078d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                const x = Math.min(tempShape.x1, tempShape.x2);
+                const y = Math.min(tempShape.y1, tempShape.y2);
+                const w = Math.abs(tempShape.x2 - tempShape.x1);
+                const h = Math.abs(tempShape.y2 - tempShape.y1);
+
+                if (tempShape.type === 'rect') {
+                    ctx.strokeRect(x, y, w, h);
+                } else if (tempShape.type === 'roundRect') {
+                    const r = Math.min(20, w / 2, h / 2);
+                    drawRoundedRect(ctx, x, y, w, h, r);
+                    ctx.stroke();
+                } else if (tempShape.type === 'ellipse') {
+                    ctx.beginPath();
+                    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (tempShape.type === 'triangle') {
+                    ctx.beginPath();
+                    ctx.moveTo(x + w / 2, y);
+                    ctx.lineTo(x + w, y + h);
+                    ctx.lineTo(x, y + h);
+                    ctx.closePath();
+                    ctx.stroke();
+                } else if (tempShape.type === 'line') {
+                    ctx.beginPath();
+                    ctx.moveTo(tempShape.x1, tempShape.y1);
+                    ctx.lineTo(tempShape.x2, tempShape.y2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // パス描画プレビュー
+            if (isDrawingPath && pathPoints.length > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#0078d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+                for (let i = 1; i < pathPoints.length; i++) {
+                    ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw points
+                ctx.fillStyle = '#0078d4';
+                pathPoints.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.restore();
+            }
+
+            document.getElementById('statusText').textContent = editingObjId ? '編集中 (Esc終了)' : (isDrawingPath ? `パス描画中 (${pathPoints.length}点) - ダブルクリックで完成` : `オブジェクト: ${textObjects.length}`);
+        }
+
+        function changeResolution() {
+            const [w, h] = document.getElementById('resolution').value.split('x').map(Number);
+            canvas.width = w; canvas.height = h;
+            document.getElementById('resolution-display').textContent = `${w}×${h}`;
+            render();
+        }
+
+        function exportPNG() {
+            exitEditMode(); selectedObjId = null; render();
+            const link = document.createElement('a');
+            link.download = `telop_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function saveProject() {
+            const project = { version: '2.5', resolution: document.getElementById('resolution').value, objects: textObjects };
+            const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = `telop_${Date.now()}.json`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        }
+
+        function loadProject() { document.getElementById('fileInput').click(); }
+
+        function handleFileLoad(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const p = JSON.parse(ev.target.result);
+                    if (p.resolution) { document.getElementById('resolution').value = p.resolution; changeResolution(); }
+                    textObjects = p.objects || [];
+                    textObjects.forEach(obj => {
+                        if (!obj.name) obj.name = 'テキスト';
+                        if (!obj.textAlign) obj.textAlign = 'left';
+                        if (!obj.verticalAlign) obj.verticalAlign = 'middle';
+                        if (obj.opacity === undefined) obj.opacity = 100;
+                        if (obj.rotation === undefined) obj.rotation = 0;
+                        if (obj.lineHeight === undefined) obj.lineHeight = 1.2;
+                        // Initialize name tag properties
+                        if (!obj.nameTag) {
+                            obj.nameTag = {
+                                enabled: false, text: '', font: 'Yu Gothic UI', position: 'top-left', gap: 10,
+                                color: '#ffffff', size: 36, bgEnabled: true, bgShape: 'rounded',
+                                bgRadius: 5, bgColor: '#0078d4', bgOpacity: 100, padX: 10, padY: 5,
+                                strokeEnabled: false, strokeColor: '#ffffff', strokeWidth: 2
+                            };
+                        }
+                        // Ensure font property exists for older projects
+                        if (obj.nameTag && !obj.nameTag.font) {
+                            obj.nameTag.font = 'Yu Gothic UI';
+                        }
+                        // Initialize balloon properties
+                        if (!obj.balloon) {
+                            obj.balloon = {
+                                enabled: false, shape: 'rounded', radius: 20, padX: 30, padY: 20,
+                                fill: '#ffffff', fillOpacity: 100, strokeEnabled: true,
+                                strokeColor: '#000000', strokeWidth: 3, tailEnabled: true,
+                                tailDir: 'bottom', tailPos: 50, tailWidth: 20, tailLength: 30
+                            };
+                        }
+                        obj.chars.forEach(c => {
+                            if (c.scaleX === undefined) c.scaleX = 100;
+                            if (c.opacity === undefined) c.opacity = 100;
+                            if (c.fillType === undefined) c.fillType = 'solid';
+                            if (!c.strokes) c.strokes = [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                        });
+                    });
+                    selectedObjId = null; editingObjId = null;
+                    updateLayerList(); updateLayerProps(); render();
+                } catch { alert('読込失敗'); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        render();
+    </script>
+</body>
+</html>
