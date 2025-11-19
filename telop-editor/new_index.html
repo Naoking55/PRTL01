@@ -3800,13 +3800,12 @@
                                     const depthDx = Math.cos(depthAngle);
                                     const depthDy = Math.sin(depthAngle);
 
-                                    // 奥行きの全ての層に対してエッジを描画
-                                    for (let d = innerSt.width; d >= 0; d--) {
-                                        ctx.save();
-                                        ctx.translate(d * depthDx, d * depthDy);
-                                        ctx.strokeText(dc, px + charW / 2, ly);
-                                        ctx.restore();
-                                    }
+                                    // 奥行きの端点のみでエッジを描画（均等な幅を実現）
+                                    ctx.strokeText(dc, px + charW / 2, ly);
+                                    ctx.save();
+                                    ctx.translate(innerSt.width * depthDx, innerSt.width * depthDy);
+                                    ctx.strokeText(dc, px + charW / 2, ly);
+                                    ctx.restore();
                                 }
                             }
 
@@ -4224,13 +4223,12 @@
                                         const depthDx = Math.cos(depthAngle);
                                         const depthDy = Math.sin(depthAngle);
 
-                                        // 奥行きの全ての層に対してエッジを描画
-                                        for (let d = innerSt.width; d >= 0; d--) {
-                                            ctx.save();
-                                            ctx.translate(d * depthDx, d * depthDy);
-                                            ctx.strokeText(dc, 0, 0);
-                                            ctx.restore();
-                                        }
+                                        // 奥行きの端点のみでエッジを描画（均等な幅を実現）
+                                        ctx.strokeText(dc, 0, 0);
+                                        ctx.save();
+                                        ctx.translate(innerSt.width * depthDx, innerSt.width * depthDy);
+                                        ctx.strokeText(dc, 0, 0);
+                                        ctx.restore();
                                     }
                                 }
 
@@ -4572,13 +4570,12 @@
                                             const depthDx = Math.cos(depthAngle);
                                             const depthDy = Math.sin(depthAngle);
 
-                                            // 奥行きの全ての層に対してエッジを描画
-                                            for (let d = innerSt.width; d >= 0; d--) {
-                                                ctx.save();
-                                                ctx.translate(d * depthDx, d * depthDy);
-                                                ctx.strokeText(dc, 0, 0);
-                                                ctx.restore();
-                                            }
+                                            // 奥行きの端点のみでエッジを描画（均等な幅を実現）
+                                            ctx.strokeText(dc, 0, 0);
+                                            ctx.save();
+                                            ctx.translate(innerSt.width * depthDx, innerSt.width * depthDy);
+                                            ctx.strokeText(dc, 0, 0);
+                                            ctx.restore();
                                         }
                                     }
 
@@ -4872,13 +4869,14 @@
                                         const depthDx = Math.cos(depthAngle);
                                         const depthDy = Math.sin(depthAngle);
 
-                                        // 奥行きの全ての層に対してエッジを描画
-                                        for (let d = innerSt.width; d >= 0; d--) {
-                                            ctx.save();
-                                            ctx.translate(d * depthDx, d * depthDy);
-                                            ctx.strokeText(dc, 0, 0);
-                                            ctx.restore();
-                                        }
+                                        // 奥行きの端点のみでエッジを描画（均等な幅を実現）
+                                        // d=0（元の文字位置）でエッジを描画
+                                        ctx.strokeText(dc, 0, 0);
+                                        // d=width（奥行きの端）でエッジを描画
+                                        ctx.save();
+                                        ctx.translate(innerSt.width * depthDx, innerSt.width * depthDy);
+                                        ctx.strokeText(dc, 0, 0);
+                                        ctx.restore();
                                     }
                                 }
 
