@@ -4859,7 +4859,7 @@
                             ctx.fillText(dc, 0, 0);
                         }
 
-                        // Gloss - horizontal line at text center, clipped to text shape
+                        // Gloss - horizontal band at text center, clipped to text shape
                         if (c.glossEnabled) {
                             const glossWidth = c.glossWidth || 10;
                             const glossBlur = c.glossBlur || 5;
@@ -4867,55 +4867,59 @@
                             const glossOpacity = (c.glossOpacity || 50) / 100;
 
                             // Parse color to get rgb values
-                            const r = parseInt(glossCol.slice(1, 3), 16);
-                            const g = parseInt(glossCol.slice(3, 5), 16);
-                            const bb = parseInt(glossCol.slice(5, 7), 16);
+                            const gr = parseInt(glossCol.slice(1, 3), 16);
+                            const gg = parseInt(glossCol.slice(3, 5), 16);
+                            const gb = parseInt(glossCol.slice(5, 7), 16);
 
-                            // Use temporary canvas for clipping
+                            // Create temporary canvas for clipping gloss to text shape
                             const tempCanvas = document.createElement('canvas');
-                            tempCanvas.width = bw * 2 + 40;
-                            tempCanvas.height = fs * 2 + 40;
+                            const margin = 20;
+                            const charWidth = bw * sx; // Account for scale
+                            tempCanvas.width = charWidth + margin * 2;
+                            tempCanvas.height = fs + margin * 2;
                             const tempCtx = tempCanvas.getContext('2d');
-                            const tcx = tempCanvas.width / 2;
-                            const tcy = tempCanvas.height / 2;
 
-                            // Draw text as mask
+                            // Draw character as mask (centered in temp canvas)
                             tempCtx.font = ctx.font;
                             tempCtx.textBaseline = 'middle';
                             tempCtx.textAlign = 'center';
+                            tempCtx.scale(sx, 1); // Apply same scale as main canvas
                             tempCtx.fillStyle = '#fff';
-                            tempCtx.fillText(dc, tcx, tcy);
+                            tempCtx.fillText(dc, (charWidth + margin * 2) / (2 * sx), tempCanvas.height / 2);
 
                             // Apply gloss only inside text shape
                             tempCtx.globalCompositeOperation = 'source-in';
 
-                            // Calculate gloss band position - center of text with offset
-                            // Position the gloss line slightly above center for a natural highlight effect
-                            const glossY = tcy - fs * 0.1; // Slightly above center
+                            // Calculate gloss band position - at text center
                             const bandHeight = glossWidth;
                             const fadeHeight = glossBlur;
                             const totalHeight = bandHeight + fadeHeight * 2;
+                            const glossY = tempCanvas.height / 2; // Center of temp canvas
 
-                            // Create horizontal gloss band with soft edges
+                            // Create horizontal gloss band with soft edges (vertical gradient)
+                            tempCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for gradient
                             const glossGrad = tempCtx.createLinearGradient(0, glossY - totalHeight/2, 0, glossY + totalHeight/2);
 
                             // Gradient: transparent -> opaque -> opaque -> transparent
-                            glossGrad.addColorStop(0, `rgba(${r},${g},${bb},0)`);
-                            if (fadeHeight > 0) {
-                                const fadeRatio = fadeHeight / totalHeight;
-                                glossGrad.addColorStop(fadeRatio, `rgba(${r},${g},${bb},${glossOpacity})`);
-                                glossGrad.addColorStop(1 - fadeRatio, `rgba(${r},${g},${bb},${glossOpacity})`);
+                            glossGrad.addColorStop(0, `rgba(${gr},${gg},${gb},0)`);
+                            if (fadeHeight > 0 && totalHeight > 0) {
+                                const fadeRatio = Math.min(0.49, fadeHeight / totalHeight);
+                                glossGrad.addColorStop(fadeRatio, `rgba(${gr},${gg},${gb},${glossOpacity})`);
+                                glossGrad.addColorStop(1 - fadeRatio, `rgba(${gr},${gg},${gb},${glossOpacity})`);
                             } else {
-                                glossGrad.addColorStop(0.01, `rgba(${r},${g},${bb},${glossOpacity})`);
-                                glossGrad.addColorStop(0.99, `rgba(${r},${g},${bb},${glossOpacity})`);
+                                glossGrad.addColorStop(0.01, `rgba(${gr},${gg},${gb},${glossOpacity})`);
+                                glossGrad.addColorStop(0.99, `rgba(${gr},${gg},${gb},${glossOpacity})`);
                             }
-                            glossGrad.addColorStop(1, `rgba(${r},${g},${bb},0)`);
+                            glossGrad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
 
                             tempCtx.fillStyle = glossGrad;
                             tempCtx.fillRect(0, glossY - totalHeight/2, tempCanvas.width, totalHeight);
 
-                            // Draw gloss overlay on main canvas
-                            ctx.drawImage(tempCanvas, -tcx, -tcy);
+                            // Draw gloss on main canvas (position relative to character center)
+                            ctx.save();
+                            ctx.scale(1/sx, 1); // Undo scale for drawing temp canvas
+                            ctx.drawImage(tempCanvas, -tempCanvas.width/2, -tempCanvas.height/2);
+                            ctx.restore();
                         }
 
                         ctx.restore();
