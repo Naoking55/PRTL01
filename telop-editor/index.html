@@ -6201,14 +6201,6 @@
             let gradient = null;
 
             const colouring = block.querySelector('face > shader > colouring');
-
-            // デバッグ: colouringの中身を確認
-            if (colouring) {
-                console.log(`[PRSL Debug] ${name} - colouring children:`,
-                    Array.from(colouring.children).map(c => c.tagName));
-                console.log(`[PRSL Debug] ${name} - colouring innerHTML:`, colouring.innerHTML.substring(0, 500));
-            }
-
             if (colouring) {
                 // four_colour_ramp（上下2色グラデーション）
                 const fourColourRamp = colouring.querySelector('four_colour_ramp');
@@ -6344,9 +6336,49 @@
                 let strokeGradient = null;
 
                 if (embColouring) {
-                    // ストロークのグラデーション
+                    // ストロークの four_colour_ramp
+                    const embFourRamp = embColouring.querySelector('four_colour_ramp');
+                    if (embFourRamp) {
+                        const topLeft = embFourRamp.querySelector('top_left');
+                        const bottomLeft = embFourRamp.querySelector('bottom_left');
+                        const topColor = topLeft ? extractColor(topLeft) : null;
+                        const bottomColor = bottomLeft ? extractColor(bottomLeft) : null;
+                        if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
+                            strokeGradient = {
+                                type: 'linear',
+                                angle: 180,
+                                stops: [
+                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                                ]
+                            };
+                            strokeColor = topColor.hex;
+                        }
+                    }
+
+                    // ストロークの two_colour_ramp
+                    const embTwoRamp = embColouring.querySelector('two_colour_ramp');
+                    if (!strokeGradient && embTwoRamp) {
+                        const top = embTwoRamp.querySelector('top');
+                        const bottom = embTwoRamp.querySelector('bottom');
+                        const topColor = top ? extractColor(top) : null;
+                        const bottomColor = bottom ? extractColor(bottom) : null;
+                        if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
+                            strokeGradient = {
+                                type: 'linear',
+                                angle: 180,
+                                stops: [
+                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                                ]
+                            };
+                            strokeColor = topColor.hex;
+                        }
+                    }
+
+                    // ストロークのlinear_gradient
                     const embLinearGrad = embColouring.querySelector('linear_gradient');
-                    if (embLinearGrad) {
+                    if (!strokeGradient && embLinearGrad) {
                         const angle = parseFloat(embLinearGrad.querySelector('angle')?.textContent) || 0;
                         const stops = [];
                         embLinearGrad.querySelectorAll('stop').forEach(stop => {
@@ -6609,12 +6641,6 @@
 
             const style = loadedPRSLStyles[index];
             if (!style) return;
-
-            // デバッグ: パースされたスタイルをコンソールに出力
-            console.log('Applying PRSL style:', style.name);
-            console.log('  fillColor:', style.fillColor);
-            console.log('  gradient:', style.gradient);
-            console.log('  strokes:', style.strokes);
 
             saveState();
 
