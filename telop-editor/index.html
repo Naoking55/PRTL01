@@ -6185,34 +6185,177 @@
             const fontFamily = block.querySelector('font > family')?.textContent || 'Yu Gothic UI';
             const fontSize = parseFloat(block.querySelector('text_specification > size')?.textContent) || 72;
 
-            // 塗り色（solid_colour）
-            const faceColour = block.querySelector('face > shader > colouring > solid_colour > all');
-            let fillColor = '#ffffff';
-            if (faceColour) {
-                const r = Math.round((parseFloat(faceColour.querySelector('red')?.textContent) || 1) * 255);
-                const g = Math.round((parseFloat(faceColour.querySelector('green')?.textContent) || 1) * 255);
-                const b = Math.round((parseFloat(faceColour.querySelector('blue')?.textContent) || 1) * 255);
-                fillColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            // ヘルパー関数: RGBAカラーを抽出
+            function extractColor(elem) {
+                if (!elem) return null;
+                const r = Math.round((parseFloat(elem.querySelector('red')?.textContent) || 0) * 255);
+                const g = Math.round((parseFloat(elem.querySelector('green')?.textContent) || 0) * 255);
+                const b = Math.round((parseFloat(elem.querySelector('blue')?.textContent) || 0) * 255);
+                const a = parseFloat(elem.querySelector('alpha')?.textContent);
+                return {
+                    hex: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
+                    opacity: isNaN(a) ? 100 : Math.round(a * 100)
+                };
             }
 
-            // ストローク（embellishment）
+            // 塗り情報を取得
+            let fillColor = '#ffffff';
+            let fillOpacity = 100;
+            let gradient = null;
+
+            const colouring = block.querySelector('face > shader > colouring');
+            if (colouring) {
+                // グラデーションチェック（linear_gradient）
+                const linearGrad = colouring.querySelector('linear_gradient');
+                if (linearGrad) {
+                    const angle = parseFloat(linearGrad.querySelector('angle')?.textContent) || 0;
+                    const stops = [];
+
+                    // カラーストップを取得
+                    linearGrad.querySelectorAll('stop').forEach(stop => {
+                        const pos = parseFloat(stop.querySelector('position')?.textContent) || 0;
+                        const colorElem = stop.querySelector('all');
+                        if (colorElem) {
+                            const col = extractColor(colorElem);
+                            stops.push({ position: pos, color: col.hex, opacity: col.opacity });
+                        }
+                    });
+
+                    // フォールバック: begin/end カラー
+                    if (stops.length === 0) {
+                        const beginColor = extractColor(linearGrad.querySelector('begin > all'));
+                        const endColor = extractColor(linearGrad.querySelector('end > all'));
+                        if (beginColor) stops.push({ position: 0, color: beginColor.hex, opacity: beginColor.opacity });
+                        if (endColor) stops.push({ position: 1, color: endColor.hex, opacity: endColor.opacity });
+                    }
+
+                    if (stops.length >= 2) {
+                        gradient = {
+                            type: 'linear',
+                            angle: angle,
+                            stops: stops
+                        };
+                        fillColor = stops[0].color;
+                    }
+                }
+
+                // グラデーションチェック（radial_gradient / four_colour_gradient）
+                const radialGrad = colouring.querySelector('radial_gradient, four_colour_gradient');
+                if (!gradient && radialGrad) {
+                    const stops = [];
+                    radialGrad.querySelectorAll('stop').forEach(stop => {
+                        const pos = parseFloat(stop.querySelector('position')?.textContent) || 0;
+                        const colorElem = stop.querySelector('all');
+                        if (colorElem) {
+                            const col = extractColor(colorElem);
+                            stops.push({ position: pos, color: col.hex, opacity: col.opacity });
+                        }
+                    });
+
+                    // フォールバック: begin/end カラー
+                    if (stops.length === 0) {
+                        const beginColor = extractColor(radialGrad.querySelector('begin > all'));
+                        const endColor = extractColor(radialGrad.querySelector('end > all'));
+                        if (beginColor) stops.push({ position: 0, color: beginColor.hex, opacity: beginColor.opacity });
+                        if (endColor) stops.push({ position: 1, color: endColor.hex, opacity: endColor.opacity });
+                    }
+
+                    if (stops.length >= 2) {
+                        gradient = {
+                            type: 'radial',
+                            stops: stops
+                        };
+                        fillColor = stops[0].color;
+                    }
+                }
+
+                // ソリッドカラー
+                if (!gradient) {
+                    const solidColour = colouring.querySelector('solid_colour > all');
+                    if (solidColour) {
+                        const col = extractColor(solidColour);
+                        fillColor = col.hex;
+                        fillOpacity = col.opacity;
+                    }
+                }
+            }
+
+            // ストローク（embellishment）- 複数対応
             const strokes = [];
-            for (let i = 0; i <= 11; i++) {
+            for (let i = 11; i >= 0; i--) {  // 外側から内側へ（描画順）
                 const emb = block.querySelector(`embellishment__${i}, embellishment_${i}`);
                 if (!emb) continue;
                 const existence = emb.querySelector('existence')?.textContent;
                 if (existence !== '3') continue;  // 3 = active
 
-                const embColour = emb.querySelector('shader > colouring > solid_colour > all');
-                if (embColour) {
-                    const r = Math.round((parseFloat(embColour.querySelector('red')?.textContent) || 1) * 255);
-                    const g = Math.round((parseFloat(embColour.querySelector('green')?.textContent) || 1) * 255);
-                    const b = Math.round((parseFloat(embColour.querySelector('blue')?.textContent) || 1) * 255);
-                    const width = parseFloat(emb.querySelector('geometry > edge > size')?.textContent) || 2;
-                    strokes.push({
-                        color: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
-                        width: Math.round(width / 10)  // PRSLは10倍スケール
-                    });
+                const embColouring = emb.querySelector('shader > colouring');
+                let strokeColor = '#000000';
+                let strokeOpacity = 100;
+                let strokeGradient = null;
+
+                if (embColouring) {
+                    // ストロークのグラデーション
+                    const embLinearGrad = embColouring.querySelector('linear_gradient');
+                    if (embLinearGrad) {
+                        const angle = parseFloat(embLinearGrad.querySelector('angle')?.textContent) || 0;
+                        const stops = [];
+                        embLinearGrad.querySelectorAll('stop').forEach(stop => {
+                            const pos = parseFloat(stop.querySelector('position')?.textContent) || 0;
+                            const colorElem = stop.querySelector('all');
+                            if (colorElem) {
+                                const col = extractColor(colorElem);
+                                stops.push({ position: pos, color: col.hex, opacity: col.opacity });
+                            }
+                        });
+                        if (stops.length === 0) {
+                            const beginColor = extractColor(embLinearGrad.querySelector('begin > all'));
+                            const endColor = extractColor(embLinearGrad.querySelector('end > all'));
+                            if (beginColor) stops.push({ position: 0, color: beginColor.hex, opacity: beginColor.opacity });
+                            if (endColor) stops.push({ position: 1, color: endColor.hex, opacity: endColor.opacity });
+                        }
+                        if (stops.length >= 2) {
+                            strokeGradient = { type: 'linear', angle: angle, stops: stops };
+                            strokeColor = stops[0].color;
+                        }
+                    }
+
+                    // ソリッドカラー
+                    if (!strokeGradient) {
+                        const embSolid = embColouring.querySelector('solid_colour > all');
+                        if (embSolid) {
+                            const col = extractColor(embSolid);
+                            strokeColor = col.hex;
+                            strokeOpacity = col.opacity;
+                        }
+                    }
+                }
+
+                const width = parseFloat(emb.querySelector('geometry > edge > size')?.textContent) || 20;
+                strokes.push({
+                    color: strokeColor,
+                    width: Math.max(1, Math.round(width / 10)),  // PRSLは10倍スケール
+                    opacity: strokeOpacity,
+                    gradient: strokeGradient
+                });
+            }
+
+            // シャドウ
+            let shadow = null;
+            const shadowElem = block.querySelector('face > shader > shadow');
+            if (shadowElem && shadowElem.querySelector('on')?.textContent === 'true') {
+                const shadowColour = shadowElem.querySelector('colour');
+                if (shadowColour) {
+                    const col = extractColor(shadowColour);
+                    const distance = parseFloat(shadowElem.querySelector('distance')?.textContent) || 5;
+                    const angle = parseFloat(shadowElem.querySelector('angle')?.textContent) || 135;
+                    const blur = parseFloat(shadowElem.querySelector('blur')?.textContent) || 0;
+                    shadow = {
+                        color: col.hex,
+                        opacity: col.opacity,
+                        distance: distance,
+                        angle: angle,
+                        blur: blur
+                    };
                 }
             }
 
@@ -6222,33 +6365,140 @@
             if (sheen && sheen.querySelector('on')?.textContent === 'true') {
                 const sheenColour = sheen.querySelector('colour');
                 if (sheenColour) {
-                    const r = Math.round((parseFloat(sheenColour.querySelector('red')?.textContent) || 1) * 255);
-                    const g = Math.round((parseFloat(sheenColour.querySelector('green')?.textContent) || 1) * 255);
-                    const b = Math.round((parseFloat(sheenColour.querySelector('blue')?.textContent) || 1) * 255);
-                    const a = parseFloat(sheenColour.querySelector('alpha')?.textContent) || 1;
+                    const col = extractColor(sheenColour);
                     gloss = {
-                        color: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
-                        opacity: Math.round(a * 100),
+                        color: col.hex,
+                        opacity: col.opacity,
                         size: parseFloat(sheen.querySelector('size')?.textContent) || 50
                     };
                 }
             }
 
-            return { name, fontFamily, fontSize, fillColor, strokes, gloss };
+            return { name, fontFamily, fontSize, fillColor, fillOpacity, gradient, strokes, shadow, gloss };
         }
 
         function displayPRSLStyles() {
             const list = document.getElementById('prslStyleList');
             list.innerHTML = '';
 
+            // グリッドレイアウトで表示
+            list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:4px;max-height:200px;overflow-y:auto;margin-top:8px;padding:4px;';
+
             loadedPRSLStyles.forEach((style, i) => {
-                const div = document.createElement('div');
-                div.style.cssText = 'padding:4px;margin:2px 0;background:#333;border-radius:3px;cursor:pointer;font-size:11px;';
-                div.textContent = style.name;
-                div.title = `${style.fontFamily} ${style.fontSize}pt`;
-                div.onclick = () => applyPRSLStyle(i);
-                list.appendChild(div);
+                const container = document.createElement('div');
+                container.style.cssText = 'cursor:pointer;border:1px solid #444;border-radius:3px;overflow:hidden;';
+                container.title = `${style.name}\n${style.fontFamily} ${style.fontSize}pt`;
+                container.onclick = () => applyPRSLStyle(i);
+
+                // Canvasでプレビューを描画
+                const canvas = document.createElement('canvas');
+                canvas.width = 50;
+                canvas.height = 40;
+                const ctx = canvas.getContext('2d');
+
+                // チェッカーボード背景（透明表示用）
+                const checkerSize = 5;
+                for (let y = 0; y < canvas.height; y += checkerSize) {
+                    for (let x = 0; x < canvas.width; x += checkerSize) {
+                        ctx.fillStyle = ((x + y) / checkerSize) % 2 === 0 ? '#666' : '#888';
+                        ctx.fillRect(x, y, checkerSize, checkerSize);
+                    }
+                }
+
+                // テキスト描画設定
+                const previewFontSize = 16;
+                const text = 'あa';
+                ctx.font = `bold ${previewFontSize}px "${style.fontFamily}", "Yu Gothic UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                const x = canvas.width / 2;
+                const y = canvas.height / 2;
+
+                // シャドウ描画
+                if (style.shadow) {
+                    const rad = (style.shadow.angle - 90) * Math.PI / 180;
+                    const dist = style.shadow.distance * 0.3;
+                    ctx.save();
+                    ctx.shadowColor = style.shadow.color;
+                    ctx.shadowBlur = style.shadow.blur * 0.5;
+                    ctx.shadowOffsetX = Math.cos(rad) * dist;
+                    ctx.shadowOffsetY = Math.sin(rad) * dist;
+                    ctx.globalAlpha = style.shadow.opacity / 100;
+                    ctx.fillStyle = style.shadow.color;
+                    ctx.fillText(text, x, y);
+                    ctx.restore();
+                }
+
+                // ストローク描画（外側から内側へ）
+                style.strokes.forEach(stroke => {
+                    ctx.save();
+                    ctx.globalAlpha = stroke.opacity / 100;
+
+                    if (stroke.gradient && stroke.gradient.stops.length >= 2) {
+                        // グラデーションストローク
+                        const grad = createPreviewGradient(ctx, stroke.gradient, x, y - previewFontSize/2, previewFontSize);
+                        ctx.strokeStyle = grad;
+                    } else {
+                        ctx.strokeStyle = stroke.color;
+                    }
+
+                    ctx.lineWidth = stroke.width * 0.5;
+                    ctx.lineJoin = 'round';
+                    ctx.strokeText(text, x, y);
+                    ctx.restore();
+                });
+
+                // 塗り描画
+                ctx.save();
+                ctx.globalAlpha = (style.fillOpacity || 100) / 100;
+
+                if (style.gradient && style.gradient.stops.length >= 2) {
+                    // グラデーション塗り
+                    const grad = createPreviewGradient(ctx, style.gradient, x, y - previewFontSize/2, previewFontSize);
+                    ctx.fillStyle = grad;
+                } else {
+                    ctx.fillStyle = style.fillColor;
+                }
+
+                ctx.fillText(text, x, y);
+                ctx.restore();
+
+                // 光沢描画
+                if (style.gloss) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'source-atop';
+                    ctx.globalAlpha = style.gloss.opacity / 100;
+                    const glossY = y - previewFontSize/2 + (previewFontSize * style.gloss.size / 100);
+                    ctx.fillStyle = style.gloss.color;
+                    ctx.fillRect(0, y - previewFontSize/2, canvas.width, glossY - (y - previewFontSize/2));
+                    ctx.restore();
+                }
+
+                container.appendChild(canvas);
+                list.appendChild(container);
             });
+        }
+
+        // プレビュー用グラデーション生成
+        function createPreviewGradient(ctx, gradientDef, x, y, height) {
+            let grad;
+            if (gradientDef.type === 'linear') {
+                const angle = (gradientDef.angle || 0) * Math.PI / 180;
+                const len = height;
+                grad = ctx.createLinearGradient(
+                    x - Math.sin(angle) * len/2, y + len/2 - Math.cos(angle) * len/2,
+                    x + Math.sin(angle) * len/2, y + len/2 + Math.cos(angle) * len/2
+                );
+            } else {
+                grad = ctx.createRadialGradient(x, y + height/2, 0, x, y + height/2, height);
+            }
+
+            gradientDef.stops.forEach(stop => {
+                grad.addColorStop(stop.position, stop.color);
+            });
+
+            return grad;
         }
 
         function applyPRSLStyle(index) {
@@ -6272,14 +6522,47 @@
                 c.fontFamily = style.fontFamily;
                 c.fontSize = style.fontSize;
                 c.fillColor = style.fillColor;
+                c.fillOpacity = style.fillOpacity || 100;
+
+                // グラデーション
+                if (style.gradient) {
+                    c.gradientEnabled = true;
+                    c.gradientType = style.gradient.type;
+                    if (style.gradient.stops.length >= 2) {
+                        c.fillColor = style.gradient.stops[0].color;
+                        c.fillColor2 = style.gradient.stops[style.gradient.stops.length - 1].color;
+                        // 中間ストップがある場合
+                        if (style.gradient.stops.length > 2) {
+                            c.gradientStops = style.gradient.stops;
+                        }
+                    }
+                    c.gradientAngle = style.gradient.angle || 0;
+                } else {
+                    c.gradientEnabled = false;
+                }
 
                 // ストローク
                 if (style.strokes.length > 0) {
                     c.strokes = style.strokes.map(s => ({
                         color: s.color,
                         width: s.width,
-                        opacity: 100
+                        opacity: s.opacity || 100,
+                        gradient: s.gradient || null
                     }));
+                } else {
+                    c.strokes = [];
+                }
+
+                // シャドウ
+                if (style.shadow) {
+                    c.shadowEnabled = true;
+                    c.shadowColor = style.shadow.color;
+                    c.shadowOpacity = style.shadow.opacity;
+                    c.shadowDistance = style.shadow.distance;
+                    c.shadowAngle = style.shadow.angle;
+                    c.shadowBlur = style.shadow.blur;
+                } else {
+                    c.shadowEnabled = false;
                 }
 
                 // 光沢
@@ -6288,6 +6571,8 @@
                     c.glossColor = style.gloss.color;
                     c.glossOpacity = style.gloss.opacity;
                     c.glossSize = style.gloss.size;
+                } else {
+                    c.glossEnabled = false;
                 }
             });
 
