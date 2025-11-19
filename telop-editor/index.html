@@ -6130,6 +6130,7 @@
 
         // PRSL読み込み機能
         let loadedPRSLStyles = [];
+        let selectedPRSLIndex = -1;
 
         function importPRSL() { document.getElementById('prslInput').click(); }
 
@@ -6164,6 +6165,7 @@
                     });
 
                     // UIにスタイル一覧を表示
+                    selectedPRSLIndex = -1;
                     displayPRSLStyles();
                     alert(`${loadedPRSLStyles.length} スタイルを読み込みました`);
                 } catch (err) {
@@ -6742,6 +6744,24 @@
 
             render();
             updateLayerProps();
+
+            // 選択スタイルをハイライト
+            selectedPRSLIndex = index;
+            updatePRSLHighlight();
+        }
+
+        function updatePRSLHighlight() {
+            const list = document.getElementById('prslStyleList');
+            if (!list) return;
+            Array.from(list.children).forEach((container, i) => {
+                if (i === selectedPRSLIndex) {
+                    container.style.borderColor = '#0078d4';
+                    container.style.boxShadow = '0 0 5px rgba(0,120,212,0.5)';
+                } else {
+                    container.style.borderColor = '#444';
+                    container.style.boxShadow = 'none';
+                }
+            });
         }
 
         function handleFileLoad(e) {
