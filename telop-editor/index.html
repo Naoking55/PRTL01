@@ -2790,7 +2790,9 @@
         function findObjectAt(x, y) {
             for (let i = textObjects.length - 1; i >= 0; i--) {
                 const obj = textObjects[i], b = getObjectBounds(obj);
-                if (x >= b.x - 10 && x <= b.x + b.w + 10 && y >= b.y - 10 && y <= b.y + b.h + 10) return obj;
+                // テキスト系オブジェクトは広めの判定領域（30px）
+                const margin = (obj.type === 'text' || obj.type === 'pathText' || obj.chars) ? 30 : 10;
+                if (x >= b.x - margin && x <= b.x + b.w + margin && y >= b.y - margin && y <= b.y + b.h + margin) return obj;
             }
             return null;
         }
