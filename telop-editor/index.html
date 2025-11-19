@@ -728,7 +728,12 @@
         <div style="margin-bottom:8px;">
             <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
         </div>
+        <div class="row2" style="margin-bottom:8px;">
+            <div><label>FPS</label><input type="number" id="exportFps" value="30" min="1" max="60"></div>
+            <div><label>時間(秒)</label><input type="number" id="exportDuration" value="3" min="0.1" step="0.1"></div>
+        </div>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
+        <button class="btn btn-secondary" onclick="exportSequencePNG()">連番PNG</button>
         <button class="btn btn-secondary" onclick="exportGIF()">GIF書き出し</button>
         <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
         <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
@@ -5446,9 +5451,274 @@
             return { opacity, x, y, visibleChars };
         }
 
-        function exportGIF() {
-            alert('GIFエクスポートは現在開発中です。\n連番PNGでの出力をご検討ください。');
-            // TODO: gif.js ライブラリを使用した実装
+        // 連番PNGエクスポート
+        async function exportSequencePNG() {
+            const fps = parseInt(document.getElementById('exportFps').value) || 30;
+            const duration = parseFloat(document.getElementById('exportDuration').value) || 3;
+            const totalFrames = Math.ceil(fps * duration);
+
+            // 状態を保存
+            const wasPlaying = isPlaying;
+            if (isPlaying) toggleAnimation();
+            const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
+            const wasEnabled = safeMarginCheckbox.checked;
+            safeMarginCheckbox.checked = false;
+            exportingTransparent = document.getElementById('exportTransparent').checked;
+            const prevSelectedIds = [...selectedObjIds];
+            selectedObjId = null;
+            selectedObjIds = [];
+
+            // 進捗表示
+            const progress = document.createElement('div');
+            progress.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:#fff;padding:20px;border-radius:8px;z-index:10000;';
+            progress.innerHTML = `<div>連番PNGエクスポート中...</div><div id="exportProgress">0/${totalFrames}</div>`;
+            document.body.appendChild(progress);
+
+            // ZIPファイルを作成（JSZipがなければ個別ダウンロード）
+            const frames = [];
+
+            for (let i = 0; i < totalFrames; i++) {
+                animationTime = (i / fps);
+                render();
+
+                const dataUrl = canvas.toDataURL('image/png');
+                const frameNum = String(i).padStart(5, '0');
+                frames.push({ name: `frame_${frameNum}.png`, data: dataUrl });
+
+                document.getElementById('exportProgress').textContent = `${i + 1}/${totalFrames}`;
+                await new Promise(r => setTimeout(r, 10)); // UIを更新
+            }
+
+            // 各フレームをダウンロード
+            if (frames.length <= 30) {
+                // 30フレーム以下なら個別ダウンロード
+                for (const frame of frames) {
+                    const link = document.createElement('a');
+                    link.download = frame.name;
+                    link.href = frame.data;
+                    link.click();
+                    await new Promise(r => setTimeout(r, 100));
+                }
+            } else {
+                // 多すぎる場合は警告
+                alert(`${frames.length}フレームを生成しました。\nブラウザの制限により一括ダウンロードできません。\nFPSまたは時間を減らしてください。`);
+            }
+
+            // 状態を復元
+            animationTime = 0;
+            exportingTransparent = false;
+            selectedObjId = prevSelectedIds.length > 0 ? prevSelectedIds[prevSelectedIds.length - 1] : null;
+            selectedObjIds = prevSelectedIds;
+            safeMarginCheckbox.checked = wasEnabled;
+            render();
+            document.body.removeChild(progress);
+        }
+
+        // GIFエクスポート（簡易版）
+        async function exportGIF() {
+            const fps = parseInt(document.getElementById('exportFps').value) || 30;
+            const duration = parseFloat(document.getElementById('exportDuration').value) || 3;
+            const totalFrames = Math.ceil(fps * duration);
+
+            // 状態を保存
+            if (isPlaying) toggleAnimation();
+            const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
+            const wasEnabled = safeMarginCheckbox.checked;
+            safeMarginCheckbox.checked = false;
+            exportingTransparent = document.getElementById('exportTransparent').checked;
+            const prevSelectedIds = [...selectedObjIds];
+            selectedObjId = null;
+            selectedObjIds = [];
+
+            // 進捗表示
+            const progress = document.createElement('div');
+            progress.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:#fff;padding:20px;border-radius:8px;z-index:10000;';
+            progress.innerHTML = `<div>GIFエクスポート中...</div><div id="gifProgress">フレーム生成: 0/${totalFrames}</div>`;
+            document.body.appendChild(progress);
+
+            // 解像度を下げる（GIF用）
+            const scale = Math.min(1, 640 / canvas.width);
+            const gifWidth = Math.floor(canvas.width * scale);
+            const gifHeight = Math.floor(canvas.height * scale);
+
+            // 一時キャンバス
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = gifWidth;
+            tempCanvas.height = gifHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // フレームを収集
+            const frames = [];
+            for (let i = 0; i < totalFrames; i++) {
+                animationTime = (i / fps);
+                render();
+
+                tempCtx.drawImage(canvas, 0, 0, gifWidth, gifHeight);
+                const imageData = tempCtx.getImageData(0, 0, gifWidth, gifHeight);
+                frames.push(imageData);
+
+                document.getElementById('gifProgress').textContent = `フレーム生成: ${i + 1}/${totalFrames}`;
+                await new Promise(r => setTimeout(r, 10));
+            }
+
+            // GIFエンコード
+            document.getElementById('gifProgress').textContent = 'GIFエンコード中...';
+            await new Promise(r => setTimeout(r, 100));
+
+            try {
+                const gif = encodeGIF(frames, gifWidth, gifHeight, Math.round(1000 / fps));
+
+                // ダウンロード
+                const blob = new Blob([gif], { type: 'image/gif' });
+                const link = document.createElement('a');
+                link.download = `telop_${Date.now()}.gif`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+            } catch (e) {
+                alert('GIFエンコードに失敗しました: ' + e.message);
+            }
+
+            // 状態を復元
+            animationTime = 0;
+            exportingTransparent = false;
+            selectedObjId = prevSelectedIds.length > 0 ? prevSelectedIds[prevSelectedIds.length - 1] : null;
+            selectedObjIds = prevSelectedIds;
+            safeMarginCheckbox.checked = wasEnabled;
+            render();
+            document.body.removeChild(progress);
+        }
+
+        // 簡易GIFエンコーダー
+        function encodeGIF(frames, width, height, delay) {
+            const out = [];
+
+            // GIF Header
+            out.push(0x47, 0x49, 0x46, 0x38, 0x39, 0x61); // GIF89a
+
+            // Logical Screen Descriptor
+            out.push(width & 0xFF, (width >> 8) & 0xFF);
+            out.push(height & 0xFF, (height >> 8) & 0xFF);
+            out.push(0xF7, 0x00, 0x00); // Global color table, 256 colors
+
+            // Global Color Table (256 colors)
+            for (let i = 0; i < 256; i++) {
+                const r = (i >> 5) * 36;
+                const g = ((i >> 2) & 7) * 36;
+                const b = (i & 3) * 85;
+                out.push(r, g, b);
+            }
+
+            // Netscape Extension for looping
+            out.push(0x21, 0xFF, 0x0B);
+            out.push(0x4E, 0x45, 0x54, 0x53, 0x43, 0x41, 0x50, 0x45, 0x32, 0x2E, 0x30); // NETSCAPE2.0
+            out.push(0x03, 0x01, 0x00, 0x00, 0x00);
+
+            // Frames
+            for (const frame of frames) {
+                // Graphic Control Extension
+                out.push(0x21, 0xF9, 0x04);
+                out.push(0x04); // Disposal: restore to background
+                out.push((delay / 10) & 0xFF, ((delay / 10) >> 8) & 0xFF);
+                out.push(0x00, 0x00);
+
+                // Image Descriptor
+                out.push(0x2C);
+                out.push(0x00, 0x00, 0x00, 0x00); // Position
+                out.push(width & 0xFF, (width >> 8) & 0xFF);
+                out.push(height & 0xFF, (height >> 8) & 0xFF);
+                out.push(0x00); // No local color table
+
+                // Image Data (LZW compressed)
+                const pixels = [];
+                for (let i = 0; i < frame.data.length; i += 4) {
+                    const r = frame.data[i];
+                    const g = frame.data[i + 1];
+                    const b = frame.data[i + 2];
+                    // Convert to 8-bit palette index
+                    const index = ((r >> 5) << 5) | ((g >> 5) << 2) | (b >> 6);
+                    pixels.push(index);
+                }
+
+                // LZW encode
+                const lzwData = lzwEncode(pixels, 8);
+                out.push(8); // LZW minimum code size
+
+                // Output in sub-blocks
+                let pos = 0;
+                while (pos < lzwData.length) {
+                    const size = Math.min(255, lzwData.length - pos);
+                    out.push(size);
+                    for (let i = 0; i < size; i++) {
+                        out.push(lzwData[pos++]);
+                    }
+                }
+                out.push(0x00); // Block terminator
+            }
+
+            // Trailer
+            out.push(0x3B);
+
+            return new Uint8Array(out);
+        }
+
+        // LZW圧縮
+        function lzwEncode(pixels, minCodeSize) {
+            const clearCode = 1 << minCodeSize;
+            const eoiCode = clearCode + 1;
+            let codeSize = minCodeSize + 1;
+            let nextCode = eoiCode + 1;
+            const maxCode = 4095;
+
+            const dict = new Map();
+            for (let i = 0; i < clearCode; i++) {
+                dict.set(String.fromCharCode(i), i);
+            }
+
+            const out = [];
+            let bits = 0;
+            let bitCount = 0;
+
+            function writeBits(code) {
+                bits |= (code << bitCount);
+                bitCount += codeSize;
+                while (bitCount >= 8) {
+                    out.push(bits & 0xFF);
+                    bits >>= 8;
+                    bitCount -= 8;
+                }
+            }
+
+            writeBits(clearCode);
+
+            let current = String.fromCharCode(pixels[0]);
+            for (let i = 1; i < pixels.length; i++) {
+                const c = String.fromCharCode(pixels[i]);
+                const combined = current + c;
+
+                if (dict.has(combined)) {
+                    current = combined;
+                } else {
+                    writeBits(dict.get(current));
+
+                    if (nextCode <= maxCode) {
+                        dict.set(combined, nextCode++);
+                        if (nextCode > (1 << codeSize) && codeSize < 12) {
+                            codeSize++;
+                        }
+                    }
+
+                    current = c;
+                }
+            }
+
+            writeBits(dict.get(current));
+            writeBits(eoiCode);
+
+            if (bitCount > 0) {
+                out.push(bits & 0xFF);
+            }
+
+            return out;
         }
 
         function saveProject() {
