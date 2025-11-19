@@ -6192,6 +6192,55 @@
             }
 
             if (colouring) {
+                // four_colour_ramp（上下2色グラデーション）
+                const fourColourRamp = colouring.querySelector('four_colour_ramp');
+                if (fourColourRamp) {
+                    // 上側の色（top_left）と下側の色（bottom_left）を取得
+                    const topLeft = fourColourRamp.querySelector('top_left');
+                    const bottomLeft = fourColourRamp.querySelector('bottom_left');
+
+                    if (topLeft && bottomLeft) {
+                        const topColor = extractColor(topLeft);
+                        const bottomColor = extractColor(bottomLeft);
+
+                        if (topColor && bottomColor) {
+                            gradient = {
+                                type: 'linear',
+                                angle: 180, // 上から下へ
+                                stops: [
+                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                                ]
+                            };
+                            fillColor = topColor.hex;
+                        }
+                    }
+                }
+
+                // two_colour_ramp（2色グラデーション）
+                const twoColourRamp = colouring.querySelector('two_colour_ramp');
+                if (!gradient && twoColourRamp) {
+                    const top = twoColourRamp.querySelector('top');
+                    const bottom = twoColourRamp.querySelector('bottom');
+
+                    if (top && bottom) {
+                        const topColor = extractColor(top);
+                        const bottomColor = extractColor(bottom);
+
+                        if (topColor && bottomColor) {
+                            gradient = {
+                                type: 'linear',
+                                angle: 180,
+                                stops: [
+                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                                ]
+                            };
+                            fillColor = topColor.hex;
+                        }
+                    }
+                }
+
                 // グラデーションチェック（linear_gradient）
                 const linearGrad = colouring.querySelector('linear_gradient');
                 if (linearGrad) {
