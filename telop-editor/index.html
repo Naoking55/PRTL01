@@ -4859,48 +4859,25 @@
                             ctx.fillText(dc, 0, 0);
                         }
 
-                        // Gloss - horizontal band at text center, clipped to text shape
+                        // Gloss - horizontal band overlay on text fill only (not strokes)
                         if (c.glossEnabled) {
                             const glossWidth = c.glossWidth || 10;
                             const glossBlur = c.glossBlur || 5;
                             const glossCol = c.glossColor || '#ffffff';
                             const glossOpacity = (c.glossOpacity || 50) / 100;
 
-                            // Parse color to get rgb values
+                            // Parse color
                             const gr = parseInt(glossCol.slice(1, 3), 16);
                             const gg = parseInt(glossCol.slice(3, 5), 16);
                             const gb = parseInt(glossCol.slice(5, 7), 16);
 
-                            // Create temporary canvas for clipping gloss to text shape
-                            const tempCanvas = document.createElement('canvas');
-                            const margin = 20;
-                            const charWidth = bw * sx; // Account for scale
-                            tempCanvas.width = charWidth + margin * 2;
-                            tempCanvas.height = fs + margin * 2;
-                            const tempCtx = tempCanvas.getContext('2d');
-
-                            // Draw character as mask (centered in temp canvas)
-                            tempCtx.font = ctx.font;
-                            tempCtx.textBaseline = 'middle';
-                            tempCtx.textAlign = 'center';
-                            tempCtx.scale(sx, 1); // Apply same scale as main canvas
-                            tempCtx.fillStyle = '#fff';
-                            tempCtx.fillText(dc, (charWidth + margin * 2) / (2 * sx), tempCanvas.height / 2);
-
-                            // Apply gloss only inside text shape
-                            tempCtx.globalCompositeOperation = 'source-in';
-
-                            // Calculate gloss band position - at text center
+                            // Calculate band dimensions
                             const bandHeight = glossWidth;
                             const fadeHeight = glossBlur;
                             const totalHeight = bandHeight + fadeHeight * 2;
-                            const glossY = tempCanvas.height / 2; // Center of temp canvas
 
-                            // Create horizontal gloss band with soft edges (vertical gradient)
-                            tempCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for gradient
-                            const glossGrad = tempCtx.createLinearGradient(0, glossY - totalHeight/2, 0, glossY + totalHeight/2);
-
-                            // Gradient: transparent -> opaque -> opaque -> transparent
+                            // Create vertical gradient for horizontal band
+                            const glossGrad = ctx.createLinearGradient(0, -totalHeight/2, 0, totalHeight/2);
                             glossGrad.addColorStop(0, `rgba(${gr},${gg},${gb},0)`);
                             if (fadeHeight > 0 && totalHeight > 0) {
                                 const fadeRatio = Math.min(0.49, fadeHeight / totalHeight);
@@ -4912,13 +4889,11 @@
                             }
                             glossGrad.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
 
-                            tempCtx.fillStyle = glossGrad;
-                            tempCtx.fillRect(0, glossY - totalHeight/2, tempCanvas.width, totalHeight);
-
-                            // Draw gloss on main canvas (position relative to character center)
+                            // Draw band only inside text fill using source-atop
                             ctx.save();
-                            ctx.scale(1/sx, 1); // Undo scale for drawing temp canvas
-                            ctx.drawImage(tempCanvas, -tempCanvas.width/2, -tempCanvas.height/2);
+                            ctx.globalCompositeOperation = 'source-atop';
+                            ctx.fillStyle = glossGrad;
+                            ctx.fillRect(-bw, -totalHeight/2, bw * 2, totalHeight);
                             ctx.restore();
                         }
 
