@@ -6650,11 +6650,14 @@
         function createPreviewGradient(ctx, gradientDef, x, y, height) {
             let grad;
             if (gradientDef.type === 'linear') {
+                // 90度 = 垂直（上から下）で主レンダリングと一致
                 const angle = (gradientDef.angle || 0) * Math.PI / 180;
                 const len = height;
+                const dx = Math.cos(angle) * len/2;
+                const dy = Math.sin(angle) * len/2;
                 grad = ctx.createLinearGradient(
-                    x - Math.sin(angle) * len/2, y + len/2 - Math.cos(angle) * len/2,
-                    x + Math.sin(angle) * len/2, y + len/2 + Math.cos(angle) * len/2
+                    x - dx, y + len/2 - dy,
+                    x + dx, y + len/2 + dy
                 );
             } else {
                 grad = ctx.createRadialGradient(x, y + height/2, 0, x, y + height/2, height);
