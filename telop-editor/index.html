@@ -6382,7 +6382,7 @@
             list.innerHTML = '';
 
             // グリッドレイアウトで表示
-            list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:4px;max-height:200px;overflow-y:auto;margin-top:8px;padding:4px;';
+            list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px;max-height:250px;overflow-y:auto;margin-top:8px;padding:4px;';
 
             loadedPRSLStyles.forEach((style, i) => {
                 const container = document.createElement('div');
@@ -6392,21 +6392,21 @@
 
                 // Canvasでプレビューを描画
                 const canvas = document.createElement('canvas');
-                canvas.width = 50;
-                canvas.height = 40;
+                canvas.width = 64;
+                canvas.height = 48;
                 const ctx = canvas.getContext('2d');
 
                 // チェッカーボード背景（透明表示用）
-                const checkerSize = 5;
-                for (let y = 0; y < canvas.height; y += checkerSize) {
-                    for (let x = 0; x < canvas.width; x += checkerSize) {
-                        ctx.fillStyle = ((x + y) / checkerSize) % 2 === 0 ? '#666' : '#888';
-                        ctx.fillRect(x, y, checkerSize, checkerSize);
+                const checkerSize = 6;
+                for (let cy = 0; cy < canvas.height; cy += checkerSize) {
+                    for (let cx = 0; cx < canvas.width; cx += checkerSize) {
+                        ctx.fillStyle = ((cx + cy) / checkerSize) % 2 === 0 ? '#555' : '#777';
+                        ctx.fillRect(cx, cy, checkerSize, checkerSize);
                     }
                 }
 
                 // テキスト描画設定
-                const previewFontSize = 16;
+                const previewFontSize = 20;
                 const text = 'あa';
                 ctx.font = `bold ${previewFontSize}px "${style.fontFamily}", "Yu Gothic UI", sans-serif`;
                 ctx.textAlign = 'center';
@@ -6415,10 +6415,19 @@
                 const x = canvas.width / 2;
                 const y = canvas.height / 2;
 
-                // シャドウ描画
+                // オフスクリーンキャンバスでテキストを描画（光沢用）
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = canvas.width;
+                offCanvas.height = canvas.height;
+                const offCtx = offCanvas.getContext('2d');
+                offCtx.font = ctx.font;
+                offCtx.textAlign = 'center';
+                offCtx.textBaseline = 'middle';
+
+                // シャドウ描画（メインキャンバスに直接）
                 if (style.shadow) {
                     const rad = (style.shadow.angle - 90) * Math.PI / 180;
-                    const dist = style.shadow.distance * 0.3;
+                    const dist = style.shadow.distance * 0.4;
                     ctx.save();
                     ctx.shadowColor = style.shadow.color;
                     ctx.shadowBlur = style.shadow.blur * 0.5;
@@ -6433,46 +6442,60 @@
                 // ストローク描画（外側から内側へ）
                 style.strokes.forEach(stroke => {
                     ctx.save();
+                    offCtx.save();
                     ctx.globalAlpha = stroke.opacity / 100;
 
                     if (stroke.gradient && stroke.gradient.stops.length >= 2) {
-                        // グラデーションストローク
                         const grad = createPreviewGradient(ctx, stroke.gradient, x, y - previewFontSize/2, previewFontSize);
                         ctx.strokeStyle = grad;
+                        offCtx.strokeStyle = grad;
                     } else {
                         ctx.strokeStyle = stroke.color;
+                        offCtx.strokeStyle = stroke.color;
                     }
 
-                    ctx.lineWidth = stroke.width * 0.5;
+                    ctx.lineWidth = stroke.width * 0.6;
                     ctx.lineJoin = 'round';
                     ctx.strokeText(text, x, y);
+                    offCtx.lineWidth = stroke.width * 0.6;
+                    offCtx.lineJoin = 'round';
+                    offCtx.strokeText(text, x, y);
                     ctx.restore();
+                    offCtx.restore();
                 });
 
                 // 塗り描画
                 ctx.save();
+                offCtx.save();
                 ctx.globalAlpha = (style.fillOpacity || 100) / 100;
 
                 if (style.gradient && style.gradient.stops.length >= 2) {
-                    // グラデーション塗り
                     const grad = createPreviewGradient(ctx, style.gradient, x, y - previewFontSize/2, previewFontSize);
                     ctx.fillStyle = grad;
+                    offCtx.fillStyle = grad;
                 } else {
                     ctx.fillStyle = style.fillColor;
+                    offCtx.fillStyle = style.fillColor;
                 }
 
                 ctx.fillText(text, x, y);
+                offCtx.fillText(text, x, y);
                 ctx.restore();
+                offCtx.restore();
 
-                // 光沢描画
+                // 光沢描画（オフスクリーンキャンバスを使用）
                 if (style.gloss) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'source-atop';
-                    ctx.globalAlpha = style.gloss.opacity / 100;
-                    const glossY = y - previewFontSize/2 + (previewFontSize * style.gloss.size / 100);
-                    ctx.fillStyle = style.gloss.color;
-                    ctx.fillRect(0, y - previewFontSize/2, canvas.width, glossY - (y - previewFontSize/2));
-                    ctx.restore();
+                    // オフスクリーンキャンバスで光沢を適用
+                    offCtx.save();
+                    offCtx.globalCompositeOperation = 'source-atop';
+                    offCtx.globalAlpha = style.gloss.opacity / 100;
+                    const glossHeight = previewFontSize * style.gloss.size / 100;
+                    offCtx.fillStyle = style.gloss.color;
+                    offCtx.fillRect(0, y - previewFontSize/2, offCanvas.width, glossHeight);
+                    offCtx.restore();
+
+                    // メインキャンバスにオフスクリーンの結果を合成
+                    ctx.drawImage(offCanvas, 0, 0);
                 }
 
                 container.appendChild(canvas);
@@ -6521,33 +6544,41 @@
             obj.chars.forEach(c => {
                 c.fontFamily = style.fontFamily;
                 c.fontSize = style.fontSize;
-                c.fillColor = style.fillColor;
-                c.fillOpacity = style.fillOpacity || 100;
+                c.color = style.fillColor;  // fillColor → color
+                c.opacity = style.fillOpacity || 100;
 
                 // グラデーション
                 if (style.gradient) {
-                    c.gradientEnabled = true;
-                    c.gradientType = style.gradient.type;
+                    c.fillType = style.gradient.type;  // 'linear' or 'radial'
                     if (style.gradient.stops.length >= 2) {
-                        c.fillColor = style.gradient.stops[0].color;
-                        c.fillColor2 = style.gradient.stops[style.gradient.stops.length - 1].color;
+                        c.color = style.gradient.stops[0].color;
+                        c.color2 = style.gradient.stops[style.gradient.stops.length - 1].color;
                         // 中間ストップがある場合
                         if (style.gradient.stops.length > 2) {
-                            c.gradientStops = style.gradient.stops;
+                            c.gradientStops = style.gradient.stops.map(s => ({
+                                color: s.color,
+                                pos: s.position * 100,
+                                endPos: s.position * 100
+                            }));
+                        } else {
+                            c.gradientStops = null;
                         }
                     }
                     c.gradientAngle = style.gradient.angle || 0;
                 } else {
-                    c.gradientEnabled = false;
+                    c.fillType = 'solid';
+                    c.gradientStops = null;
                 }
 
                 // ストローク
                 if (style.strokes.length > 0) {
                     c.strokes = style.strokes.map(s => ({
+                        enabled: true,
+                        type: 'edge',
                         color: s.color,
                         width: s.width,
                         opacity: s.opacity || 100,
-                        gradient: s.gradient || null
+                        join: 'round'
                     }));
                 } else {
                     c.strokes = [];
@@ -6556,13 +6587,18 @@
                 // シャドウ
                 if (style.shadow) {
                     c.shadowEnabled = true;
-                    c.shadowColor = style.shadow.color;
-                    c.shadowOpacity = style.shadow.opacity;
-                    c.shadowDistance = style.shadow.distance;
-                    c.shadowAngle = style.shadow.angle;
-                    c.shadowBlur = style.shadow.blur;
+                    c.shadow = {
+                        enabled: true,
+                        color: style.shadow.color,
+                        opacity: style.shadow.opacity,
+                        distance: style.shadow.distance,
+                        angle: style.shadow.angle,
+                        blur: style.shadow.blur,
+                        size: 0
+                    };
                 } else {
                     c.shadowEnabled = false;
+                    c.shadow = null;
                 }
 
                 // 光沢
