@@ -227,13 +227,32 @@
             <div class="char-info" id="charInfo">文字を選択してください</div>
 
             <label>フォント</label>
-            <select id="fontFamily" onchange="applyStyle()">
-                <option value="Yu Gothic UI">Yu Gothic UI</option>
-                <option value="Meiryo">メイリオ</option>
-                <option value="MS Gothic">MS ゴシック</option>
-                <option value="Arial">Arial</option>
-                <option value="Impact">Impact</option>
+            <select id="fontFamily" onchange="handleFontChange()" style="width: 100%;">
+                <optgroup label="日本語フォント">
+                    <option value="Yu Gothic UI">Yu Gothic UI</option>
+                    <option value="Meiryo">メイリオ</option>
+                    <option value="MS Gothic">MS ゴシック</option>
+                    <option value="Hiragino Sans">ヒラギノ角ゴ</option>
+                    <option value="Noto Sans JP">Noto Sans JP</option>
+                </optgroup>
+                <optgroup label="欧文フォント">
+                    <option value="Arial">Arial</option>
+                    <option value="Impact">Impact</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Georgia">Georgia</option>
+                </optgroup>
+                <optgroup label="デザインフォント">
+                    <option value="Comic Sans MS">Comic Sans MS</option>
+                    <option value="Courier New">Courier New</option>
+                </optgroup>
+                <optgroup id="systemFontsGroup" label="システムフォント" style="display:none;">
+                </optgroup>
+                <optgroup label="カスタム">
+                    <option value="__custom__">カスタムフォント...</option>
+                </optgroup>
             </select>
+            <input type="text" id="customFontInput" placeholder="フォント名を入力" style="display:none; margin-top:5px;" onchange="applyCustomFont()">
 
             <div class="row2">
                 <div><label>サイズ</label><input type="number" id="fontSize" min="1" value="72" onchange="applyStyle()"></div>
@@ -341,13 +360,26 @@
             <label>名前</label>
             <input type="text" id="nameTagText" placeholder="話者名" onchange="updateNameTag()">
             <label>フォント</label>
-            <select id="nameTagFont" onchange="updateNameTag()">
-                <option value="Yu Gothic UI">Yu Gothic UI</option>
-                <option value="Meiryo">メイリオ</option>
-                <option value="MS Gothic">MS ゴシック</option>
-                <option value="Arial">Arial</option>
-                <option value="Impact">Impact</option>
+            <select id="nameTagFont" onchange="handleNameTagFontChange()" style="width: 100%;">
+                <optgroup label="日本語フォント">
+                    <option value="Yu Gothic UI">Yu Gothic UI</option>
+                    <option value="Meiryo">メイリオ</option>
+                    <option value="MS Gothic">MS ゴシック</option>
+                    <option value="Hiragino Sans">ヒラギノ角ゴ</option>
+                    <option value="Noto Sans JP">Noto Sans JP</option>
+                </optgroup>
+                <optgroup label="欧文フォント">
+                    <option value="Arial">Arial</option>
+                    <option value="Impact">Impact</option>
+                    <option value="Helvetica">Helvetica</option>
+                </optgroup>
+                <optgroup id="nameTagSystemFontsGroup" label="システムフォント" style="display:none;">
+                </optgroup>
+                <optgroup label="カスタム">
+                    <option value="__custom__">カスタムフォント...</option>
+                </optgroup>
             </select>
+            <input type="text" id="nameTagCustomFontInput" placeholder="フォント名を入力" style="display:none; margin-top:5px;" onchange="applyNameTagCustomFont()">
             <div class="row2">
                 <div><label>位置</label><select id="nameTagPosition" onchange="updateNameTag()">
                     <option value="top-left">左上</option>
@@ -542,6 +574,125 @@
             el.nextElementSibling.classList.toggle('hidden');
         }
 
+        // ========== フォント管理 ==========
+        let loadedSystemFonts = [];
+        let currentCustomFont = '';
+        let nameTagCustomFont = '';
+
+        // CEP環境検出
+        function isInCEP() {
+            try {
+                return typeof require !== 'undefined' &&
+                       typeof CSInterface !== 'undefined';
+            } catch(e) {
+                return false;
+            }
+        }
+
+        // システムフォント読み込み（CEP環境用）
+        async function loadSystemFonts() {
+            if (!isInCEP()) return;
+
+            try {
+                const fontList = require('font-list');
+                const fonts = await fontList.getFonts();
+                loadedSystemFonts = fonts.map(f => f.replace(/"/g, '')).sort();
+
+                // システムフォントグループを表示・更新
+                const groups = ['systemFontsGroup', 'nameTagSystemFontsGroup'];
+                groups.forEach(groupId => {
+                    const group = document.getElementById(groupId);
+                    if (group) {
+                        group.style.display = '';
+                        group.innerHTML = '';
+                        loadedSystemFonts.forEach(font => {
+                            const option = document.createElement('option');
+                            option.value = font;
+                            option.textContent = font;
+                            group.appendChild(option);
+                        });
+                    }
+                });
+
+                console.log(`Loaded ${loadedSystemFonts.length} system fonts`);
+            } catch(e) {
+                console.warn('Failed to load system fonts:', e);
+            }
+        }
+
+        // フォント選択ハンドラ（メインテキスト用）
+        function handleFontChange() {
+            const select = document.getElementById('fontFamily');
+            const customInput = document.getElementById('customFontInput');
+
+            if (select.value === '__custom__') {
+                customInput.style.display = 'block';
+                customInput.focus();
+                if (currentCustomFont) {
+                    customInput.value = currentCustomFont;
+                }
+            } else {
+                customInput.style.display = 'none';
+                applyStyle();
+            }
+        }
+
+        // カスタムフォント適用（メインテキスト用）
+        function applyCustomFont() {
+            const customInput = document.getElementById('customFontInput');
+            const fontName = customInput.value.trim();
+            if (fontName) {
+                currentCustomFont = fontName;
+                applyStyle();
+            }
+        }
+
+        // フォント選択ハンドラ（名前タグ用）
+        function handleNameTagFontChange() {
+            const select = document.getElementById('nameTagFont');
+            const customInput = document.getElementById('nameTagCustomFontInput');
+
+            if (select.value === '__custom__') {
+                customInput.style.display = 'block';
+                customInput.focus();
+                if (nameTagCustomFont) {
+                    customInput.value = nameTagCustomFont;
+                }
+            } else {
+                customInput.style.display = 'none';
+                updateNameTag();
+            }
+        }
+
+        // カスタムフォント適用（名前タグ用）
+        function applyNameTagCustomFont() {
+            const customInput = document.getElementById('nameTagCustomFontInput');
+            const fontName = customInput.value.trim();
+            if (fontName) {
+                nameTagCustomFont = fontName;
+                updateNameTag();
+            }
+        }
+
+        // 現在選択されているフォント名を取得
+        function getSelectedFont(selectId, customFontVar) {
+            const select = document.getElementById(selectId);
+            if (select.value === '__custom__') {
+                return customFontVar || 'Yu Gothic UI';
+            }
+            return select.value;
+        }
+
+        // フォント初期化
+        function initFonts() {
+            // CEP環境ならシステムフォントを読み込む
+            if (isInCEP()) {
+                loadSystemFonts();
+            }
+        }
+
+        // ========== グラデーション管理 ==========
+
         function getGradientStopsFromUI() {
             const rawStops = [];
             document.querySelectorAll('.gradient-stop').forEach(el => {
@@ -594,7 +745,7 @@
             const gradStops = getGradientStopsFromUI();
             return {
                 fontSize: parseInt(document.getElementById('fontSize').value),
-                fontFamily: document.getElementById('fontFamily').value,
+                fontFamily: getSelectedFont('fontFamily', currentCustomFont),
                 fillType: document.getElementById('fillType').value,
                 color: gradStops[0]?.color || '#ffffff',
                 color2: gradStops[gradStops.length - 1]?.color || '#888888',
@@ -677,6 +828,9 @@
 
         // 初期ストローク
         addStroke();
+
+        // フォント初期化（CEP環境でシステムフォント読み込み）
+        initFonts();
 
         function setTool(tool) {
             currentTool = tool;
@@ -1393,7 +1547,7 @@
             if (!obj.nameTag) obj.nameTag = {};
             obj.nameTag.enabled = document.getElementById('nameTagEnabled').checked;
             obj.nameTag.text = document.getElementById('nameTagText').value;
-            obj.nameTag.font = document.getElementById('nameTagFont').value;
+            obj.nameTag.font = getSelectedFont('nameTagFont', nameTagCustomFont);
             obj.nameTag.position = document.getElementById('nameTagPosition').value;
             obj.nameTag.gap = parseInt(document.getElementById('nameTagGap').value) || 10;
             obj.nameTag.color = document.getElementById('nameTagColor').value;
