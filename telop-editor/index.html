@@ -4757,7 +4757,28 @@
                             if (!st.enabled) return;
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
-                            ctx.strokeStyle = st.color;
+
+                            // ストロークグラデーション対応
+                            if (st.gradientEnabled && st.gradientStops && st.gradientStops.length >= 2) {
+                                const gw = bw, gh = fs;
+                                const centerX = gw / 2;
+                                let grad;
+                                if (st.gradientType === 'radial') {
+                                    grad = ctx.createRadialGradient(centerX, 0, 0, centerX, 0, Math.max(gw, gh) / 2);
+                                } else {
+                                    const a = (st.gradientAngle || 90) * Math.PI / 180;
+                                    const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
+                                    grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
+                                }
+                                st.gradientStops.forEach((stop, i) => {
+                                    const pos = Math.max(0, Math.min(1, stop.pos / 100));
+                                    grad.addColorStop(pos, stop.color);
+                                });
+                                ctx.strokeStyle = grad;
+                            } else {
+                                ctx.strokeStyle = st.color;
+                            }
+
                             ctx.lineWidth = st.width * 2;
                             ctx.lineJoin = st.join || 'round';
                             if (st.type === 'depth') {
@@ -4765,7 +4786,7 @@
                                 const depthDx = Math.cos(depthAngle);
                                 const depthDy = Math.sin(depthAngle);
                                 for (let d = st.width; d > 0; d--) {
-                                    ctx.strokeStyle = st.color;
+                                    if (!st.gradientEnabled) ctx.strokeStyle = st.color;
                                     ctx.lineWidth = 2;
                                     ctx.save();
                                     ctx.translate(d * depthDx, d * depthDy);
@@ -4775,7 +4796,7 @@
                             } else if (st.type === 'drop') {
                                 ctx.save();
                                 ctx.translate(st.width, st.width);
-                                ctx.fillStyle = st.color;
+                                ctx.fillStyle = st.gradientEnabled ? ctx.strokeStyle : st.color;
                                 ctx.fillText(dc, 0, 0);
                                 ctx.restore();
                             } else {
@@ -6229,7 +6250,7 @@
                     if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
                         gradient = {
                             type: 'linear',
-                            angle: 180, // 上から下へ
+                            angle: 90, // 上から下へ（90度 = 垂直方向）
                             stops: [
                                 { position: 0, color: topColor.hex, opacity: topColor.opacity },
                                 { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
@@ -6251,7 +6272,7 @@
                     if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
                         gradient = {
                             type: 'linear',
-                            angle: 180,
+                            angle: 90, // 上から下へ（90度 = 垂直方向）
                             stops: [
                                 { position: 0, color: topColor.hex, opacity: topColor.opacity },
                                 { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
@@ -6360,7 +6381,7 @@
                         if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
                             strokeGradient = {
                                 type: 'linear',
-                                angle: 180,
+                                angle: 90,
                                 stops: [
                                     { position: 0, color: topColor.hex, opacity: topColor.opacity },
                                     { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
@@ -6380,7 +6401,7 @@
                         if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
                             strokeGradient = {
                                 type: 'linear',
-                                angle: 180,
+                                angle: 90,
                                 stops: [
                                     { position: 0, color: topColor.hex, opacity: topColor.opacity },
                                     { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
@@ -6647,13 +6668,14 @@
         }
 
         function applyPRSLStyle(index) {
+            const statusEl = document.getElementById('prslStatus');
             if (!selectedObjId) {
-                alert('テキストオブジェクトを選択してください');
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
                 return;
             }
             const obj = textObjects.find(o => o.id === selectedObjId);
             if (!obj || obj.type !== 'text') {
-                alert('テキストオブジェクトを選択してください');
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
                 return;
             }
 
@@ -6706,15 +6728,30 @@
 
                 // ストローク
                 if (style.strokes && style.strokes.length > 0) {
-                    c.strokes = style.strokes.map(s => ({
-                        enabled: true,
-                        type: 'edge',
-                        color: s.color,
-                        width: s.width,
-                        opacity: s.opacity || 100,
-                        angle: 45,
-                        join: 'round'
-                    }));
+                    c.strokes = style.strokes.map(s => {
+                        const stroke = {
+                            enabled: true,
+                            type: 'edge',
+                            color: s.color,
+                            width: s.width,
+                            opacity: s.opacity || 100,
+                            angle: 45,
+                            join: 'round'
+                        };
+                        // ストロークグラデーション
+                        if (s.gradient && s.gradient.stops && s.gradient.stops.length >= 2) {
+                            stroke.gradientEnabled = true;
+                            stroke.gradientType = s.gradient.type;
+                            stroke.color2 = s.gradient.stops[s.gradient.stops.length - 1].color;
+                            stroke.gradientAngle = s.gradient.angle || 90;
+                            stroke.gradientStops = s.gradient.stops.map(gs => ({
+                                color: gs.color,
+                                pos: gs.position * 100,
+                                endPos: gs.position * 100
+                            }));
+                        }
+                        return stroke;
+                    });
                 } else {
                     c.strokes = [];
                 }
@@ -6751,6 +6788,9 @@
             // 選択スタイルをハイライト
             selectedPRSLIndex = index;
             updatePRSLHighlight();
+
+            // 成功メッセージ
+            if (statusEl) statusEl.textContent = `スタイル「${style.name}」を適用しました`;
         }
 
         function updatePRSLHighlight() {
