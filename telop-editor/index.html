@@ -470,12 +470,114 @@
         let prslStyles = [];
         let nextObjectId = 1;
 
+        // ドラッグ関連
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
         // 初期化
         window.onload = function() {
             canvas = document.getElementById('mainCanvas');
             ctx = canvas.getContext('2d');
+
+            // マウスイベント
+            canvas.addEventListener('mousedown', onCanvasMouseDown);
+            canvas.addEventListener('mousemove', onCanvasMouseMove);
+            canvas.addEventListener('mouseup', onCanvasMouseUp);
+            canvas.addEventListener('mouseleave', onCanvasMouseUp);
+
             render();
         };
+
+        // キャンバス座標を取得
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        // オブジェクトの境界を計算
+        function getObjectBounds(obj) {
+            if (!obj.chars || obj.chars.length === 0) return null;
+
+            const c = obj.chars[0];
+            const fs = c.fontSize || 72;
+            const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+
+            let totalWidth = 0;
+            obj.chars.forEach(ch => {
+                totalWidth += ctx.measureText(ch.char).width * ((ch.scaleX || 100) / 100);
+                totalWidth += ch.tracking || 0;
+            });
+
+            return {
+                x: obj.x - totalWidth / 2,
+                y: obj.y - fs,
+                width: totalWidth,
+                height: fs * 1.2
+            };
+        }
+
+        // 座標がオブジェクト内かチェック
+        function hitTest(obj, x, y) {
+            const bounds = getObjectBounds(obj);
+            if (!bounds) return false;
+
+            return x >= bounds.x && x <= bounds.x + bounds.width &&
+                   y >= bounds.y && y <= bounds.y + bounds.height;
+        }
+
+        // マウスダウン
+        function onCanvasMouseDown(e) {
+            const coords = getCanvasCoords(e);
+
+            // クリック位置のオブジェクトを検索（後ろから）
+            let found = null;
+            for (let i = objects.length - 1; i >= 0; i--) {
+                if (hitTest(objects[i], coords.x, coords.y)) {
+                    found = objects[i];
+                    break;
+                }
+            }
+
+            if (found) {
+                selectObject(found.id);
+                isDragging = true;
+                dragOffset = {
+                    x: coords.x - found.x,
+                    y: coords.y - found.y
+                };
+            } else {
+                selectedObjectId = null;
+                updateObjectList();
+                updatePropertyPanel();
+                render();
+            }
+        }
+
+        // マウス移動
+        function onCanvasMouseMove(e) {
+            if (!isDragging || selectedObjectId === null) return;
+
+            const coords = getCanvasCoords(e);
+            const obj = getSelectedObject();
+            if (obj) {
+                obj.x = coords.x - dragOffset.x;
+                obj.y = coords.y - dragOffset.y;
+                updatePropertyPanel();
+                render();
+            }
+        }
+
+        // マウスアップ
+        function onCanvasMouseUp(e) {
+            isDragging = false;
+        }
 
         // デフォルトスタイルを取得
         function getDefaultStyle() {
@@ -762,13 +864,39 @@
                     renderTextObject(obj);
                 }
             });
+
+            // 選択オブジェクトの境界線
+            const selected = getSelectedObject();
+            if (selected) {
+                const bounds = getObjectBounds(selected);
+                if (bounds) {
+                    ctx.save();
+                    ctx.strokeStyle = '#00aaff';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.width + 10, bounds.height + 10);
+                    ctx.restore();
+                }
+            }
         }
 
         // テキストオブジェクト描画
         function renderTextObject(obj) {
             if (!obj.chars || obj.chars.length === 0) return;
 
-            let x = obj.x;
+            // テキスト全体の幅を計算
+            let totalWidth = 0;
+            obj.chars.forEach(c => {
+                const fs = c.fontSize || 72;
+                const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                const fontStyle = c.italic ? 'italic' : 'normal';
+                ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                totalWidth += ctx.measureText(c.char).width * ((c.scaleX || 100) / 100);
+                totalWidth += c.tracking || 0;
+            });
+
+            // 中央揃えで開始位置を計算
+            let x = obj.x - totalWidth / 2;
             let y = obj.y;
 
             obj.chars.forEach((c, i) => {
@@ -1020,8 +1148,11 @@
                 // グラデーション検出
                 const fourColorRamp = fillBlock.querySelector('four_colour_ramp');
                 const twoColorRamp = fillBlock.querySelector('two_colour_ramp');
+                const linearGradient = fillBlock.querySelector('linear_gradient');
 
-                if (fourColorRamp) {
+                if (linearGradient) {
+                    gradient = parseLinearGradient(linearGradient);
+                } else if (fourColorRamp) {
                     gradient = parseFourColorRamp(fourColorRamp);
                 } else if (twoColorRamp) {
                     gradient = parseTwoColorRamp(twoColorRamp);
@@ -1117,6 +1248,43 @@
             return {
                 type: 'linear',
                 angle: 90, // 垂直（上から下）
+                stops
+            };
+        }
+
+        // リニアグラデーションパース（中間色対応）
+        function parseLinearGradient(gradBlock) {
+            const angle = parseFloat(gradBlock.querySelector('angle')?.textContent) || 90;
+            const stops = [];
+
+            // 開始色
+            const startColor = gradBlock.querySelector('start_colour, start_color');
+            if (startColor) {
+                stops.push({ color: parseColor(startColor), pos: 0 });
+            }
+
+            // 中間色（colour_stops）
+            const colourStops = gradBlock.querySelectorAll('colour_stop, color_stop');
+            colourStops.forEach(cs => {
+                const color = cs.querySelector('colour, color');
+                const position = parseFloat(cs.querySelector('position')?.textContent) || 50;
+                if (color) {
+                    stops.push({ color: parseColor(color), pos: position });
+                }
+            });
+
+            // 終了色
+            const endColor = gradBlock.querySelector('end_colour, end_color');
+            if (endColor) {
+                stops.push({ color: parseColor(endColor), pos: 100 });
+            }
+
+            // 位置でソート
+            stops.sort((a, b) => a.pos - b.pos);
+
+            return {
+                type: 'linear',
+                angle,
                 stops
             };
         }
