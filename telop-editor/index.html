@@ -1072,6 +1072,17 @@
             current.bgColor = canvasBgColor;
             current.bgOpacity = canvasBgOpacity;
 
+            // サムネイルを保存（セーフマージン非表示で）
+            const wasEnabled = document.getElementById('safeMarginEnabled').checked;
+            document.getElementById('safeMarginEnabled').checked = false;
+            const prevSelected = selectedObjId;
+            selectedObjId = null;  // 選択枠を非表示
+            render();
+            current.thumbnail = canvas.toDataURL('image/png');
+            selectedObjId = prevSelected;
+            document.getElementById('safeMarginEnabled').checked = wasEnabled;
+            render();
+
             // 背景画像をBase64で保存
             if (bgImage) {
                 const tempCanvas = document.createElement('canvas');
@@ -1161,14 +1172,22 @@
                 // セーフマージン非表示で描画
                 const wasEnabled = document.getElementById('safeMarginEnabled').checked;
                 document.getElementById('safeMarginEnabled').checked = false;
+                const prevSelected = selectedObjId;
+                selectedObjId = null;  // 選択枠を非表示
                 render();
                 const url = canvas.toDataURL('image/png');
+                selectedObjId = prevSelected;
                 document.getElementById('safeMarginEnabled').checked = wasEnabled;
                 render();
                 return url;
             }
 
-            // 保存されたデータからサムネイル生成（簡易版）
+            // 保存されたサムネイルがあればそれを使用
+            if (canvasData.thumbnail) {
+                return canvasData.thumbnail;
+            }
+
+            // 保存されたサムネイルがない場合は簡易プレビュー
             const [w, h] = (canvasData.resolution || '1920x1080').split('x').map(Number);
             const thumbCanvas = document.createElement('canvas');
             thumbCanvas.width = w;
