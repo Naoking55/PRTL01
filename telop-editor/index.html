@@ -2764,6 +2764,7 @@
             }
             updateLayerList();
             updateLayerProps();
+            updateCharInfo();
             render();
         }
 
@@ -2828,13 +2829,36 @@
         }
 
         function applyStyle() {
-            if (!editingObjId) return;
-            const obj = textObjects.find(o => o.id === editingObjId);
-            if (!obj || selectedCharStart === -1 || selectedCharStart === selectedCharEnd) return;
-            const s = Math.min(selectedCharStart, selectedCharEnd), en = Math.max(selectedCharStart, selectedCharEnd);
-            const style = getDefaultStyle();
-            for (let i = s; i < en; i++) Object.assign(obj.chars[i], style);
-            render();
+            // 編集モードで文字選択がある場合：選択範囲のみに適用
+            if (editingObjId) {
+                const obj = textObjects.find(o => o.id === editingObjId);
+                if (!obj || !obj.chars) return;
+
+                // 文字選択がある場合は選択範囲のみ
+                if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                    const s = Math.min(selectedCharStart, selectedCharEnd);
+                    const en = Math.max(selectedCharStart, selectedCharEnd);
+                    const style = getDefaultStyle();
+                    for (let i = s; i < en; i++) Object.assign(obj.chars[i], style);
+                }
+                // 文字選択がない場合は全文字に適用
+                else {
+                    const style = getDefaultStyle();
+                    obj.chars.forEach(c => Object.assign(c, style));
+                }
+                render();
+                return;
+            }
+
+            // 選択ツールでレイヤーを選択している場合：全文字に適用
+            if (selectedObjId) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (!obj || !obj.chars) return;  // テキストオブジェクトでない場合は無視
+
+                const style = getDefaultStyle();
+                obj.chars.forEach(c => Object.assign(c, style));
+                render();
+            }
         }
 
         function setTextAlign(a) {
@@ -2853,7 +2877,16 @@
             const info = document.getElementById('charInfo');
             if (editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
                 info.textContent = `${Math.abs(selectedCharEnd - selectedCharStart)}文字選択中`;
-            } else info.textContent = '文字を選択してください';
+            } else if (selectedObjId && !editingObjId) {
+                const obj = textObjects.find(o => o.id === selectedObjId);
+                if (obj && obj.chars) {
+                    info.textContent = `レイヤー全体 (${obj.chars.length}文字)`;
+                } else {
+                    info.textContent = 'テキストオブジェクトを選択してください';
+                }
+            } else {
+                info.textContent = '文字を選択してください';
+            }
         }
 
         function copySelected() {
@@ -3042,6 +3075,134 @@
             loadShapeUI(obj);
             loadPathTextUI(obj);
             loadPenPathUI(obj);
+
+            // テキストオブジェクトの場合、文字スタイルUIを更新
+            if (obj.chars && obj.chars.length > 0) {
+                loadCharStyleUI(obj);
+            }
+        }
+
+        // テキストオブジェクト選択時に文字スタイルUIを更新
+        function loadCharStyleUI(obj) {
+            if (!obj.chars || obj.chars.length === 0) return;
+
+            // 最初の文字のスタイルを取得（または全文字が同じなら共通値）
+            const firstChar = obj.chars[0];
+
+            // フォント
+            const fontSel = document.getElementById('fontFamily');
+            const customInput = document.getElementById('customFontInput');
+            const fontValue = firstChar.fontFamily || 'Yu Gothic UI';
+            if ([...fontSel.options].some(opt => opt.value === fontValue)) {
+                fontSel.value = fontValue;
+                customInput.style.display = 'none';
+            } else {
+                fontSel.value = '__custom__';
+                customInput.value = fontValue;
+                customInput.style.display = 'block';
+            }
+
+            // サイズ
+            document.getElementById('fontSize').value = firstChar.fontSize || 72;
+
+            // 縦横比
+            document.getElementById('charScaleX').value = firstChar.scaleX || 100;
+
+            // カーニング・トラッキング
+            document.getElementById('charKerning').value = firstChar.kerning || 0;
+            document.getElementById('charTracking').value = firstChar.tracking || 0;
+
+            // ベースライン・傾き
+            document.getElementById('charBaseline').value = firstChar.baseline || 0;
+            document.getElementById('charSlant').value = firstChar.slant || 0;
+
+            // 不透明度
+            document.getElementById('charOpacity').value = firstChar.opacity || 100;
+
+            // スモールキャップス
+            document.getElementById('charSmallCaps').checked = firstChar.smallCaps || false;
+            document.getElementById('charSmallCapsSize').value = firstChar.smallCapsSize || 70;
+
+            // 塗り
+            document.getElementById('fillType').value = firstChar.fillType || 'solid';
+
+            // グラデーションストップ
+            if (firstChar.gradientStops && firstChar.gradientStops.length >= 2) {
+                const stops = document.querySelectorAll('#gradientStops .gradient-stop');
+                if (stops.length >= 2) {
+                    stops[0].querySelector('.grad-color').value = firstChar.gradientStops[0].color;
+                    stops[0].querySelector('.grad-ratio').value = firstChar.gradientStops[0].ratio || 50;
+                    stops[1].querySelector('.grad-color').value = firstChar.gradientStops[1].color;
+                    stops[1].querySelector('.grad-ratio').value = firstChar.gradientStops[1].ratio || 50;
+                }
+            } else {
+                const stops = document.querySelectorAll('#gradientStops .gradient-stop');
+                if (stops.length >= 2) {
+                    stops[0].querySelector('.grad-color').value = firstChar.color || '#ffffff';
+                }
+            }
+
+            document.getElementById('gradientAngle').value = firstChar.gradientAngle || 0;
+            document.getElementById('gradientBlur').value = firstChar.gradientBlur || 0;
+
+            // 光沢
+            document.getElementById('glossEnabled').checked = firstChar.gloss?.enabled || false;
+            document.getElementById('glossWidth').value = firstChar.gloss?.width || 10;
+            document.getElementById('glossBlur').value = firstChar.gloss?.blur || 5;
+            document.getElementById('glossColor').value = firstChar.gloss?.color || '#ffffff';
+            document.getElementById('glossOpacity').value = firstChar.gloss?.opacity || 50;
+
+            // 影
+            document.getElementById('shadowEnabled').checked = firstChar.shadow?.enabled || false;
+            document.getElementById('shadowColor').value = firstChar.shadow?.color || '#000000';
+            document.getElementById('shadowOpacity').value = firstChar.shadow?.opacity || 50;
+            document.getElementById('shadowAngle').value = firstChar.shadow?.angle || 45;
+            document.getElementById('shadowDistance').value = firstChar.shadow?.distance || 5;
+            document.getElementById('shadowSize').value = firstChar.shadow?.size || 0;
+            document.getElementById('shadowBlur').value = firstChar.shadow?.blur || 5;
+
+            // ストローク
+            loadStrokeUI(firstChar.strokes);
+        }
+
+        // ストロークUIを更新
+        function loadStrokeUI(strokes) {
+            const list = document.getElementById('strokeList');
+            list.innerHTML = '';
+
+            const strokesData = strokes || [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, join: 'round' }];
+
+            strokesData.forEach((st, i) => {
+                const div = document.createElement('div');
+                div.className = 'stroke-item';
+                div.innerHTML = `
+                    <div class="stroke-header">
+                        <label><input type="checkbox" class="stroke-enabled" ${st.enabled ? 'checked' : ''} onchange="applyStyle()"> ストローク${i + 1}</label>
+                        <button class="btn btn-small btn-danger" onclick="this.parentElement.parentElement.remove();applyStyle()">×</button>
+                    </div>
+                    <div class="row2">
+                        <div><label>種類</label><select class="stroke-type" onchange="applyStyle()">
+                            <option value="edge" ${st.type === 'edge' ? 'selected' : ''}>エッジ</option>
+                            <option value="depth" ${st.type === 'depth' ? 'selected' : ''}>奥行き</option>
+                            <option value="drop" ${st.type === 'drop' ? 'selected' : ''}>ドロップ</option>
+                        </select></div>
+                        <div><label>色</label><input type="color" class="stroke-color" value="${st.color || '#000000'}" onchange="applyStyle()"></div>
+                    </div>
+                    <div class="row2">
+                        <div><label>太さ</label><input type="number" class="stroke-width" value="${st.width || 4}" min="0" max="50" onchange="applyStyle()"></div>
+                        <div><label>不透明度%</label><input type="number" class="stroke-opacity" value="${st.opacity || 100}" min="0" max="100" onchange="applyStyle()"></div>
+                    </div>
+                    <div class="row2">
+                        <div><label>角度°</label><input type="number" class="stroke-angle" value="${st.angle || 45}" step="1" onchange="applyStyle()"></div>
+                        <div><label>角</label><select class="stroke-join" onchange="applyStyle()">
+                            <option value="round" ${st.join === 'round' ? 'selected' : ''}>丸み</option>
+                            <option value="miter" ${st.join === 'miter' ? 'selected' : ''}>角</option>
+                            <option value="bevel" ${st.join === 'bevel' ? 'selected' : ''}>面取り</option>
+                        </select></div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
         }
 
         function updateLayerList() {
