@@ -190,6 +190,37 @@
 </head>
 <body>
     <div class="sidebar">
+        <h3 class="collapsible" onclick="toggleCollapse(this)">キャンバス設定</h3>
+        <div class="collapse-content">
+            <label>背景色</label>
+            <div class="row2">
+                <div><input type="color" id="canvasBgColor" value="#000000" onchange="updateCanvasBackground()"></div>
+                <div><label>不透明度%</label><input type="number" id="canvasBgOpacity" min="0" max="100" value="0" onchange="updateCanvasBackground()"></div>
+            </div>
+
+            <label>背景画像</label>
+            <input type="file" id="bgImageInput" accept="image/*" onchange="loadBackgroundImage(event)" style="width:100%;font-size:11px;">
+            <div class="row2" style="margin-top:5px;">
+                <div><button class="btn btn-small btn-secondary" onclick="clearBackgroundImage()">画像クリア</button></div>
+                <div><label>フィット</label><select id="bgImageFit" onchange="render()" style="font-size:11px;">
+                    <option value="contain">contain</option>
+                    <option value="cover">cover</option>
+                    <option value="stretch">stretch</option>
+                </select></div>
+            </div>
+
+            <h4>セーフマージン</h4>
+            <label><input type="checkbox" id="safeMarginEnabled" checked onchange="render()"> 表示</label>
+            <div class="row2">
+                <div><label>アクション%</label><input type="number" id="actionSafeMargin" min="0" max="20" value="5" onchange="render()"></div>
+                <div><label>タイトル%</label><input type="number" id="titleSafeMargin" min="0" max="20" value="10" onchange="render()"></div>
+            </div>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="safeMarginColor" value="#ffffff" onchange="render()"></div>
+                <div><label>不透明度%</label><input type="number" id="safeMarginOpacity" min="0" max="100" value="50" onchange="render()"></div>
+            </div>
+        </div>
+
         <h3>レイヤー</h3>
         <div class="layer-list" id="layerList"></div>
         <div style="display:flex;gap:3px;margin-top:6px;">
@@ -568,6 +599,9 @@
         let isComposing = false;
         let pathPoints = [];  // パス描画中のポイント
         let isDrawingPath = false;
+        let bgImage = null;   // 背景画像
+        let canvasBgColor = '#000000';
+        let canvasBgOpacity = 0;
 
         function toggleCollapse(el) {
             el.classList.toggle('collapsed');
@@ -689,6 +723,117 @@
             if (isInCEP()) {
                 loadSystemFonts();
             }
+        }
+
+        // ========== 背景・セーフマージン管理 ==========
+
+        function updateCanvasBackground() {
+            canvasBgColor = document.getElementById('canvasBgColor').value;
+            canvasBgOpacity = parseInt(document.getElementById('canvasBgOpacity').value) || 0;
+            render();
+        }
+
+        function loadBackgroundImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    bgImage = img;
+                    render();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearBackgroundImage() {
+            bgImage = null;
+            document.getElementById('bgImageInput').value = '';
+            render();
+        }
+
+        function drawBackground(ctx) {
+            // 背景色（不透明度が0より大きい場合のみ描画）
+            if (canvasBgOpacity > 0) {
+                ctx.save();
+                ctx.globalAlpha = canvasBgOpacity / 100;
+                ctx.fillStyle = canvasBgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+
+            // 背景画像
+            if (bgImage) {
+                const fit = document.getElementById('bgImageFit').value;
+                ctx.save();
+
+                let dx = 0, dy = 0, dw = canvas.width, dh = canvas.height;
+
+                if (fit === 'contain') {
+                    const scale = Math.min(canvas.width / bgImage.width, canvas.height / bgImage.height);
+                    dw = bgImage.width * scale;
+                    dh = bgImage.height * scale;
+                    dx = (canvas.width - dw) / 2;
+                    dy = (canvas.height - dh) / 2;
+                } else if (fit === 'cover') {
+                    const scale = Math.max(canvas.width / bgImage.width, canvas.height / bgImage.height);
+                    dw = bgImage.width * scale;
+                    dh = bgImage.height * scale;
+                    dx = (canvas.width - dw) / 2;
+                    dy = (canvas.height - dh) / 2;
+                }
+                // stretch uses default values
+
+                ctx.drawImage(bgImage, dx, dy, dw, dh);
+                ctx.restore();
+            }
+        }
+
+        function drawSafeMargins(ctx) {
+            if (!document.getElementById('safeMarginEnabled').checked) return;
+
+            const actionMargin = parseInt(document.getElementById('actionSafeMargin').value) || 5;
+            const titleMargin = parseInt(document.getElementById('titleSafeMargin').value) || 10;
+            const color = document.getElementById('safeMarginColor').value;
+            const opacity = (parseInt(document.getElementById('safeMarginOpacity').value) || 50) / 100;
+
+            // Parse color to RGB
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(${r},${g},${b},${opacity})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // アクションセーフ（外側のマージン）
+            const ax = w * actionMargin / 100;
+            const ay = h * actionMargin / 100;
+            ctx.strokeRect(ax, ay, w - ax * 2, h - ay * 2);
+
+            // タイトルセーフ（内側のマージン）
+            const tx = w * titleMargin / 100;
+            const ty = h * titleMargin / 100;
+            ctx.strokeRect(tx, ty, w - tx * 2, h - ty * 2);
+
+            // 中心線
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 0);
+            ctx.lineTo(w / 2, h);
+            ctx.moveTo(0, h / 2);
+            ctx.lineTo(w, h / 2);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+            ctx.restore();
         }
 
         // ========== グラデーション管理 ==========
@@ -2176,6 +2321,9 @@
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // 背景描画
+            drawBackground(ctx);
+
             textObjects.forEach(obj => {
                 ctx.save();
                 ctx.globalAlpha = (obj.opacity || 100) / 100;
@@ -2803,6 +2951,9 @@
                 ctx.restore();
             }
 
+            // セーフマージン描画（最前面）
+            drawSafeMargins(ctx);
+
             document.getElementById('statusText').textContent = editingObjId ? '編集中 (Esc終了)' : (isDrawingPath ? `パス描画中 (${pathPoints.length}点) - ダブルクリックで完成` : `オブジェクト: ${textObjects.length}`);
         }
 
@@ -2814,11 +2965,19 @@
         }
 
         function exportPNG() {
-            exitEditMode(); selectedObjId = null; render();
+            exitEditMode(); selectedObjId = null;
+            // 一時的にセーフマージンを非表示にしてレンダリング
+            const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
+            const wasEnabled = safeMarginCheckbox.checked;
+            safeMarginCheckbox.checked = false;
+            render();
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
+            // 元に戻す
+            safeMarginCheckbox.checked = wasEnabled;
+            render();
         }
 
         function saveProject() {
