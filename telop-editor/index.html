@@ -655,6 +655,13 @@
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
         <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
         <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
+
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">スタイルインポート</h3>
+        <div class="collapse-content hidden">
+            <button class="btn btn-secondary" onclick="importPRSL()">PRSL読込</button>
+            <input type="file" id="prslInput" accept=".prsl" style="display:none" onchange="handlePRSLLoad(event)">
+            <div id="prslStyleList" style="max-height:150px;overflow-y:auto;margin-top:8px;"></div>
+        </div>
     </div>
 
     <div class="main">
@@ -4169,6 +4176,170 @@
         }
 
         function loadProject() { document.getElementById('fileInput').click(); }
+
+        // PRSL読み込み機能
+        let loadedPRSLStyles = [];
+
+        function importPRSL() { document.getElementById('prslInput').click(); }
+
+        function handlePRSLLoad(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    // UTF-16 LEからテキストに変換
+                    const arrayBuffer = ev.target.result;
+                    const decoder = new TextDecoder('utf-16le');
+                    let xmlText = decoder.decode(arrayBuffer);
+
+                    // BOMを除去
+                    if (xmlText.charCodeAt(0) === 0xFEFF) {
+                        xmlText = xmlText.substring(1);
+                    }
+
+                    // XMLをパース
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+                    // スタイルブロックを抽出
+                    const styleBlocks = xmlDoc.querySelectorAll('styleblock');
+                    loadedPRSLStyles = [];
+
+                    styleBlocks.forEach(block => {
+                        const style = parsePRSLStyle(block);
+                        if (style) loadedPRSLStyles.push(style);
+                    });
+
+                    // UIにスタイル一覧を表示
+                    displayPRSLStyles();
+                    alert(`${loadedPRSLStyles.length} スタイルを読み込みました`);
+                } catch (err) {
+                    alert('PRSLファイルの読み込みに失敗しました: ' + err.message);
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            e.target.value = '';
+        }
+
+        function parsePRSLStyle(block) {
+            const name = block.getAttribute('name') || 'Unknown';
+
+            // フォント情報
+            const fontFamily = block.querySelector('font > family')?.textContent || 'Yu Gothic UI';
+            const fontSize = parseFloat(block.querySelector('text_specification > size')?.textContent) || 72;
+
+            // 塗り色（solid_colour）
+            const faceColour = block.querySelector('face > shader > colouring > solid_colour > all');
+            let fillColor = '#ffffff';
+            if (faceColour) {
+                const r = Math.round((parseFloat(faceColour.querySelector('red')?.textContent) || 1) * 255);
+                const g = Math.round((parseFloat(faceColour.querySelector('green')?.textContent) || 1) * 255);
+                const b = Math.round((parseFloat(faceColour.querySelector('blue')?.textContent) || 1) * 255);
+                fillColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            }
+
+            // ストローク（embellishment）
+            const strokes = [];
+            for (let i = 0; i <= 11; i++) {
+                const emb = block.querySelector(`embellishment__${i}, embellishment_${i}`);
+                if (!emb) continue;
+                const existence = emb.querySelector('existence')?.textContent;
+                if (existence !== '3') continue;  // 3 = active
+
+                const embColour = emb.querySelector('shader > colouring > solid_colour > all');
+                if (embColour) {
+                    const r = Math.round((parseFloat(embColour.querySelector('red')?.textContent) || 1) * 255);
+                    const g = Math.round((parseFloat(embColour.querySelector('green')?.textContent) || 1) * 255);
+                    const b = Math.round((parseFloat(embColour.querySelector('blue')?.textContent) || 1) * 255);
+                    const width = parseFloat(emb.querySelector('geometry > edge > size')?.textContent) || 2;
+                    strokes.push({
+                        color: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
+                        width: Math.round(width / 10)  // PRSLは10倍スケール
+                    });
+                }
+            }
+
+            // 光沢（sheen）
+            const sheen = block.querySelector('face > shader > sheen');
+            let gloss = null;
+            if (sheen && sheen.querySelector('on')?.textContent === 'true') {
+                const sheenColour = sheen.querySelector('colour');
+                if (sheenColour) {
+                    const r = Math.round((parseFloat(sheenColour.querySelector('red')?.textContent) || 1) * 255);
+                    const g = Math.round((parseFloat(sheenColour.querySelector('green')?.textContent) || 1) * 255);
+                    const b = Math.round((parseFloat(sheenColour.querySelector('blue')?.textContent) || 1) * 255);
+                    const a = parseFloat(sheenColour.querySelector('alpha')?.textContent) || 1;
+                    gloss = {
+                        color: `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
+                        opacity: Math.round(a * 100),
+                        size: parseFloat(sheen.querySelector('size')?.textContent) || 50
+                    };
+                }
+            }
+
+            return { name, fontFamily, fontSize, fillColor, strokes, gloss };
+        }
+
+        function displayPRSLStyles() {
+            const list = document.getElementById('prslStyleList');
+            list.innerHTML = '';
+
+            loadedPRSLStyles.forEach((style, i) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:4px;margin:2px 0;background:#333;border-radius:3px;cursor:pointer;font-size:11px;';
+                div.textContent = style.name;
+                div.title = `${style.fontFamily} ${style.fontSize}pt`;
+                div.onclick = () => applyPRSLStyle(i);
+                list.appendChild(div);
+            });
+        }
+
+        function applyPRSLStyle(index) {
+            if (!selectedObjId) {
+                alert('テキストオブジェクトを選択してください');
+                return;
+            }
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'text') {
+                alert('テキストオブジェクトを選択してください');
+                return;
+            }
+
+            const style = loadedPRSLStyles[index];
+            if (!style) return;
+
+            saveState();
+
+            // 全文字にスタイルを適用
+            obj.chars.forEach(c => {
+                c.fontFamily = style.fontFamily;
+                c.fontSize = style.fontSize;
+                c.fillColor = style.fillColor;
+
+                // ストローク
+                if (style.strokes.length > 0) {
+                    c.strokes = style.strokes.map(s => ({
+                        color: s.color,
+                        width: s.width,
+                        opacity: 100
+                    }));
+                }
+
+                // 光沢
+                if (style.gloss) {
+                    c.glossEnabled = true;
+                    c.glossColor = style.gloss.color;
+                    c.glossOpacity = style.gloss.opacity;
+                    c.glossSize = style.gloss.size;
+                }
+            });
+
+            render();
+            updateLayerProps();
+        }
 
         function handleFileLoad(e) {
             const file = e.target.files[0]; if (!file) return;
