@@ -552,6 +552,15 @@
                     updatePropertyPanel();
                     render();
                     break;
+                case 'd':
+                case 'D':
+                    if (e.ctrlKey || e.metaKey) {
+                        if (obj) {
+                            e.preventDefault();
+                            duplicateSelectedObject();
+                        }
+                    }
+                    break;
             }
         }
 
