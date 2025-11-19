@@ -120,6 +120,35 @@
         }
         .gradient-stop:nth-child(n+3) .remove-stop { display: block; }
         .canvas-list { flex: 1; overflow-y: auto; }
+        .canvas-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-top: 1px solid #444;
+            background: #252525;
+        }
+        .canvas-bar-buttons {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .canvas-list-horizontal {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            flex: 1;
+            padding: 2px 0;
+        }
+        .canvas-list-horizontal .canvas-thumb {
+            flex-shrink: 0;
+            width: 60px;
+            margin-bottom: 0;
+        }
+        .canvas-list-horizontal .canvas-thumb img {
+            height: 34px;
+            object-fit: cover;
+        }
         .canvas-thumb { position: relative; margin-bottom: 6px; border: 2px solid transparent; border-radius: 4px; cursor: pointer; }
         .canvas-thumb:hover { border-color: #4a4a4a; }
         .canvas-thumb.active { border-color: #0066cc; }
@@ -173,16 +202,6 @@
                     <input type="range" id="layerOpacity" min="0" max="100" value="100" oninput="updateLayerOpacity()"><span id="opacityVal">100</span>%
                 </div>
             </div>
-
-            <h3>キャンバス</h3>
-            <div class="canvas-actions">
-                <button class="btn btn-primary" onclick="newCanvas()">新規</button>
-                <button class="btn btn-secondary" onclick="duplicateCanvas()">複製</button>
-            </div>
-            <div class="canvas-actions">
-                <button class="btn btn-secondary" onclick="importCanvasFromProject()">インポート</button>
-            </div>
-            <div class="canvas-list" id="canvasList"></div>
 
             <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">PRSLスタイル</h3>
             <div class="collapse-content hidden">
@@ -303,6 +322,14 @@
             <div class="status">
                 <span id="statusText">準備完了</span>
                 <span id="resolution-display">1920×1080</span>
+            </div>
+            <div class="canvas-bar">
+                <div class="canvas-bar-buttons">
+                    <button class="btn btn-small btn-primary" onclick="newCanvas()">新規</button>
+                    <button class="btn btn-small btn-secondary" onclick="duplicateCanvas()">複製</button>
+                    <button class="btn btn-small btn-secondary" onclick="importCanvasFromProject()">インポート</button>
+                </div>
+                <div class="canvas-list-horizontal" id="canvasList"></div>
             </div>
         </div>
 
@@ -3723,9 +3750,9 @@
                     ctx.textBaseline = 'middle';
                     ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
 
-                    // ストローク
+                    // ストローク（リスト順：上が内側、下が外側）
                     const strokes = c.strokes || [{ enabled: true, color: '#000', width: 4, opacity: 100 }];
-                    strokes.slice().reverse().forEach(st => {
+                    strokes.forEach(st => {
                         if (!st.enabled) return;
                         ctx.save();
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
@@ -4095,9 +4122,9 @@
                             ctx.rotate(pos.angle);
                         }
 
-                        // Strokes
+                        // Strokes（リスト順：上が内側、下が外側）
                         const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
-                        strokes.slice().reverse().forEach(st => {
+                        strokes.forEach(st => {
                             if (!st.enabled) return;
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
@@ -4614,9 +4641,9 @@
 
                         ctx.scale(sx, 1);
 
-                        // Strokes
+                        // Strokes（リスト順：上が内側、下が外側）
                         const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100, join: 'round' }];
-                        strokes.slice().reverse().forEach(st => {
+                        strokes.forEach(st => {
                             if (!st.enabled) return;
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
