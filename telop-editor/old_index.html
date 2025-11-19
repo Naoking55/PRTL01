@@ -2189,13 +2189,6 @@
                 ungroupSelected();
                 return;
             }
-            // Duplicate ショートカット (Ctrl+D)
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && !editingObjId && selectedObjIds.length > 0) {
-                e.preventDefault();
-                copySelected();
-                pasteObject();
-                return;
-            }
             // 矢印キー微調整
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !editingObjId && selectedObjIds.length > 0) {
                 e.preventDefault();
