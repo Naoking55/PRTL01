@@ -763,6 +763,8 @@
         let penDragStart = null;  // ドラッグ開始位置
         let editingPenPath = null;  // 制御点編集中のパスオブジェクトID
         let editingControlPoint = null;  // 編集中の制御点 {pointIndex, type: 'cp1'|'cp2'|'anchor'}
+        let textEditSaveTimer = null;  // テキスト編集Undoのデバウンスタイマー
+        let lastSavedState = null;  // 最後に保存した状態（重複保存を防ぐ）
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -774,10 +776,31 @@
 
         function saveState() {
             const state = JSON.stringify(textObjects);
+            // 同じ状態を連続して保存しない
+            if (state === lastSavedState) return;
             undoStack.push(state);
+            lastSavedState = state;
             if (undoStack.length > MAX_HISTORY) undoStack.shift();
             redoStack = [];  // 新しい操作でredoスタックをクリア
             updateUndoRedoButtons();
+        }
+
+        // テキスト編集中のデバウンスsaveState（500ms後に保存）
+        function debouncedSaveState() {
+            if (textEditSaveTimer) clearTimeout(textEditSaveTimer);
+            textEditSaveTimer = setTimeout(() => {
+                saveState();
+                textEditSaveTimer = null;
+            }, 500);
+        }
+
+        // 即座にデバウンスをフラッシュ
+        function flushDebouncedSave() {
+            if (textEditSaveTimer) {
+                clearTimeout(textEditSaveTimer);
+                saveState();
+                textEditSaveTimer = null;
+            }
         }
 
         function undo() {
@@ -1549,6 +1572,7 @@
             cursorPos += chars.length;
             render();
             updateLayerList();
+            debouncedSaveState();  // テキスト編集のUndo保存
         }
 
         function getHandleAtPoint(obj, x, y) {
@@ -1912,6 +1936,7 @@
                     obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
                 } else if (cursorPos > 0) { obj.chars.splice(cursorPos - 1, 1); cursorPos--; }
                 render();
+                debouncedSaveState();  // テキスト編集のUndo保存
             } else if (e.key === 'Delete') {
                 e.preventDefault();
                 if (selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
@@ -1919,6 +1944,7 @@
                     obj.chars.splice(s, en - s); cursorPos = s; selectedCharStart = -1; selectedCharEnd = -1;
                 } else if (cursorPos < obj.chars.length) obj.chars.splice(cursorPos, 1);
                 render();
+                debouncedSaveState();  // テキスト編集のUndo保存
             } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 selectedCharStart = -1;
@@ -2573,6 +2599,7 @@
         function selectObject(id) { selectedObjId = id; updateLayerList(); updateLayerProps(); render(); }
 
         function enterEditMode(id) {
+            saveState();  // 編集開始前の状態を保存
             editingObjId = id; selectedObjId = id;
             const obj = textObjects.find(o => o.id === id);
             cursorPos = obj ? obj.chars.length : 0;
@@ -2584,6 +2611,7 @@
         }
 
         function exitEditMode() {
+            flushDebouncedSave();  // 保留中のUndo保存をフラッシュ
             if (editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
                 if (obj && obj.chars.length === 0) { textObjects = textObjects.filter(o => o.id !== editingObjId); selectedObjId = null; }
