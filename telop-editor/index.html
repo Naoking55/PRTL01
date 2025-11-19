@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>テロップエディタ v2.5</title>
+    <title>テロップエディタ v3.0</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'Yu Gothic UI', sans-serif; background: #1e1e1e; color: #e0e0e0; display: flex; height: 100vh; }
@@ -20,6 +20,94 @@
             border-radius: 4px;
             font-size: 11px;
             transition: border-color 0.2s, background 0.2s;
+        }
+
+        /* Right sidebar for canvas thumbnails */
+        .right-sidebar {
+            width: 180px;
+            background: linear-gradient(180deg, #2d2d2d 0%, #252525 100%);
+            padding: 8px;
+            overflow-y: auto;
+            border-left: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+        }
+        .right-sidebar h3 {
+            color: #fff;
+            margin: 4px 0 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .canvas-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .canvas-thumb {
+            position: relative;
+            margin-bottom: 8px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .canvas-thumb:hover {
+            border-color: #4a4a4a;
+        }
+        .canvas-thumb.active {
+            border-color: #0078d4;
+        }
+        .canvas-thumb img {
+            width: 100%;
+            display: block;
+            border-radius: 2px;
+            background: #1a1a1a;
+        }
+        .canvas-thumb-name {
+            font-size: 9px;
+            color: #aaa;
+            padding: 4px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .canvas-thumb-actions {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            display: none;
+            gap: 2px;
+        }
+        .canvas-thumb:hover .canvas-thumb-actions {
+            display: flex;
+        }
+        .canvas-thumb-btn {
+            width: 18px;
+            height: 18px;
+            background: rgba(0,0,0,0.7);
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .canvas-thumb-btn:hover {
+            background: #0078d4;
+        }
+        .canvas-actions {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .canvas-actions .btn {
+            flex: 1;
+            padding: 6px 4px;
+            font-size: 10px;
         }
         .sidebar input:focus, .sidebar select:focus {
             outline: none;
@@ -567,7 +655,21 @@
         </div>
     </div>
 
+    <!-- Right sidebar for canvas thumbnails -->
+    <div class="right-sidebar">
+        <h3>キャンバス</h3>
+        <div class="canvas-actions">
+            <button class="btn btn-primary" onclick="newCanvas()">新規</button>
+            <button class="btn btn-secondary" onclick="duplicateCanvas()">複製</button>
+        </div>
+        <div class="canvas-actions">
+            <button class="btn btn-secondary" onclick="importCanvasFromProject()">インポート</button>
+        </div>
+        <div class="canvas-list" id="canvasList"></div>
+    </div>
+
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportProject(event)">
     <input type="text" id="imeInput" autocomplete="off">
 
     <script>
@@ -575,6 +677,11 @@
         const ctx = canvas.getContext('2d');
         const imeInput = document.getElementById('imeInput');
 
+        // 複数キャンバス管理
+        let canvases = [];
+        let activeCanvasId = null;
+
+        // 現在のキャンバスのオブジェクト（後方互換性のため維持）
         let textObjects = [];
         let selectedObjId = null;
         let selectedCharStart = -1;
@@ -723,6 +830,265 @@
             if (isInCEP()) {
                 loadSystemFonts();
             }
+        }
+
+        // ========== キャンバス管理 ==========
+
+        function createCanvasData(name) {
+            return {
+                id: Date.now() + Math.random(),
+                name: name || `キャンバス ${canvases.length + 1}`,
+                resolution: document.getElementById('resolution').value,
+                bgColor: '#000000',
+                bgOpacity: 0,
+                bgImageData: null,
+                objects: []
+            };
+        }
+
+        function newCanvas() {
+            // 現在のキャンバスを保存
+            saveCurrentCanvas();
+
+            // 新規キャンバス作成
+            const newCanvasData = createCanvasData();
+            canvases.push(newCanvasData);
+            switchCanvas(newCanvasData.id);
+            updateCanvasList();
+        }
+
+        function duplicateCanvas() {
+            if (!activeCanvasId) return;
+
+            // 現在のキャンバスを保存
+            saveCurrentCanvas();
+
+            // 現在のキャンバスを複製
+            const current = canvases.find(c => c.id === activeCanvasId);
+            if (!current) return;
+
+            const duplicate = JSON.parse(JSON.stringify(current));
+            duplicate.id = Date.now() + Math.random();
+            duplicate.name = current.name + ' (コピー)';
+            canvases.push(duplicate);
+            switchCanvas(duplicate.id);
+            updateCanvasList();
+        }
+
+        function deleteCanvas(id) {
+            if (canvases.length <= 1) {
+                alert('最後のキャンバスは削除できません');
+                return;
+            }
+
+            const index = canvases.findIndex(c => c.id === id);
+            if (index === -1) return;
+
+            if (!confirm(`"${canvases[index].name}" を削除しますか？`)) return;
+
+            canvases.splice(index, 1);
+
+            // 削除したのがアクティブなら別のキャンバスに切替
+            if (id === activeCanvasId) {
+                const newIndex = Math.min(index, canvases.length - 1);
+                switchCanvas(canvases[newIndex].id);
+            }
+            updateCanvasList();
+        }
+
+        function switchCanvas(id) {
+            if (id === activeCanvasId) return;
+
+            // 現在のキャンバスを保存
+            saveCurrentCanvas();
+
+            // 新しいキャンバスに切替
+            activeCanvasId = id;
+            loadCurrentCanvas();
+            updateCanvasList();
+        }
+
+        function saveCurrentCanvas() {
+            if (!activeCanvasId) return;
+
+            const current = canvases.find(c => c.id === activeCanvasId);
+            if (!current) return;
+
+            current.objects = JSON.parse(JSON.stringify(textObjects));
+            current.resolution = document.getElementById('resolution').value;
+            current.bgColor = canvasBgColor;
+            current.bgOpacity = canvasBgOpacity;
+
+            // 背景画像をBase64で保存
+            if (bgImage) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = bgImage.width;
+                tempCanvas.height = bgImage.height;
+                tempCanvas.getContext('2d').drawImage(bgImage, 0, 0);
+                current.bgImageData = tempCanvas.toDataURL();
+            } else {
+                current.bgImageData = null;
+            }
+        }
+
+        function loadCurrentCanvas() {
+            const current = canvases.find(c => c.id === activeCanvasId);
+            if (!current) return;
+
+            textObjects = JSON.parse(JSON.stringify(current.objects));
+            selectedObjId = null;
+            editingObjId = null;
+
+            // 解像度を設定
+            if (current.resolution) {
+                document.getElementById('resolution').value = current.resolution;
+                changeResolution();
+            }
+
+            // 背景色を設定
+            canvasBgColor = current.bgColor || '#000000';
+            canvasBgOpacity = current.bgOpacity || 0;
+            document.getElementById('canvasBgColor').value = canvasBgColor;
+            document.getElementById('canvasBgOpacity').value = canvasBgOpacity;
+
+            // 背景画像を読み込み
+            if (current.bgImageData) {
+                const img = new Image();
+                img.onload = function() {
+                    bgImage = img;
+                    render();
+                };
+                img.src = current.bgImageData;
+            } else {
+                bgImage = null;
+            }
+
+            updateLayerList();
+            render();
+        }
+
+        function renameCanvas(id) {
+            const canvasData = canvases.find(c => c.id === id);
+            if (!canvasData) return;
+
+            const newName = prompt('キャンバス名を入力:', canvasData.name);
+            if (newName && newName.trim()) {
+                canvasData.name = newName.trim();
+                updateCanvasList();
+            }
+        }
+
+        function updateCanvasList() {
+            const list = document.getElementById('canvasList');
+            list.innerHTML = '';
+
+            canvases.forEach(canvasData => {
+                const div = document.createElement('div');
+                div.className = 'canvas-thumb' + (canvasData.id === activeCanvasId ? ' active' : '');
+                div.onclick = () => switchCanvas(canvasData.id);
+
+                // サムネイル生成
+                const thumbUrl = generateCanvasThumbnail(canvasData);
+
+                div.innerHTML = `
+                    <img src="${thumbUrl}" alt="${canvasData.name}">
+                    <div class="canvas-thumb-name">${canvasData.name}</div>
+                    <div class="canvas-thumb-actions">
+                        <button class="canvas-thumb-btn" onclick="event.stopPropagation(); renameCanvas(${canvasData.id})" title="名前変更">✎</button>
+                        <button class="canvas-thumb-btn" onclick="event.stopPropagation(); deleteCanvas(${canvasData.id})" title="削除">×</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function generateCanvasThumbnail(canvasData) {
+            // 現在のキャンバスの場合は実際のキャンバスからサムネイル生成
+            if (canvasData.id === activeCanvasId) {
+                // セーフマージン非表示で描画
+                const wasEnabled = document.getElementById('safeMarginEnabled').checked;
+                document.getElementById('safeMarginEnabled').checked = false;
+                render();
+                const url = canvas.toDataURL('image/png');
+                document.getElementById('safeMarginEnabled').checked = wasEnabled;
+                render();
+                return url;
+            }
+
+            // 保存されたデータからサムネイル生成（簡易版）
+            const [w, h] = (canvasData.resolution || '1920x1080').split('x').map(Number);
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = w;
+            thumbCanvas.height = h;
+            const thumbCtx = thumbCanvas.getContext('2d');
+
+            // 背景
+            thumbCtx.fillStyle = '#1a1a1a';
+            thumbCtx.fillRect(0, 0, w, h);
+
+            // 簡易テキストプレビュー
+            if (canvasData.objects && canvasData.objects.length > 0) {
+                thumbCtx.fillStyle = '#666';
+                thumbCtx.font = '48px sans-serif';
+                thumbCtx.textAlign = 'center';
+                thumbCtx.fillText(`${canvasData.objects.length} objects`, w/2, h/2);
+            }
+
+            return thumbCanvas.toDataURL('image/png');
+        }
+
+        function importCanvasFromProject() {
+            document.getElementById('importFileInput').click();
+        }
+
+        function handleImportProject(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const project = JSON.parse(e.target.result);
+
+                    // v3.0形式（複数キャンバス）
+                    if (project.canvases && project.canvases.length > 0) {
+                        const names = project.canvases.map(c => c.name).join('\n');
+                        if (confirm(`以下のキャンバスをインポートしますか？\n\n${names}`)) {
+                            project.canvases.forEach(imported => {
+                                imported.id = Date.now() + Math.random();
+                                imported.name = imported.name + ' (インポート)';
+                                canvases.push(imported);
+                            });
+                            updateCanvasList();
+                        }
+                    }
+                    // v2.x形式（単一キャンバス）
+                    else if (project.objects) {
+                        const name = prompt('インポートするキャンバスの名前:', 'インポート');
+                        if (name) {
+                            const imported = createCanvasData(name);
+                            imported.objects = project.objects;
+                            imported.resolution = project.resolution || '1920x1080';
+                            canvases.push(imported);
+                            updateCanvasList();
+                        }
+                    }
+                } catch (err) {
+                    alert('ファイルの読み込みに失敗しました: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // 初期キャンバス作成
+        function initCanvases() {
+            if (canvases.length === 0) {
+                const initial = createCanvasData('キャンバス 1');
+                canvases.push(initial);
+                activeCanvasId = initial.id;
+            }
+            updateCanvasList();
         }
 
         // ========== 背景・セーフマージン管理 ==========
@@ -2981,7 +3347,14 @@
         }
 
         function saveProject() {
-            const project = { version: '2.5', resolution: document.getElementById('resolution').value, objects: textObjects };
+            // 現在のキャンバスを保存
+            saveCurrentCanvas();
+
+            const project = {
+                version: '3.0',
+                canvases: canvases,
+                activeCanvasId: activeCanvasId
+            };
             const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.json`;
@@ -2997,44 +3370,30 @@
             reader.onload = (ev) => {
                 try {
                     const p = JSON.parse(ev.target.result);
-                    if (p.resolution) { document.getElementById('resolution').value = p.resolution; changeResolution(); }
-                    textObjects = p.objects || [];
-                    textObjects.forEach(obj => {
-                        if (!obj.name) obj.name = 'テキスト';
-                        if (!obj.textAlign) obj.textAlign = 'left';
-                        if (!obj.verticalAlign) obj.verticalAlign = 'middle';
-                        if (obj.opacity === undefined) obj.opacity = 100;
-                        if (obj.rotation === undefined) obj.rotation = 0;
-                        if (obj.lineHeight === undefined) obj.lineHeight = 1.2;
-                        // Initialize name tag properties
-                        if (!obj.nameTag) {
-                            obj.nameTag = {
-                                enabled: false, text: '', font: 'Yu Gothic UI', position: 'top-left', gap: 10,
-                                color: '#ffffff', size: 36, bgEnabled: true, bgShape: 'rounded',
-                                bgRadius: 5, bgColor: '#0078d4', bgOpacity: 100, padX: 10, padY: 5,
-                                strokeEnabled: false, strokeColor: '#ffffff', strokeWidth: 2
-                            };
-                        }
-                        // Ensure font property exists for older projects
-                        if (obj.nameTag && !obj.nameTag.font) {
-                            obj.nameTag.font = 'Yu Gothic UI';
-                        }
-                        // Initialize balloon properties
-                        if (!obj.balloon) {
-                            obj.balloon = {
-                                enabled: false, shape: 'rounded', radius: 20, padX: 30, padY: 20,
-                                fill: '#ffffff', fillOpacity: 100, strokeEnabled: true,
-                                strokeColor: '#000000', strokeWidth: 3, tailEnabled: true,
-                                tailDir: 'bottom', tailPos: 50, tailWidth: 20, tailLength: 30
-                            };
-                        }
-                        obj.chars.forEach(c => {
-                            if (c.scaleX === undefined) c.scaleX = 100;
-                            if (c.opacity === undefined) c.opacity = 100;
-                            if (c.fillType === undefined) c.fillType = 'solid';
-                            if (!c.strokes) c.strokes = [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+
+                    // v3.0形式（複数キャンバス）
+                    if (p.version === '3.0' && p.canvases) {
+                        canvases = p.canvases;
+                        activeCanvasId = p.activeCanvasId || canvases[0].id;
+                        // オブジェクトのマイグレーション
+                        canvases.forEach(canvasData => {
+                            migrateObjects(canvasData.objects);
                         });
-                    });
+                        loadCurrentCanvas();
+                        updateCanvasList();
+                    }
+                    // v2.x形式（単一キャンバス）- 後方互換性
+                    else {
+                        const imported = createCanvasData('キャンバス 1');
+                        if (p.resolution) imported.resolution = p.resolution;
+                        imported.objects = p.objects || [];
+                        migrateObjects(imported.objects);
+                        canvases = [imported];
+                        activeCanvasId = imported.id;
+                        loadCurrentCanvas();
+                        updateCanvasList();
+                    }
+
                     selectedObjId = null; editingObjId = null;
                     updateLayerList(); updateLayerProps(); render();
                 } catch { alert('読込失敗'); }
@@ -3043,6 +3402,50 @@
             e.target.value = '';
         }
 
+        // オブジェクトの後方互換性マイグレーション
+        function migrateObjects(objects) {
+            if (!objects) return;
+            objects.forEach(obj => {
+                if (!obj.name) obj.name = 'テキスト';
+                if (!obj.textAlign) obj.textAlign = 'left';
+                if (!obj.verticalAlign) obj.verticalAlign = 'middle';
+                if (obj.opacity === undefined) obj.opacity = 100;
+                if (obj.rotation === undefined) obj.rotation = 0;
+                if (obj.lineHeight === undefined) obj.lineHeight = 1.2;
+                // Initialize name tag properties
+                if (!obj.nameTag) {
+                    obj.nameTag = {
+                        enabled: false, text: '', font: 'Yu Gothic UI', position: 'top-left', gap: 10,
+                        color: '#ffffff', size: 36, bgEnabled: true, bgShape: 'rounded',
+                        bgRadius: 5, bgColor: '#0078d4', bgOpacity: 100, padX: 10, padY: 5,
+                        strokeEnabled: false, strokeColor: '#ffffff', strokeWidth: 2
+                    };
+                }
+                if (obj.nameTag && !obj.nameTag.font) {
+                    obj.nameTag.font = 'Yu Gothic UI';
+                }
+                // Initialize balloon properties
+                if (!obj.balloon) {
+                    obj.balloon = {
+                        enabled: false, shape: 'rounded', radius: 20, padX: 30, padY: 20,
+                        fill: '#ffffff', fillOpacity: 100, strokeEnabled: true,
+                        strokeColor: '#000000', strokeWidth: 3, tailEnabled: true,
+                        tailDir: 'bottom', tailPos: 50, tailWidth: 20, tailLength: 30
+                    };
+                }
+                if (obj.chars) {
+                    obj.chars.forEach(c => {
+                        if (c.scaleX === undefined) c.scaleX = 100;
+                        if (c.opacity === undefined) c.opacity = 100;
+                        if (c.fillType === undefined) c.fillType = 'solid';
+                        if (!c.strokes) c.strokes = [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
+                    });
+                }
+            });
+        }
+
+        // 初期化
+        initCanvases();
         render();
     </script>
 </body>
