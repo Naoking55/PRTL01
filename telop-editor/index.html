@@ -4925,7 +4925,8 @@
                             const bandHeight = glossWidth;
                             const fadeHeight = glossBlur;
                             const totalHeight = bandHeight + fadeHeight * 2;
-                            const glossY = glossCanvas.height / 2;
+                            // Position gloss in upper third of text (typical for sheen effects)
+                            const glossY = glossCanvas.height * 0.35;
 
                             // Create vertical gradient for horizontal band
                             const glossGrad = glossCtx.createLinearGradient(0, glossY - totalHeight/2, 0, glossY + totalHeight/2);
@@ -6628,8 +6629,8 @@
                     const glossBlurSize = Math.max(1, style.gloss.size * 0.1);
                     const totalHeight = glossWidth + glossBlurSize * 2;
 
-                    // 光沢バンドの位置（文字の中央よりやや上）
-                    const glossY = y - previewFontSize * 0.05;
+                    // 光沢バンドの位置（上部1/3付近、メインレンダリングと同じ）
+                    const glossY = y - previewFontSize * 0.15;
 
                     // オフスクリーンキャンバスで光沢を適用
                     offCtx.save();
@@ -6789,9 +6790,10 @@
                     c.glossEnabled = true;
                     c.glossColor = style.gloss.color;
                     c.glossOpacity = style.gloss.opacity;
-                    // PRSLのsizeからwidth/blurを計算
-                    c.glossWidth = Math.max(5, style.gloss.size * 0.3);
-                    c.glossBlur = Math.max(3, style.gloss.size * 0.2);
+                    // PRSLのsizeからwidth/blurを計算（fontSize比率で調整）
+                    const sizeRatio = style.gloss.size / 100;
+                    c.glossWidth = Math.max(3, style.fontSize * sizeRatio * 0.15);
+                    c.glossBlur = Math.max(2, style.fontSize * sizeRatio * 0.1);
                 } else {
                     c.glossEnabled = false;
                 }
