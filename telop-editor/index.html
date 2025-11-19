@@ -6478,9 +6478,11 @@
 
             loadedPRSLStyles.forEach((style, i) => {
                 const container = document.createElement('div');
-                container.style.cssText = 'cursor:pointer;border:1px solid #444;border-radius:3px;overflow:hidden;';
+                container.style.cssText = 'cursor:pointer;border:2px solid #444;border-radius:3px;overflow:hidden;transition:border-color 0.2s;';
                 container.title = `${style.name}\n${style.fontFamily} ${style.fontSize}pt`;
                 container.onclick = () => applyPRSLStyle(i);
+                container.onmouseenter = () => container.style.borderColor = '#0078d4';
+                container.onmouseleave = () => container.style.borderColor = '#444';
 
                 // Canvasでプレビューを描画
                 const canvas = document.createElement('canvas');
