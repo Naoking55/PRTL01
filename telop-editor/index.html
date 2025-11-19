@@ -623,6 +623,31 @@
             <input type="number" id="pathTextOffset" value="0" step="10" onchange="updatePathTextStyle()">
         </div>
 
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">ペンパス設定</h3>
+        <div class="collapse-content hidden" id="penPathSettings">
+            <h4>塗り</h4>
+            <label>種類</label>
+            <select id="penPathFillType" onchange="updatePenPathStyle()">
+                <option value="none">透明（塗りなし）</option>
+                <option value="solid">ベタ塗り</option>
+            </select>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="penPathFill" value="#ffffff" onchange="updatePenPathStyle()"></div>
+                <div><label>不透明度%</label><input type="number" id="penPathFillOpacity" min="0" max="100" value="100" onchange="updatePenPathStyle()"></div>
+            </div>
+            <h4>ストローク</h4>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="penPathStroke" value="#ffffff" onchange="updatePenPathStyle()"></div>
+                <div><label>太さ</label><input type="number" id="penPathStrokeWidth" value="3" min="1" onchange="updatePenPathStyle()"></div>
+            </div>
+            <div class="row2">
+                <div><label>不透明度%</label><input type="number" id="penPathStrokeOpacity" min="0" max="100" value="100" onchange="updatePenPathStyle()"></div>
+            </div>
+            <div style="margin-top:8px;">
+                <label><input type="checkbox" id="penPathClosed" onchange="updatePenPathStyle()"> パスを閉じる</label>
+            </div>
+        </div>
+
         <h3>出力</h3>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
         <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
@@ -2456,6 +2481,44 @@
             document.getElementById('pathTextOffset').value = obj.pathOffset || 0;
         }
 
+        function updatePenPathStyle() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'penPath') return;
+
+            obj.fillType = document.getElementById('penPathFillType').value;
+            obj.fill = document.getElementById('penPathFill').value;
+            obj.fillOpacity = parseInt(document.getElementById('penPathFillOpacity').value) || 100;
+            obj.stroke = document.getElementById('penPathStroke').value;
+            obj.strokeWidth = parseInt(document.getElementById('penPathStrokeWidth').value) || 3;
+            obj.strokeOpacity = parseInt(document.getElementById('penPathStrokeOpacity').value) || 100;
+            obj.closed = document.getElementById('penPathClosed').checked;
+
+            render();
+        }
+
+        function loadPenPathUI(obj) {
+            const panel = document.getElementById('penPathSettings').parentElement.previousElementSibling;
+            if (obj.type !== 'penPath') {
+                // Hide penPath settings panel
+                document.getElementById('penPathSettings').classList.add('hidden');
+                if (panel) panel.classList.add('collapsed');
+                return;
+            }
+
+            // Show penPath settings panel
+            document.getElementById('penPathSettings').classList.remove('hidden');
+            if (panel) panel.classList.remove('collapsed');
+
+            document.getElementById('penPathFillType').value = obj.fillType || 'none';
+            document.getElementById('penPathFill').value = obj.fill || '#ffffff';
+            document.getElementById('penPathFillOpacity').value = obj.fillOpacity || 100;
+            document.getElementById('penPathStroke').value = obj.stroke || '#ffffff';
+            document.getElementById('penPathStrokeWidth').value = obj.strokeWidth || 3;
+            document.getElementById('penPathStrokeOpacity').value = obj.strokeOpacity || 100;
+            document.getElementById('penPathClosed').checked = obj.closed || false;
+        }
+
         function loadNameTagUI(obj) {
             if (!obj.nameTag) return;
             document.getElementById('nameTagEnabled').checked = obj.nameTag.enabled || false;
@@ -2748,11 +2811,12 @@
             document.querySelector(`[data-align="${obj.textAlign || 'left'}"]`)?.classList.add('active');
             document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-valign="${obj.verticalAlign || 'middle'}"]`)?.classList.add('active');
-            // Load name tag, balloon, shape, and pathText UI
+            // Load name tag, balloon, shape, pathText, and penPath UI
             loadNameTagUI(obj);
             loadBalloonUI(obj);
             loadShapeUI(obj);
             loadPathTextUI(obj);
+            loadPenPathUI(obj);
         }
 
         function updateLayerList() {
