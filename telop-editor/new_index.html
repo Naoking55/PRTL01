@@ -4131,18 +4131,23 @@
                             ctx.rotate(pos.angle);
                         }
 
-                        // Strokes（リスト順：上が内側、下が外側）
+                        // Strokes（累積方式：外側から内側へ描画）
                         const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
-                        strokes.forEach(st => {
-                            if (!st.enabled) return;
+                        const enabledStrokes = strokes.filter(st => st.enabled);
+                        for (let i = enabledStrokes.length - 1; i >= 0; i--) {
+                            const st = enabledStrokes[i];
+                            let cumulativeWidth = 0;
+                            for (let j = 0; j <= i; j++) {
+                                cumulativeWidth += enabledStrokes[j].width;
+                            }
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                             ctx.strokeStyle = st.color;
-                            ctx.lineWidth = st.width * 2;
+                            ctx.lineWidth = cumulativeWidth * 2;
                             ctx.lineJoin = st.join || 'round';
                             ctx.strokeText(dc, 0, 0);
                             ctx.restore();
-                        });
+                        }
 
                         // Fill
                         if (c.fillType !== 'none') {
@@ -4427,18 +4432,23 @@
 
                             ctx.scale(1, sx);
 
-                            // Strokes
+                            // Strokes（累積方式：外側から内側へ描画）
                             const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100 }];
-                            strokes.slice().reverse().forEach(st => {
-                                if (!st.enabled) return;
+                            const enabledStrokes = strokes.filter(st => st.enabled);
+                            for (let si = enabledStrokes.length - 1; si >= 0; si--) {
+                                const st = enabledStrokes[si];
+                                let cumulativeWidth = 0;
+                                for (let sj = 0; sj <= si; sj++) {
+                                    cumulativeWidth += enabledStrokes[sj].width;
+                                }
                                 ctx.save();
                                 ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                                 ctx.strokeStyle = st.color;
-                                ctx.lineWidth = st.width * 2;
+                                ctx.lineWidth = cumulativeWidth * 2;
                                 ctx.lineJoin = st.join || 'round';
                                 ctx.strokeText(dc, 0, 0);
                                 ctx.restore();
-                            });
+                            }
 
                             // Fill
                             if (c.fillType !== 'none') {
@@ -4650,10 +4660,15 @@
 
                         ctx.scale(sx, 1);
 
-                        // Strokes（リスト順：上が内側、下が外側）
+                        // Strokes（累積方式：外側から内側へ描画）
                         const strokes = c.strokes || [{ enabled: true, type: 'edge', color: '#000', width: 4, opacity: 100, join: 'round' }];
-                        strokes.forEach(st => {
-                            if (!st.enabled) return;
+                        const enabledStrokes = strokes.filter(st => st.enabled);
+                        for (let si = enabledStrokes.length - 1; si >= 0; si--) {
+                            const st = enabledStrokes[si];
+                            let cumulativeWidth = 0;
+                            for (let sj = 0; sj <= si; sj++) {
+                                cumulativeWidth += enabledStrokes[sj].width;
+                            }
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
 
@@ -4669,7 +4684,7 @@
                                     const dx = Math.cos(a) * gw / 2, dy = Math.sin(a) * gh / 2;
                                     grad = ctx.createLinearGradient(centerX - dx, -dy, centerX + dx, dy);
                                 }
-                                st.gradientStops.forEach((stop, i) => {
+                                st.gradientStops.forEach((stop, idx) => {
                                     const pos = Math.max(0, Math.min(1, stop.pos / 100));
                                     grad.addColorStop(pos, stop.color);
                                 });
@@ -4678,13 +4693,12 @@
                                 ctx.strokeStyle = st.color;
                             }
 
-                            ctx.lineWidth = st.width * 2;
                             ctx.lineJoin = st.join || 'round';
                             if (st.type === 'depth') {
                                 const depthAngle = (st.angle || 45) * Math.PI / 180;
                                 const depthDx = Math.cos(depthAngle);
                                 const depthDy = Math.sin(depthAngle);
-                                for (let d = st.width; d > 0; d--) {
+                                for (let d = cumulativeWidth; d > 0; d--) {
                                     if (!st.gradientEnabled) ctx.strokeStyle = st.color;
                                     ctx.lineWidth = 2;
                                     ctx.save();
@@ -4694,15 +4708,16 @@
                                 }
                             } else if (st.type === 'drop') {
                                 ctx.save();
-                                ctx.translate(st.width, st.width);
+                                ctx.translate(cumulativeWidth, cumulativeWidth);
                                 ctx.fillStyle = st.gradientEnabled ? ctx.strokeStyle : st.color;
                                 ctx.fillText(dc, 0, 0);
                                 ctx.restore();
                             } else {
+                                ctx.lineWidth = cumulativeWidth * 2;
                                 ctx.strokeText(dc, 0, 0);
                             }
                             ctx.restore();
-                        });
+                        }
 
                         // Fill
                         if (c.fillType !== 'none') {
