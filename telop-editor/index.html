@@ -687,11 +687,49 @@
             </div>
         </div>
 
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">アニメーション</h3>
+        <div class="collapse-content hidden" id="animationSettings">
+            <div><label>種類</label>
+                <select id="animType" onchange="updateAnimation()">
+                    <option value="none">なし</option>
+                    <option value="fadeIn">フェードイン</option>
+                    <option value="fadeOut">フェードアウト</option>
+                    <option value="slideLeft">左からスライド</option>
+                    <option value="slideRight">右からスライド</option>
+                    <option value="slideUp">上からスライド</option>
+                    <option value="slideDown">下からスライド</option>
+                    <option value="typewriter">タイプライター</option>
+                    <option value="rollUp">縦エンドロール</option>
+                    <option value="rollLeft">横エンドロール</option>
+                </select>
+            </div>
+            <div class="row2">
+                <div><label>時間(秒)</label><input type="number" id="animDuration" value="2" min="0.1" step="0.1" onchange="updateAnimation()"></div>
+                <div><label>遅延(秒)</label><input type="number" id="animDelay" value="0" min="0" step="0.1" onchange="updateAnimation()"></div>
+            </div>
+            <div class="row2">
+                <div><label>速度</label><input type="number" id="animSpeed" value="100" min="10" step="10" onchange="updateAnimation()"></div>
+            </div>
+            <div style="margin-top:8px;">
+                <label>イージング</label>
+                <select id="animEasing" onchange="updateAnimation()">
+                    <option value="linear">リニア</option>
+                    <option value="easeIn">イーズイン</option>
+                    <option value="easeOut">イーズアウト</option>
+                    <option value="easeInOut">イーズインアウト</option>
+                </select>
+            </div>
+            <div style="margin-top:8px;">
+                <label><input type="checkbox" id="animLoop" onchange="updateAnimation()"> ループ再生</label>
+            </div>
+        </div>
+
         <h3>出力</h3>
         <div style="margin-bottom:8px;">
             <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
         </div>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
+        <button class="btn btn-secondary" onclick="exportGIF()">GIF書き出し</button>
         <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
         <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
 
@@ -790,6 +828,19 @@
                     <svg viewBox="0 0 24 24"><path d="M19 16v-3h4v-2h-4V8l-4 4 4 4zM5 8v3H1v2h4v3l4-4-4-4zm6-4h2v16h-2V4z"/></svg>
                 </button>
             </div>
+            <!-- アニメーション -->
+            <div class="tool-group">
+                <button class="tool-icon" id="playBtn" onclick="toggleAnimation()" title="再生/停止 (Space)">
+                    <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                </button>
+                <button class="tool-icon" onclick="resetAnimation()" title="リセット">
+                    <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/></svg>
+                </button>
+            </div>
+            <!-- タイムライン -->
+            <div class="tool-group" style="flex:1;max-width:200px;">
+                <input type="range" id="timeline" min="0" max="100" value="0" style="width:100%;" oninput="seekAnimation(this.value)">
+            </div>
         </div>
         <div class="status">
             <span id="statusText">準備完了</span>
@@ -861,6 +912,13 @@
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
+
+        // アニメーション関連
+        let isPlaying = false;
+        let animationTime = 0;
+        let animationFrame = null;
+        let animationStartTime = 0;
+        let totalDuration = 5;  // 総再生時間（秒）
 
         // ========== Undo/Redo 履歴管理 ==========
         let undoStack = [];
@@ -2132,6 +2190,12 @@
                 render();
                 return;
             }
+            // スペースキーで再生/停止
+            if (e.key === ' ' && !editingObjId && document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                toggleAnimation();
+                return;
+            }
             if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
             if ((e.key === 't' || e.key === 'T') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('text'); return; }
             if ((e.key === 'r' || e.key === 'R') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('rotate'); return; }
@@ -3251,6 +3315,9 @@
 
             // 画像オブジェクトの場合、画像設定UIを更新
             loadImageUI(obj);
+
+            // アニメーション設定UIを更新
+            loadAnimationUI(obj);
         }
 
         // テキストオブジェクト選択時に文字スタイルUIを更新
@@ -3931,8 +3998,24 @@
 
             textObjects.forEach(obj => {
                 ctx.save();
-                ctx.globalAlpha = (obj.opacity || 100) / 100;
+
+                // アニメーションプロパティを取得
+                const animProps = getAnimatedProperties(obj);
+                const animX = animProps.x;
+                const animY = animProps.y;
+                const animOpacity = animProps.opacity;
+                const visibleChars = animProps.visibleChars;
+
+                // 一時的に位置と不透明度を変更
+                const origX = obj.x, origY = obj.y;
+                obj.x = animX;
+                obj.y = animY;
+
+                ctx.globalAlpha = animOpacity / 100;
                 if (obj.rotation) { ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation * Math.PI / 180); ctx.translate(-obj.x, -obj.y); }
+
+                // タイプライター効果のために visibleChars を保存
+                obj._visibleChars = visibleChars;
 
                 // グループオブジェクトの描画
                 if (obj.type === 'group' && obj.children) {
@@ -4006,6 +4089,9 @@
                         handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                     }
                     ctx.restore();
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
                     return;
                 }
 
@@ -4028,6 +4114,9 @@
                         ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
                         handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                     }
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
                     return;
                 }
 
@@ -4050,6 +4139,9 @@
                         ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
                         handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                     }
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
                     return;
                 }
 
@@ -4194,6 +4286,9 @@
                     }
 
                     ctx.restore();
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
                     return;
                 }
 
@@ -4282,11 +4377,20 @@
                     }
 
                     ctx.restore();
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
                     return;
                 }
 
                 // テキストオブジェクトの描画
-                if (!obj.chars) { ctx.restore(); return; }
+                if (!obj.chars) {
+                    ctx.restore();
+                    // アニメーション位置を復元
+                    obj.x = origX;
+                    obj.y = origY;
+                    return;
+                }
 
                 // 縦書きテキストの場合
                 if (obj.vertical) {
@@ -4304,6 +4408,8 @@
                     drawBalloon(ctx, obj, bounds);
 
                     let ci = 0;
+                    const maxVisibleChars = obj._visibleChars !== undefined ? obj._visibleChars : Infinity;
+                    let totalCharIndex = 0;
                     for (let li = 0; li < lines.length; li++) {
                         const line = lines[li];
                         const colX = startX - li * colWidth;
@@ -4333,6 +4439,14 @@
                         // Draw characters vertically
                         let py = startY;
                         line.forEach(c => {
+                            // タイプライター効果: visibleCharsを超えた文字はスキップ
+                            if (totalCharIndex >= maxVisibleChars) {
+                                py += getCharHeight(c);
+                                totalCharIndex++;
+                                return;
+                            }
+                            totalCharIndex++;
+
                             const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
                             const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
                             ctx.save();
@@ -4470,6 +4584,8 @@
                 drawBalloon(ctx, obj, bounds);
 
                 let ci = 0;
+                const maxVisibleChars = obj._visibleChars !== undefined ? obj._visibleChars : Infinity;
+                let totalCharIndex = 0;
                 for (let li = 0; li < lines.length; li++) {
                     const line = lines[li], lineY = startY + li * lh, lw = getLineWidth(line);
                     let lx = obj.x;
@@ -4491,6 +4607,14 @@
                     // Draw characters
                     let px = lx;
                     line.forEach(c => {
+                        // タイプライター効果: visibleCharsを超えた文字はスキップ
+                        if (totalCharIndex >= maxVisibleChars) {
+                            px += getCharWidth(c);
+                            totalCharIndex++;
+                            return;
+                        }
+                        totalCharIndex++;
+
                         const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
                         const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
                         ctx.save();
@@ -4744,6 +4868,10 @@
                     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
                     handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                 }
+
+                // アニメーション位置を復元
+                obj.x = origX;
+                obj.y = origY;
             });
 
             // 図形描画プレビュー
@@ -5150,6 +5278,177 @@
             exportingTransparent = false;
             safeMarginCheckbox.checked = wasEnabled;
             render();
+        }
+
+        // ========== アニメーション機能 ==========
+
+        function updateAnimation() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+
+            obj.animation = {
+                type: document.getElementById('animType').value,
+                duration: parseFloat(document.getElementById('animDuration').value) || 2,
+                delay: parseFloat(document.getElementById('animDelay').value) || 0,
+                speed: parseFloat(document.getElementById('animSpeed').value) || 100,
+                easing: document.getElementById('animEasing').value,
+                loop: document.getElementById('animLoop').checked
+            };
+            render();
+        }
+
+        function loadAnimationUI(obj) {
+            const panel = document.getElementById('animationSettings');
+            if (!obj || !obj.animation) {
+                document.getElementById('animType').value = 'none';
+                document.getElementById('animDuration').value = 2;
+                document.getElementById('animDelay').value = 0;
+                document.getElementById('animSpeed').value = 100;
+                document.getElementById('animEasing').value = 'linear';
+                document.getElementById('animLoop').checked = false;
+                return;
+            }
+
+            document.getElementById('animType').value = obj.animation.type || 'none';
+            document.getElementById('animDuration').value = obj.animation.duration || 2;
+            document.getElementById('animDelay').value = obj.animation.delay || 0;
+            document.getElementById('animSpeed').value = obj.animation.speed || 100;
+            document.getElementById('animEasing').value = obj.animation.easing || 'linear';
+            document.getElementById('animLoop').checked = obj.animation.loop || false;
+        }
+
+        function toggleAnimation() {
+            if (isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            isPlaying = true;
+            animationStartTime = performance.now() - animationTime * 1000;
+            document.getElementById('playIcon').innerHTML = '<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>';
+            animationLoop();
+        }
+
+        function stopAnimation() {
+            isPlaying = false;
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+            document.getElementById('playIcon').innerHTML = '<path d="M8 5v14l11-7z" fill="currentColor"/>';
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            animationTime = 0;
+            document.getElementById('timeline').value = 0;
+            render();
+        }
+
+        function seekAnimation(value) {
+            animationTime = (value / 100) * totalDuration;
+            if (isPlaying) {
+                animationStartTime = performance.now() - animationTime * 1000;
+            }
+            render();
+        }
+
+        function animationLoop() {
+            if (!isPlaying) return;
+
+            const now = performance.now();
+            animationTime = (now - animationStartTime) / 1000;
+
+            // 最大時間を超えたらループまたは停止
+            if (animationTime >= totalDuration) {
+                const hasLoop = textObjects.some(obj => obj.animation?.loop);
+                if (hasLoop) {
+                    animationTime = 0;
+                    animationStartTime = now;
+                } else {
+                    stopAnimation();
+                    animationTime = totalDuration;
+                }
+            }
+
+            // タイムラインスライダーを更新
+            document.getElementById('timeline').value = (animationTime / totalDuration) * 100;
+
+            render();
+            animationFrame = requestAnimationFrame(animationLoop);
+        }
+
+        // イージング関数
+        function easeValue(t, easing) {
+            switch (easing) {
+                case 'easeIn': return t * t;
+                case 'easeOut': return t * (2 - t);
+                case 'easeInOut': return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                default: return t; // linear
+            }
+        }
+
+        // アニメーション適用（renderの前に呼ばれる）
+        function getAnimatedProperties(obj) {
+            if (!obj.animation || obj.animation.type === 'none') {
+                return { opacity: obj.opacity || 100, x: obj.x, y: obj.y, visibleChars: obj.chars?.length || 0 };
+            }
+
+            const anim = obj.animation;
+            const delay = anim.delay || 0;
+            const duration = anim.duration || 2;
+            const speed = (anim.speed || 100) / 100;
+
+            let t = (animationTime - delay) / duration;
+            if (t < 0) t = 0;
+            if (t > 1) t = anim.loop ? (t % 1) : 1;
+
+            t = easeValue(t, anim.easing);
+
+            let opacity = obj.opacity || 100;
+            let x = obj.x;
+            let y = obj.y;
+            let visibleChars = obj.chars?.length || 0;
+
+            switch (anim.type) {
+                case 'fadeIn':
+                    opacity = t * (obj.opacity || 100);
+                    break;
+                case 'fadeOut':
+                    opacity = (1 - t) * (obj.opacity || 100);
+                    break;
+                case 'slideLeft':
+                    x = obj.x - (1 - t) * canvas.width * 0.5;
+                    break;
+                case 'slideRight':
+                    x = obj.x + (1 - t) * canvas.width * 0.5;
+                    break;
+                case 'slideUp':
+                    y = obj.y - (1 - t) * canvas.height * 0.5;
+                    break;
+                case 'slideDown':
+                    y = obj.y + (1 - t) * canvas.height * 0.5;
+                    break;
+                case 'typewriter':
+                    if (obj.chars) {
+                        visibleChars = Math.floor(t * obj.chars.length);
+                    }
+                    break;
+                case 'rollUp':
+                    y = obj.y + canvas.height - t * (canvas.height * 2) * speed;
+                    break;
+                case 'rollLeft':
+                    x = obj.x + canvas.width - t * (canvas.width * 2) * speed;
+                    break;
+            }
+
+            return { opacity, x, y, visibleChars };
+        }
+
+        function exportGIF() {
+            alert('GIFエクスポートは現在開発中です。\n連番PNGでの出力をご検討ください。');
+            // TODO: gif.js ライブラリを使用した実装
         }
 
         function saveProject() {
