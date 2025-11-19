@@ -2241,6 +2241,37 @@
         });
 
         function getCharIndexAt(obj, x, y) {
+            // パス上文字の場合
+            if (obj.type === 'pathText' && obj.path && obj.chars) {
+                const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
+                const pathLen = getPathLength(absPath);
+                const totalTextWidth = obj.chars.reduce((w, c) => w + getCharWidth(c), 0);
+                let startOffset = 0;
+                if (obj.textAlign === 'center') startOffset = (pathLen - totalTextWidth) / 2;
+                else if (obj.textAlign === 'right') startOffset = pathLen - totalTextWidth;
+
+                let offset = startOffset;
+                for (let i = 0; i < obj.chars.length; i++) {
+                    const charW = getCharWidth(obj.chars[i]);
+                    const pos = getPointAtDistance(absPath, offset + charW / 2);
+                    if (pos) {
+                        const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+                        if (dist < obj.chars[i].fontSize) {
+                            // 文字の前半か後半かで判定
+                            const prevPos = getPointAtDistance(absPath, offset);
+                            if (prevPos) {
+                                const distToPrev = Math.sqrt((x - prevPos.x) ** 2 + (y - prevPos.y) ** 2);
+                                const distToCurr = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+                                if (distToPrev < distToCurr) return i;
+                            }
+                            return i;
+                        }
+                    }
+                    offset += charW;
+                }
+                return obj.chars.length;
+            }
+
             const lines = getLines(obj);
 
             // 縦書きの場合
@@ -2252,30 +2283,39 @@
                 if (obj.textAlign === 'center') startX = obj.x + totalWidth / 2 - colWidth / 2;
                 else if (obj.textAlign === 'left') startX = obj.x + totalWidth - colWidth;
 
-                let ci = 0;
+                // 最も近い列を見つける
+                let closestCol = 0;
+                let closestDist = Infinity;
                 for (let li = 0; li < lines.length; li++) {
-                    const line = lines[li];
                     const colX = startX - li * colWidth;
-                    const lineH = getVerticalLineHeight(line);
-
-                    let startY = obj.y;
-                    if (obj.verticalAlign === 'top') startY = obj.y;
-                    else if (obj.verticalAlign === 'bottom') startY = obj.y - lineH;
-                    else startY = obj.y - lineH / 2;
-
-                    // Check if x is in this column
-                    if (x >= colX - colWidth / 2 && x < colX + colWidth / 2) {
-                        let py = startY;
-                        for (let i = 0; i < line.length; i++) {
-                            const h = getCharHeight(line[i]);
-                            if (y < py + h / 2) return ci + i;
-                            py += h;
-                        }
-                        return ci + line.length;
+                    const dist = Math.abs(x - colX);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestCol = li;
                     }
-                    ci += line.length + 1;
                 }
-                return obj.chars.length;
+
+                let ci = 0;
+                for (let li = 0; li < closestCol; li++) {
+                    ci += lines[li].length + 1;
+                }
+
+                const line = lines[closestCol];
+                const colX = startX - closestCol * colWidth;
+                const lineH = getVerticalLineHeight(line);
+
+                let startY = obj.y;
+                if (obj.verticalAlign === 'top') startY = obj.y;
+                else if (obj.verticalAlign === 'bottom') startY = obj.y - lineH;
+                else startY = obj.y - lineH / 2;
+
+                let py = startY;
+                for (let i = 0; i < line.length; i++) {
+                    const h = getCharHeight(line[i]);
+                    if (y < py + h / 2) return ci + i;
+                    py += h;
+                }
+                return ci + line.length;
             }
 
             // 横書きの場合
@@ -4097,6 +4137,48 @@
                         ctx.restore();
                         dist += charLen;
                     });
+
+                    // Selection highlight for pathText
+                    if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
+                        const s = Math.min(selectedCharStart, selectedCharEnd);
+                        const en = Math.max(selectedCharStart, selectedCharEnd);
+                        let hlDist = (pathLen - totalTextLen) / 2 + (obj.pathOffset || 0);
+
+                        for (let i = 0; i < obj.chars.length; i++) {
+                            const charLen = obj.vertical ? obj.chars[i].fontSize * 1.1 : getCharWidth(obj.chars[i]);
+                            if (i >= s && i < en) {
+                                const pos = getPointAtDistance(absPath, hlDist + charLen / 2);
+                                ctx.save();
+                                ctx.fillStyle = 'rgba(0,120,212,0.3)';
+                                ctx.beginPath();
+                                ctx.arc(pos.x, pos.y, obj.chars[i].fontSize / 2, 0, Math.PI * 2);
+                                ctx.fill();
+                                ctx.restore();
+                            }
+                            hlDist += charLen;
+                        }
+                    }
+
+                    // Cursor for pathText
+                    if (obj.id === editingObjId && cursorVisible && selectedCharStart === -1) {
+                        let cDist = (pathLen - totalTextLen) / 2 + (obj.pathOffset || 0);
+                        for (let i = 0; i < cursorPos && i < obj.chars.length; i++) {
+                            cDist += obj.vertical ? obj.chars[i].fontSize * 1.1 : getCharWidth(obj.chars[i]);
+                        }
+                        const cPos = getPointAtDistance(absPath, cDist);
+                        const maxFs = Math.max(...obj.chars.map(c => c.fontSize), 72);
+
+                        ctx.save();
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 2;
+                        ctx.translate(cPos.x, cPos.y);
+                        ctx.rotate(cPos.angle + (obj.vertical ? Math.PI / 2 : 0));
+                        ctx.beginPath();
+                        ctx.moveTo(0, -maxFs / 2);
+                        ctx.lineTo(0, maxFs / 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
 
                     // Selection box
                     if (obj.id === selectedObjId && obj.id !== editingObjId) {
