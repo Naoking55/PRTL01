@@ -4932,8 +4932,8 @@
                             const bandHeight = glossWidth;
                             const fadeHeight = glossBlur;
                             const totalHeight = bandHeight + fadeHeight * 2;
-                            // Position gloss in upper third of text (typical for sheen effects)
-                            const glossY = glossCanvas.height * 0.35;
+                            // Position gloss in center of text
+                            const glossY = glossCanvas.height * 0.5;
 
                             // Create vertical gradient for horizontal band
                             const glossGrad = glossCtx.createLinearGradient(0, glossY - totalHeight/2, 0, glossY + totalHeight/2);
@@ -6636,8 +6636,8 @@
                     const glossBlurSize = Math.max(1, style.gloss.size * 0.1);
                     const totalHeight = glossWidth + glossBlurSize * 2;
 
-                    // 光沢バンドの位置（上部1/3付近、メインレンダリングと同じ）
-                    const glossY = y - previewFontSize * 0.15;
+                    // 光沢バンドの位置（中央）
+                    const glossY = y;
 
                     // オフスクリーンキャンバスで光沢を適用
                     offCtx.save();
