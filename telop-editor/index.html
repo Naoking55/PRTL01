@@ -4803,20 +4803,20 @@
                                 const blur = (c.gradientBlur || 0) / 100; // 0-1 range
 
                                 c.gradientStops.forEach((stop, i) => {
-                                    const startPos = Math.max(0, stop.pos / 100);
-                                    const endPos = Math.min(1, stop.endPos / 100);
+                                    const startPos = Math.max(0, Math.min(1, stop.pos / 100));
+                                    const endPos = Math.max(0, Math.min(1, stop.endPos / 100));
 
                                     if (blur === 0) {
                                         // Sharp boundaries
                                         if (i === 0) {
                                             grad.addColorStop(0, stop.color);
                                         } else {
-                                            grad.addColorStop(startPos + 0.001, stop.color);
+                                            grad.addColorStop(Math.min(1, startPos + 0.001), stop.color);
                                         }
                                         if (i === c.gradientStops.length - 1) {
                                             grad.addColorStop(1, stop.color);
                                         } else {
-                                            grad.addColorStop(endPos - 0.001, stop.color);
+                                            grad.addColorStop(Math.max(0, endPos - 0.001), stop.color);
                                         }
                                     } else {
                                         // Smooth transitions with blur
@@ -4826,24 +4826,25 @@
                                             grad.addColorStop(0, stop.color);
                                             // Blend towards next color
                                             if (i < c.gradientStops.length - 1) {
-                                                const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                                const blendEnd = Math.max(0, Math.min(1, endPos - blurAmount));
                                                 if (blendEnd > 0) grad.addColorStop(blendEnd, stop.color);
                                             }
                                         } else if (i === c.gradientStops.length - 1) {
                                             // Blend from previous color
-                                            const blendStart = Math.max(startPos, startPos + blurAmount);
+                                            const blendStart = Math.max(0, Math.min(1, startPos + blurAmount));
                                             if (blendStart < 1) grad.addColorStop(blendStart, stop.color);
                                             grad.addColorStop(1, stop.color);
                                         } else {
                                             // Middle colors - blend on both sides
-                                            const blendStart = Math.max(startPos, startPos + blurAmount);
-                                            const blendEnd = Math.min(endPos, endPos - blurAmount);
+                                            const blendStart = Math.max(0, Math.min(1, startPos + blurAmount));
+                                            const blendEnd = Math.max(0, Math.min(1, endPos - blurAmount));
                                             if (blendStart < blendEnd) {
                                                 grad.addColorStop(blendStart, stop.color);
                                                 grad.addColorStop(blendEnd, stop.color);
                                             } else {
                                                 // Range too small, just use midpoint
-                                                grad.addColorStop((startPos + endPos) / 2, stop.color);
+                                                const midPoint = Math.max(0, Math.min(1, (startPos + endPos) / 2));
+                                                grad.addColorStop(midPoint, stop.color);
                                             }
                                         }
                                     }
