@@ -802,6 +802,7 @@
         let lastSavedState = null;  // 最後に保存した状態（重複保存を防ぐ）
         let clipboard = null;  // コピーしたオブジェクト
         let exportingTransparent = false;  // 透過エクスポート中
+        let selectedObjIds = [];  // 複数選択中のオブジェクトID
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -847,6 +848,7 @@
             const prevState = undoStack.pop();
             textObjects = JSON.parse(prevState);
             selectedObjId = null;
+            selectedObjIds = [];
             exitEditMode();
             updateLayerList();
             updateLayerProps();
@@ -861,6 +863,7 @@
             const nextState = redoStack.pop();
             textObjects = JSON.parse(nextState);
             selectedObjId = null;
+            selectedObjIds = [];
             exitEditMode();
             updateLayerList();
             updateLayerProps();
@@ -1088,10 +1091,13 @@
             const wasEnabled = document.getElementById('safeMarginEnabled').checked;
             document.getElementById('safeMarginEnabled').checked = false;
             const prevSelected = selectedObjId;
+            const prevSelectedIds = [...selectedObjIds];
             selectedObjId = null;  // 選択枠を非表示
+            selectedObjIds = [];
             render();
             current.thumbnail = canvas.toDataURL('image/png');
             selectedObjId = prevSelected;
+            selectedObjIds = prevSelectedIds;
             document.getElementById('safeMarginEnabled').checked = wasEnabled;
             render();
 
@@ -1113,6 +1119,7 @@
 
             textObjects = JSON.parse(JSON.stringify(current.objects));
             selectedObjId = null;
+            selectedObjIds = [];
             editingObjId = null;
 
             // 解像度を設定
@@ -1185,10 +1192,13 @@
                 const wasEnabled = document.getElementById('safeMarginEnabled').checked;
                 document.getElementById('safeMarginEnabled').checked = false;
                 const prevSelected = selectedObjId;
+                const prevSelectedIds = [...selectedObjIds];
                 selectedObjId = null;  // 選択枠を非表示
+                selectedObjIds = [];
                 render();
                 const url = canvas.toDataURL('image/png');
                 selectedObjId = prevSelected;
+                selectedObjIds = prevSelectedIds;
                 document.getElementById('safeMarginEnabled').checked = wasEnabled;
                 render();
                 return url;
@@ -1688,11 +1698,15 @@
                 const obj = findObjectAt(x, y);
                 if (obj) {
                     saveState();
-                    selectObject(obj.id);
-                    isDragging = true;
-                    dragOffset = { x: x - obj.x, y: y - obj.y };
+                    selectObject(obj.id, e.shiftKey);
+                    // 複数選択時はドラッグしない
+                    if (selectedObjIds.length <= 1) {
+                        isDragging = true;
+                        dragOffset = { x: x - obj.x, y: y - obj.y };
+                    }
                 } else {
                     selectedObjId = null;
+                    selectedObjIds = [];
                     updateLayerList();
                     updateLayerProps();
                     render();
@@ -1993,6 +2007,18 @@
             if ((e.key === 'Delete' || e.key === 'Backspace') && !editingObjId && selectedObjId) {
                 e.preventDefault();
                 deleteSelected();
+                return;
+            }
+            // Group ショートカット (Ctrl+G)
+            if (e.ctrlKey && e.key === 'g' && !e.shiftKey && !editingObjId) {
+                e.preventDefault();
+                groupSelected();
+                return;
+            }
+            // Ungroup ショートカット (Ctrl+Shift+G)
+            if (e.ctrlKey && e.shiftKey && (e.key === 'g' || e.key === 'G') && !editingObjId) {
+                e.preventDefault();
+                ungroupSelected();
                 return;
             }
             if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
@@ -2619,6 +2645,16 @@
         }
 
         function getObjectBounds(obj) {
+            // グループオブジェクトの場合
+            if (obj.type === 'group') {
+                return {
+                    x: obj.x - obj.width / 2,
+                    y: obj.y - obj.height / 2,
+                    w: obj.width,
+                    h: obj.height
+                };
+            }
+
             // 図形オブジェクトの場合
             if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(obj.type)) {
                 return {
@@ -2710,7 +2746,26 @@
             return { x: left, y: top, w: mw || 10, h: th || lh };
         }
 
-        function selectObject(id) { selectedObjId = id; updateLayerList(); updateLayerProps(); render(); }
+        function selectObject(id, addToSelection = false) {
+            if (addToSelection) {
+                // Shift+クリック: 複数選択に追加/削除
+                const idx = selectedObjIds.indexOf(id);
+                if (idx === -1) {
+                    selectedObjIds.push(id);
+                } else {
+                    selectedObjIds.splice(idx, 1);
+                }
+                // selectedObjIdは最後に追加したものに設定
+                selectedObjId = selectedObjIds.length > 0 ? selectedObjIds[selectedObjIds.length - 1] : null;
+            } else {
+                // 通常クリック: 単一選択
+                selectedObjId = id;
+                selectedObjIds = id ? [id] : [];
+            }
+            updateLayerList();
+            updateLayerProps();
+            render();
+        }
 
         function enterEditMode(id) {
             saveState();  // 編集開始前の状態を保存
@@ -2823,11 +2878,109 @@
         }
 
         function deleteSelected() {
-            if (!selectedObjId) return;
+            if (selectedObjIds.length === 0) return;
             saveState();
-            textObjects = textObjects.filter(o => o.id !== selectedObjId);
-            selectedObjId = null; editingObjId = null;
+            textObjects = textObjects.filter(o => !selectedObjIds.includes(o.id));
+            selectedObjId = null;
+            selectedObjIds = [];
+            editingObjId = null;
             updateLayerList(); updateLayerProps(); render();
+        }
+
+        function groupSelected() {
+            if (selectedObjIds.length < 2) return;
+            saveState();
+
+            // 選択されたオブジェクトを取得
+            const objs = textObjects.filter(o => selectedObjIds.includes(o.id));
+            if (objs.length < 2) return;
+
+            // バウンディングボックスを計算
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            objs.forEach(obj => {
+                const bounds = getObjectBounds(obj);
+                minX = Math.min(minX, bounds.x);
+                minY = Math.min(minY, bounds.y);
+                maxX = Math.max(maxX, bounds.x + bounds.w);
+                maxY = Math.max(maxY, bounds.y + bounds.h);
+            });
+
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+
+            // グループ内のオブジェクトの位置を相対座標に変換
+            const children = objs.map(obj => {
+                const clone = JSON.parse(JSON.stringify(obj));
+                clone.x = obj.x - cx;
+                clone.y = obj.y - cy;
+                return clone;
+            });
+
+            // グループオブジェクトを作成
+            const groupObj = {
+                id: Date.now(),
+                type: 'group',
+                name: 'グループ ' + (textObjects.filter(o => o.type === 'group').length + 1),
+                x: cx,
+                y: cy,
+                width: maxX - minX,
+                height: maxY - minY,
+                rotation: 0,
+                opacity: 100,
+                children: children
+            };
+
+            // 元のオブジェクトを削除
+            textObjects = textObjects.filter(o => !selectedObjIds.includes(o.id));
+
+            // グループを追加
+            textObjects.push(groupObj);
+
+            // グループを選択
+            selectedObjId = groupObj.id;
+            selectedObjIds = [groupObj.id];
+
+            updateLayerList();
+            updateLayerProps();
+            render();
+        }
+
+        function ungroupSelected() {
+            if (selectedObjIds.length === 0) return;
+
+            // 選択されたグループオブジェクトを取得
+            const groupObjs = textObjects.filter(o => selectedObjIds.includes(o.id) && o.type === 'group');
+            if (groupObjs.length === 0) return;
+
+            saveState();
+
+            const newObjIds = [];
+
+            groupObjs.forEach(groupObj => {
+                // グループ内のオブジェクトを展開
+                if (groupObj.children) {
+                    groupObj.children.forEach(child => {
+                        const newObj = JSON.parse(JSON.stringify(child));
+                        newObj.id = Date.now() + Math.random() * 1000;
+                        // 相対座標を絶対座標に戻す
+                        newObj.x = child.x + groupObj.x;
+                        newObj.y = child.y + groupObj.y;
+                        textObjects.push(newObj);
+                        newObjIds.push(newObj.id);
+                    });
+                }
+            });
+
+            // グループオブジェクトを削除
+            textObjects = textObjects.filter(o => !(selectedObjIds.includes(o.id) && o.type === 'group'));
+
+            // 展開されたオブジェクトを選択
+            selectedObjIds = newObjIds;
+            selectedObjId = newObjIds.length > 0 ? newObjIds[newObjIds.length - 1] : null;
+
+            updateLayerList();
+            updateLayerProps();
+            render();
         }
 
         function moveLayerUp() {
@@ -2896,10 +3049,25 @@
             list.innerHTML = '';
             textObjects.slice().reverse().forEach(obj => {
                 const div = document.createElement('div');
-                div.className = 'layer-item' + (obj.id === selectedObjId ? ' selected' : '');
-                div.textContent = obj.name || obj.chars.map(c => c.char).join('').substring(0, 10);
-                div.onclick = () => { exitEditMode(); selectObject(obj.id); };
-                div.ondblclick = () => { setTool('text'); enterEditMode(obj.id); };
+                const isSelected = selectedObjIds.includes(obj.id);
+                div.className = 'layer-item' + (isSelected ? ' selected' : '');
+
+                // グループオブジェクトの表示
+                if (obj.type === 'group') {
+                    div.textContent = '📁 ' + (obj.name || 'グループ');
+                } else {
+                    div.textContent = obj.name || (obj.chars ? obj.chars.map(c => c.char).join('').substring(0, 10) : 'オブジェクト');
+                }
+
+                div.onclick = (e) => { exitEditMode(); selectObject(obj.id, e.shiftKey); };
+                div.ondblclick = () => {
+                    if (obj.type === 'group') {
+                        // グループをダブルクリックで選択解除してグループ内を選択
+                    } else if (obj.type === 'text' || obj.type === 'pathText') {
+                        setTool('text');
+                        enterEditMode(obj.id);
+                    }
+                };
                 list.appendChild(div);
             });
         }
@@ -3254,6 +3422,59 @@
             ctx.restore();
         }
 
+        // グループ内テキスト描画用のヘルパー関数
+        function drawTextObject(ctx, obj) {
+            if (!obj.chars || obj.chars.length === 0) return;
+
+            const lines = getLines(obj);
+            const lh = getLineHeight(obj) * (obj.lineHeight || 1.2);
+            const th = lines.length * lh;
+            let startY = obj.y - th / 2 + lh / 2;
+
+            lines.forEach((line, li) => {
+                const lw = getLineWidth(line);
+                let lx = obj.x;
+                if (obj.textAlign === 'center') lx = obj.x - lw / 2;
+                else if (obj.textAlign === 'right') lx = obj.x - lw;
+
+                const ly = startY + li * lh;
+                let px = lx;
+
+                line.forEach(c => {
+                    const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                    const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+                    const charW = getCharWidth(c);
+
+                    ctx.save();
+                    ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                    ctx.textBaseline = 'middle';
+                    ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+
+                    // ストローク
+                    const strokes = c.strokes || [{ enabled: true, color: '#000', width: 4, opacity: 100 }];
+                    strokes.slice().reverse().forEach(st => {
+                        if (!st.enabled) return;
+                        ctx.save();
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
+                        ctx.strokeStyle = st.color;
+                        ctx.lineWidth = st.width * 2;
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText(dc, px + charW / 2, ly);
+                        ctx.restore();
+                    });
+
+                    // 塗り
+                    if (c.fillType !== 'none') {
+                        ctx.fillStyle = c.color || '#ffffff';
+                        ctx.fillText(dc, px + charW / 2, ly);
+                    }
+
+                    ctx.restore();
+                    px += charW;
+                });
+            });
+        }
+
         function drawNameTag(ctx, obj, bounds) {
             const nt = obj.nameTag;
             if (!nt || !nt.enabled || !nt.text) return;
@@ -3332,13 +3553,88 @@
                 ctx.globalAlpha = (obj.opacity || 100) / 100;
                 if (obj.rotation) { ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation * Math.PI / 180); ctx.translate(-obj.x, -obj.y); }
 
+                // グループオブジェクトの描画
+                if (obj.type === 'group' && obj.children) {
+                    ctx.save();
+                    // グループの子オブジェクトを描画
+                    obj.children.forEach(child => {
+                        const absChild = {
+                            ...child,
+                            x: child.x + obj.x,
+                            y: child.y + obj.y
+                        };
+                        ctx.save();
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (child.opacity || 100) / 100;
+                        if (child.rotation) {
+                            ctx.translate(absChild.x, absChild.y);
+                            ctx.rotate(child.rotation * Math.PI / 180);
+                            ctx.translate(-absChild.x, -absChild.y);
+                        }
+                        // 子オブジェクトのタイプに応じて描画
+                        if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(child.type)) {
+                            drawShape(ctx, absChild);
+                        } else if (child.type === 'penPath' && child.path) {
+                            // ペンパスの描画（簡易版）
+                            const absPath = child.path.map(p => ({
+                                x: p.x + absChild.x,
+                                y: p.y + absChild.y,
+                                cp1: p.cp1 ? { x: p.cp1.x + absChild.x, y: p.cp1.y + absChild.y } : null,
+                                cp2: p.cp2 ? { x: p.cp2.x + absChild.x, y: p.cp2.y + absChild.y } : null
+                            }));
+                            ctx.beginPath();
+                            ctx.moveTo(absPath[0].x, absPath[0].y);
+                            for (let i = 1; i < absPath.length; i++) {
+                                const prev = absPath[i - 1];
+                                const curr = absPath[i];
+                                if (prev.cp2 || curr.cp1) {
+                                    const cp1 = prev.cp2 || { x: prev.x, y: prev.y };
+                                    const cp2 = curr.cp1 || { x: curr.x, y: curr.y };
+                                    ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+                                } else {
+                                    ctx.lineTo(curr.x, curr.y);
+                                }
+                            }
+                            if (child.closed) ctx.closePath();
+                            if (child.fillType !== 'none') {
+                                ctx.fillStyle = child.fill || '#ffffff';
+                                ctx.fill();
+                            }
+                            ctx.strokeStyle = child.stroke || '#ffffff';
+                            ctx.lineWidth = child.strokeWidth || 3;
+                            ctx.stroke();
+                        } else if (child.chars) {
+                            // テキストオブジェクトの描画
+                            drawTextObject(ctx, absChild);
+                        }
+                        ctx.restore();
+                    });
+                    ctx.restore();
+
+                    // グループの選択枠
+                    if (selectedObjIds.includes(obj.id)) {
+                        const hw = obj.width / 2, hh = obj.height / 2;
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(obj.x - hw - 5, obj.y - hh - 5, obj.width + 10, obj.height + 10);
+                        ctx.setLineDash([]);
+                        const handles = [
+                            { x: obj.x - hw, y: obj.y - hh }, { x: obj.x, y: obj.y - hh }, { x: obj.x + hw, y: obj.y - hh },
+                            { x: obj.x + hw, y: obj.y }, { x: obj.x + hw, y: obj.y + hh },
+                            { x: obj.x, y: obj.y + hh }, { x: obj.x - hw, y: obj.y + hh }, { x: obj.x - hw, y: obj.y }
+                        ];
+                        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
+                        handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
+                    }
+                    ctx.restore();
+                    return;
+                }
+
                 // 図形オブジェクトの描画
                 if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(obj.type)) {
                     drawShape(ctx, obj);
                     ctx.restore();
 
                     // 選択枠
-                    if (obj.id === selectedObjId) {
+                    if (selectedObjIds.includes(obj.id)) {
                         const hw = obj.width / 2, hh = obj.height / 2;
                         ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
                         ctx.strokeRect(obj.x - hw - 5, obj.y - hh - 5, obj.width + 10, obj.height + 10);
@@ -3361,7 +3657,7 @@
                     const pathLen = getPathLength(absPath);
 
                     // Draw path line (faded)
-                    if (obj.id === selectedObjId) {
+                    if (selectedObjIds.includes(obj.id)) {
                         ctx.save();
                         ctx.strokeStyle = 'rgba(0, 120, 212, 0.3)';
                         ctx.lineWidth = 2;
@@ -3497,7 +3793,7 @@
                     ctx.stroke();
 
                     // Selection box and control points
-                    if (obj.id === selectedObjId) {
+                    if (selectedObjIds.includes(obj.id)) {
                         const bounds = getObjectBounds(obj);
                         ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
                         ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
@@ -4127,7 +4423,15 @@
             // セーフマージン描画（最前面）
             drawSafeMargins(ctx);
 
-            document.getElementById('statusText').textContent = editingObjId ? '編集中 (Esc終了)' : (isDrawingPath ? `パス描画中 (${pathPoints.length}点) - ダブルクリックで完成` : `オブジェクト: ${textObjects.length}`);
+            let statusMsg = `オブジェクト: ${textObjects.length}`;
+            if (editingObjId) {
+                statusMsg = '編集中 (Esc終了)';
+            } else if (isDrawingPath) {
+                statusMsg = `パス描画中 (${pathPoints.length}点) - ダブルクリックで完成`;
+            } else if (selectedObjIds.length > 1) {
+                statusMsg = `${selectedObjIds.length}個選択中 (Ctrl+G: グループ化)`;
+            }
+            document.getElementById('statusText').textContent = statusMsg;
         }
 
         function changeResolution() {
@@ -4138,7 +4442,7 @@
         }
 
         function exportPNG() {
-            exitEditMode(); selectedObjId = null;
+            exitEditMode(); selectedObjId = null; selectedObjIds = [];
             // 一時的にセーフマージンを非表示にしてレンダリング
             const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
             const wasEnabled = safeMarginCheckbox.checked;
@@ -4371,7 +4675,7 @@
                         updateCanvasList();
                     }
 
-                    selectedObjId = null; editingObjId = null;
+                    selectedObjId = null; selectedObjIds = []; editingObjId = null;
                     updateLayerList(); updateLayerProps(); render();
                 } catch { alert('読込失敗'); }
             };
