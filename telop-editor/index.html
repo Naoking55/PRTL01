@@ -727,6 +727,12 @@
             <div style="margin-top:8px;">
                 <label><input type="checkbox" id="animLoop" onchange="updateAnimation()"> ループ再生</label>
             </div>
+            <h4 style="margin-top:12px;">キーフレーム</h4>
+            <div id="keyframeList" style="max-height:200px;overflow-y:auto;border:1px solid #555;padding:5px;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:5px;">
+                <button class="btn btn-small btn-secondary" onclick="addKeyframe()">追加</button>
+                <button class="btn btn-small btn-secondary" onclick="addKeyframeFromCurrent()">現在値で追加</button>
+            </div>
         </div>
 
         <h3>出力</h3>
@@ -4029,6 +4035,14 @@
                 obj._visibleChars = visibleChars;
                 obj._charAnimations = charAnimations;
 
+                // キーフレーム補間を適用
+                const kfProps = interpolateKeyframes(obj);
+                if (kfProps) {
+                    obj._keyframeProps = kfProps;
+                } else {
+                    obj._keyframeProps = null;
+                }
+
                 // グループオブジェクトの描画
                 if (obj.type === 'group' && obj.children) {
                     ctx.save();
@@ -4659,17 +4673,28 @@
                         }
 
                         const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
-                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+
+                        // キーフレームプロパティを適用
+                        const kfp = obj._keyframeProps;
+                        const fontSize = kfp ? kfp.fontSize : c.fontSize;
+                        const charColor = kfp ? kfp.color : c.color;
+                        const charColor2 = kfp ? kfp.color2 : c.color2;
+                        const charOpacityBase = kfp ? kfp.opacity : (c.opacity || 100);
+                        const charScaleX = kfp ? kfp.scaleX : (c.scaleX || 100);
+                        const charSlant = kfp ? kfp.slant : (c.slant || 0);
+                        const charSpacing = kfp ? kfp.letterSpacing : (c.letterSpacing || 0);
+
+                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? fontSize * (c.smallCapsSize || 70) / 100 : fontSize;
                         ctx.save();
                         ctx.font = `bold ${fs}px "${c.fontFamily}"`;
                         ctx.textBaseline = 'middle';
 
                         // 文字アニメーションの不透明度を適用
-                        let charOpacity = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+                        let charOpacity = (obj.opacity || 100) / 100 * charOpacityBase / 100;
                         if (charAnim) charOpacity *= charAnim.opacity;
                         ctx.globalAlpha = charOpacity;
 
-                        const bw = ctx.measureText(dc).width, sx = (c.scaleX || 100) / 100, cy = lineY - (c.baselineShift || 0);
+                        const bw = ctx.measureText(dc).width, sx = charScaleX / 100, cy = lineY - (c.baselineShift || 0);
 
                         // 文字アニメーションのオフセットを適用
                         let animOffsetX = charAnim ? (charAnim.offsetX || 0) : 0;
@@ -4683,7 +4708,7 @@
                             if (charAnim.scale && charAnim.scale !== 1) ctx.scale(charAnim.scale, charAnim.scale);
                         }
 
-                        if (c.slant) ctx.transform(1, 0, Math.tan(c.slant * Math.PI / 180), 1, 0, 0);
+                        if (charSlant) ctx.transform(1, 0, Math.tan(charSlant * Math.PI / 180), 1, 0, 0);
 
                         // カーソル追従: カーソル描画
                         if (charAnim && charAnim.showCursor) {
@@ -4824,12 +4849,12 @@
                                     }
                                 });
                             } else {
-                                grad.addColorStop(0, c.color);
-                                grad.addColorStop(1, c.color2 || '#888');
+                                grad.addColorStop(0, charColor);
+                                grad.addColorStop(1, charColor2 || '#888');
                             }
                                 ctx.fillStyle = grad;
                             } else {
-                                ctx.fillStyle = c.color;
+                                ctx.fillStyle = charColor;
                             }
                             ctx.fillText(dc, 0, 0);
                         }
@@ -4894,7 +4919,7 @@
                         }
 
                         ctx.restore();
-                        px += getCharWidth(c);
+                        px += getCharWidth(c) + charSpacing;
                     });
                     ci += line.length + 1;
                 }
@@ -5383,6 +5408,194 @@
             document.getElementById('animSpeed').value = obj.animation.speed || 100;
             document.getElementById('animEasing').value = obj.animation.easing || 'linear';
             document.getElementById('animLoop').checked = obj.animation.loop || false;
+            updateKeyframeList();
+        }
+
+        // キーフレーム関連関数
+        function addKeyframe() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+
+            if (!obj.keyframes) obj.keyframes = [];
+
+            const newTime = obj.keyframes.length > 0 ?
+                Math.max(...obj.keyframes.map(k => k.time)) + 1 : 0;
+
+            obj.keyframes.push({
+                time: newTime,
+                props: {
+                    fontSize: 60,
+                    color: '#ffffff',
+                    opacity: 100,
+                    scaleX: 100,
+                    letterSpacing: 0,
+                    slant: 0
+                }
+            });
+
+            obj.keyframes.sort((a, b) => a.time - b.time);
+            updateKeyframeList();
+        }
+
+        function addKeyframeFromCurrent() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.chars || obj.chars.length === 0) return;
+
+            if (!obj.keyframes) obj.keyframes = [];
+
+            // 現在の最初の文字のスタイルを取得
+            const c = obj.chars[0];
+            const newTime = obj.keyframes.length > 0 ?
+                Math.max(...obj.keyframes.map(k => k.time)) + 1 : 0;
+
+            obj.keyframes.push({
+                time: newTime,
+                props: {
+                    fontSize: c.fontSize || 60,
+                    color: c.color || '#ffffff',
+                    color2: c.color2 || '#888888',
+                    fillType: c.fillType || 'solid',
+                    gradientAngle: c.gradientAngle || 0,
+                    opacity: c.opacity || 100,
+                    scaleX: c.scaleX || 100,
+                    letterSpacing: c.letterSpacing || 0,
+                    slant: c.slant || 0
+                }
+            });
+
+            obj.keyframes.sort((a, b) => a.time - b.time);
+            updateKeyframeList();
+        }
+
+        function updateKeyframeList() {
+            const list = document.getElementById('keyframeList');
+            if (!selectedObjId) {
+                list.innerHTML = '<div style="color:#888;font-size:11px;">オブジェクトを選択してください</div>';
+                return;
+            }
+
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.keyframes || obj.keyframes.length === 0) {
+                list.innerHTML = '<div style="color:#888;font-size:11px;">キーフレームなし</div>';
+                return;
+            }
+
+            list.innerHTML = obj.keyframes.map((kf, i) => `
+                <div style="border-bottom:1px solid #444;padding:5px 0;font-size:11px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span><b>${kf.time}秒</b></span>
+                        <div>
+                            <button class="btn btn-small" onclick="editKeyframe(${i})" style="padding:2px 5px;font-size:10px;">編集</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteKeyframe(${i})" style="padding:2px 5px;font-size:10px;">×</button>
+                        </div>
+                    </div>
+                    <div style="color:#aaa;font-size:10px;margin-top:3px;">
+                        ${kf.props.fontSize}px / ${kf.props.opacity}% / ${kf.props.color}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteKeyframe(index) {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.keyframes) return;
+
+            obj.keyframes.splice(index, 1);
+            updateKeyframeList();
+        }
+
+        function editKeyframe(index) {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.keyframes || !obj.keyframes[index]) return;
+
+            const kf = obj.keyframes[index];
+            const newTime = prompt('時間（秒）:', kf.time);
+            if (newTime === null) return;
+            kf.time = parseFloat(newTime) || 0;
+
+            const newSize = prompt('フォントサイズ:', kf.props.fontSize);
+            if (newSize !== null) kf.props.fontSize = parseInt(newSize) || 60;
+
+            const newOpacity = prompt('不透明度 (0-100):', kf.props.opacity);
+            if (newOpacity !== null) kf.props.opacity = parseInt(newOpacity) || 100;
+
+            const newColor = prompt('色 (#xxxxxx):', kf.props.color);
+            if (newColor !== null) kf.props.color = newColor || '#ffffff';
+
+            const newScaleX = prompt('縦横比率 (%):', kf.props.scaleX);
+            if (newScaleX !== null) kf.props.scaleX = parseInt(newScaleX) || 100;
+
+            const newSpacing = prompt('カーニング:', kf.props.letterSpacing);
+            if (newSpacing !== null) kf.props.letterSpacing = parseInt(newSpacing) || 0;
+
+            const newSlant = prompt('斜め角度:', kf.props.slant);
+            if (newSlant !== null) kf.props.slant = parseInt(newSlant) || 0;
+
+            obj.keyframes.sort((a, b) => a.time - b.time);
+            updateKeyframeList();
+        }
+
+        // キーフレーム補間
+        function interpolateKeyframes(obj) {
+            if (!obj.keyframes || obj.keyframes.length === 0) return null;
+
+            const kfs = obj.keyframes;
+            const t = animationTime;
+
+            // 時間範囲外
+            if (t <= kfs[0].time) return kfs[0].props;
+            if (t >= kfs[kfs.length - 1].time) return kfs[kfs.length - 1].props;
+
+            // 補間するキーフレームを探す
+            let prev = kfs[0], next = kfs[1];
+            for (let i = 0; i < kfs.length - 1; i++) {
+                if (t >= kfs[i].time && t <= kfs[i + 1].time) {
+                    prev = kfs[i];
+                    next = kfs[i + 1];
+                    break;
+                }
+            }
+
+            // 補間率
+            const duration = next.time - prev.time;
+            const progress = duration > 0 ? (t - prev.time) / duration : 0;
+
+            // 各プロパティを補間
+            return {
+                fontSize: lerp(prev.props.fontSize, next.props.fontSize, progress),
+                color: lerpColor(prev.props.color, next.props.color, progress),
+                color2: lerpColor(prev.props.color2 || prev.props.color, next.props.color2 || next.props.color, progress),
+                fillType: progress < 0.5 ? prev.props.fillType : next.props.fillType,
+                gradientAngle: lerp(prev.props.gradientAngle || 0, next.props.gradientAngle || 0, progress),
+                opacity: lerp(prev.props.opacity, next.props.opacity, progress),
+                scaleX: lerp(prev.props.scaleX, next.props.scaleX, progress),
+                letterSpacing: lerp(prev.props.letterSpacing || 0, next.props.letterSpacing || 0, progress),
+                slant: lerp(prev.props.slant || 0, next.props.slant || 0, progress)
+            };
+        }
+
+        // 線形補間
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        // 色の補間
+        function lerpColor(c1, c2, t) {
+            if (!c1 || !c2) return c1 || c2 || '#ffffff';
+            const r1 = parseInt(c1.slice(1, 3), 16);
+            const g1 = parseInt(c1.slice(3, 5), 16);
+            const b1 = parseInt(c1.slice(5, 7), 16);
+            const r2 = parseInt(c2.slice(1, 3), 16);
+            const g2 = parseInt(c2.slice(3, 5), 16);
+            const b2 = parseInt(c2.slice(5, 7), 16);
+            const r = Math.round(lerp(r1, r2, t));
+            const g = Math.round(lerp(g1, g2, t));
+            const b = Math.round(lerp(b1, b2, t));
+            return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
         }
 
         function toggleAnimation() {
