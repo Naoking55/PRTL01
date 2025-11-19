@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telop Editor - Premiere Pro テロップエディタ</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Yu Gothic UI', 'Meiryo', sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .panel h3 {
+            margin: 0 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #444;
+            font-size: 14px;
+        }
+
+        #mainCanvas {
+            background: #000;
+            border: 2px solid #444;
+            border-radius: 4px;
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3a3a3a;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background: #4a4a4a;
+        }
+
+        button.primary {
+            background: #0066cc;
+            border-color: #0077ee;
+        }
+
+        button.primary:hover {
+            background: #0077ee;
+        }
+
+        input, select, textarea {
+            background: #3a3a3a;
+            border: 1px solid #555;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 4px;
+            width: 100%;
+            font-size: 12px;
+        }
+
+        input[type="color"] {
+            padding: 2px;
+            height: 30px;
+        }
+
+        input[type="range"] {
+            padding: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .object-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        .object-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .object-item:hover {
+            background: #3a3a3a;
+        }
+
+        .object-item.selected {
+            background: #0066cc;
+        }
+
+        .prsl-styles {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .prsl-style-item {
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .prsl-style-item:hover {
+            border-color: #0077ee;
+        }
+
+        .prsl-style-item.selected {
+            border-color: #00aaff;
+        }
+
+        .prsl-style-item canvas {
+            display: block;
+            width: 100%;
+            height: 60px;
+        }
+
+        .prsl-style-item .name {
+            padding: 4px;
+            font-size: 10px;
+            text-align: center;
+            background: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-bar {
+            background: #2a2a2a;
+            padding: 8px 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ccc;
+        }
+
+        .stroke-item {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .stroke-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #555;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        #prslFileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左パネル: オブジェクト管理 -->
+        <div class="panel">
+            <h3>オブジェクト</h3>
+
+            <div class="toolbar">
+                <button onclick="addTextObject()">テキスト追加</button>
+                <button onclick="duplicateSelectedObject()">複製</button>
+                <button onclick="deleteSelectedObject()">削除</button>
+            </div>
+            <div class="toolbar">
+                <button onclick="moveObjectUp()">↑上へ</button>
+                <button onclick="moveObjectDown()">↓下へ</button>
+            </div>
+
+            <div class="object-list" id="objectList"></div>
+
+            <div class="section" style="margin-top: 15px;">
+                <div class="section-title">PRSLスタイル</div>
+                <input type="file" id="prslFileInput" accept=".prsl" onchange="loadPRSLFile(event)">
+                <button onclick="document.getElementById('prslFileInput').click()">PRSLファイル読込</button>
+                <div id="prslStatus" class="status-bar" style="margin-top: 10px;"></div>
+                <div class="prsl-styles" id="prslStyles" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- 中央: キャンバス -->
+        <div class="panel">
+            <div class="toolbar">
+                <button class="primary" onclick="exportPRTL()">PRTL書き出し</button>
+                <button onclick="exportPNG()">PNG書き出し</button>
+                <button onclick="loadPRTL()">PRTL読込</button>
+                <button onclick="clearCanvas()">クリア</button>
+                <select onchange="changeResolution(this.value)" style="margin-left: auto;">
+                    <option value="1920x1080" selected>1920x1080 (FHD)</option>
+                    <option value="3840x2160">3840x2160 (4K)</option>
+                    <option value="1280x720">1280x720 (HD)</option>
+                    <option value="720x480">720x480 (NTSC)</option>
+                </select>
+            </div>
+
+            <canvas id="mainCanvas" width="1920" height="1080"></canvas>
+
+            <div class="status-bar" id="statusBar">
+                Ready | 1920x1080 | オブジェクト: 0
+            </div>
+        </div>
+
+        <!-- 右パネル: プロパティ -->
+        <div class="panel" id="propertyPanel">
+            <h3>プロパティ</h3>
+
+            <div id="noSelection" style="text-align: center; color: #666; padding: 20px;">
+                オブジェクトを選択してください
+            </div>
+
+            <div id="propertyEditor" style="display: none;">
+                <!-- テキスト -->
+                <div class="section">
+                    <div class="section-title">テキスト</div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <textarea id="propText" rows="2" onchange="updateProperty('text', this.value)"></textarea>
+                    </div>
+                </div>
+
+                <!-- フォント -->
+                <div class="section">
+                    <div class="section-title">フォント</div>
+                    <div class="form-group">
+                        <label>フォント</label>
+                        <select id="propFontFamily" onchange="updateProperty('fontFamily', this.value)">
+                            <option value="Yu Gothic UI">Yu Gothic UI</option>
+                            <option value="Meiryo">Meiryo</option>
+                            <option value="MS Gothic">MS Gothic</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>サイズ</label>
+                            <input type="number" id="propFontSize" min="1" max="500" onchange="updateProperty('fontSize', parseFloat(this.value))">
+                        </div>
+                        <div class="form-group">
+                            <label>スケールX (%)</label>
+                            <input type="number" id="propScaleX" min="10" max="200" onchange="updateProperty('scaleX', parseFloat(this.value))">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" id="propBold" onchange="updateProperty('bold', this.checked)">
+                                太字
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" id="propItalic" onchange="updateProperty('italic', this.checked)">
+                                斜体
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>字間 (tracking)</label>
+                            <input type="number" id="propTracking" min="-100" max="500" onchange="updateProperty('tracking', parseFloat(this.value))">
+                        </div>
+                        <div class="form-group">
+                            <label>行間 (leading)</label>
+                            <input type="number" id="propLeading" min="0" max="500" onchange="updateProperty('leading', parseFloat(this.value))">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 塗り -->
+                <div class="section">
+                    <div class="section-title">塗り</div>
+                    <div class="form-group">
+                        <label>タイプ</label>
+                        <select id="propFillType" onchange="updateProperty('fillType', this.value)">
+                            <option value="solid">単色</option>
+                            <option value="linear">線形グラデーション</option>
+                            <option value="radial">放射グラデーション</option>
+                            <option value="none">なし</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>色1</label>
+                            <input type="color" id="propColor" onchange="updateProperty('color', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>色2</label>
+                            <input type="color" id="propColor2" onchange="updateProperty('color2', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group" id="gradientAngleGroup">
+                        <label>グラデーション角度</label>
+                        <input type="number" id="propGradientAngle" min="0" max="360" onchange="updateProperty('gradientAngle', parseFloat(this.value))">
+                    </div>
+                </div>
+
+                <!-- ストローク -->
+                <div class="section">
+                    <div class="section-title">ストローク</div>
+                    <div id="strokeList"></div>
+                    <button onclick="addStroke()" style="margin-top: 8px;">ストローク追加</button>
+                </div>
+
+                <!-- シャドウ -->
+                <div class="section">
+                    <div class="section-title">シャドウ</div>
+                    <div class="form-group">
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="propShadowEnabled" onchange="updateProperty('shadowEnabled', this.checked)">
+                            有効
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>色</label>
+                            <input type="color" id="propShadowColor" onchange="updateProperty('shadowColor', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>不透明度 (%)</label>
+                            <input type="number" id="propShadowOpacity" min="0" max="100" onchange="updateProperty('shadowOpacity', parseFloat(this.value))">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>距離</label>
+                            <input type="number" id="propShadowDistance" min="0" max="100" onchange="updateProperty('shadowDistance', parseFloat(this.value))">
+                        </div>
+                        <div class="form-group">
+                            <label>角度</label>
+                            <input type="number" id="propShadowAngle" min="0" max="360" onchange="updateProperty('shadowAngle', parseFloat(this.value))">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ぼかし</label>
+                        <input type="number" id="propShadowBlur" min="0" max="100" onchange="updateProperty('shadowBlur', parseFloat(this.value))">
+                    </div>
+                </div>
+
+                <!-- 光沢 -->
+                <div class="section">
+                    <div class="section-title">光沢</div>
+                    <div class="form-group">
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="propGlossEnabled" onchange="updateProperty('glossEnabled', this.checked)">
+                            有効
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>色</label>
+                            <input type="color" id="propGlossColor" onchange="updateProperty('glossColor', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>不透明度 (%)</label>
+                            <input type="number" id="propGlossOpacity" min="0" max="100" onchange="updateProperty('glossOpacity', parseFloat(this.value))">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>幅</label>
+                            <input type="number" id="propGlossWidth" min="0" max="100" onchange="updateProperty('glossWidth', parseFloat(this.value))">
+                        </div>
+                        <div class="form-group">
+                            <label>ぼかし</label>
+                            <input type="number" id="propGlossBlur" min="0" max="100" onchange="updateProperty('glossBlur', parseFloat(this.value))">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 位置 -->
+                <div class="section">
+                    <div class="section-title">位置</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>X</label>
+                            <input type="number" id="propX" onchange="updateProperty('x', parseFloat(this.value))">
+                        </div>
+                        <div class="form-group">
+                            <label>Y</label>
+                            <input type="number" id="propY" onchange="updateProperty('y', parseFloat(this.value))">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let canvas, ctx;
+        let objects = [];
+        let selectedObjectId = null;
+        let prslStyles = [];
+        let nextObjectId = 1;
+
+        // ドラッグ関連
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        // 初期化
+        window.onload = function() {
+            canvas = document.getElementById('mainCanvas');
+            ctx = canvas.getContext('2d');
+
+            // マウスイベント
+            canvas.addEventListener('mousedown', onCanvasMouseDown);
+            canvas.addEventListener('mousemove', onCanvasMouseMove);
+            canvas.addEventListener('mouseup', onCanvasMouseUp);
+            canvas.addEventListener('mouseleave', onCanvasMouseUp);
+
+            // キーボードイベント
+            document.addEventListener('keydown', onKeyDown);
+
+            render();
+        };
+
+        // キーボードイベント
+        function onKeyDown(e) {
+            const obj = getSelectedObject();
+
+            // テキスト入力中は無視
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+
+            switch (e.key) {
+                case 'Delete':
+                case 'Backspace':
+                    if (obj) {
+                        e.preventDefault();
+                        deleteSelectedObject();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.x -= e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.x += e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowUp':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.y -= e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (obj) {
+                        e.preventDefault();
+                        obj.y += e.shiftKey ? 10 : 1;
+                        updatePropertyPanel();
+                        render();
+                    }
+                    break;
+                case 'Escape':
+                    selectedObjectId = null;
+                    updateObjectList();
+                    updatePropertyPanel();
+                    render();
+                    break;
+                case 'd':
+                case 'D':
+                    if (e.ctrlKey || e.metaKey) {
+                        if (obj) {
+                            e.preventDefault();
+                            duplicateSelectedObject();
+                        }
+                    }
+                    break;
+            }
+        }
+
+        // キャンバス座標を取得
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        // オブジェクトの境界を計算
+        function getObjectBounds(obj) {
+            if (!obj.chars || obj.chars.length === 0) return null;
+
+            const c = obj.chars[0];
+            const fs = c.fontSize || 72;
+            const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+
+            let totalWidth = 0;
+            obj.chars.forEach(ch => {
+                totalWidth += ctx.measureText(ch.char).width * ((ch.scaleX || 100) / 100);
+                totalWidth += ch.tracking || 0;
+            });
+
+            return {
+                x: obj.x - totalWidth / 2,
+                y: obj.y - fs,
+                width: totalWidth,
+                height: fs * 1.2
+            };
+        }
+
+        // 座標がオブジェクト内かチェック
+        function hitTest(obj, x, y) {
+            const bounds = getObjectBounds(obj);
+            if (!bounds) return false;
+
+            return x >= bounds.x && x <= bounds.x + bounds.width &&
+                   y >= bounds.y && y <= bounds.y + bounds.height;
+        }
+
+        // マウスダウン
+        function onCanvasMouseDown(e) {
+            const coords = getCanvasCoords(e);
+
+            // クリック位置のオブジェクトを検索（後ろから）
+            let found = null;
+            for (let i = objects.length - 1; i >= 0; i--) {
+                if (hitTest(objects[i], coords.x, coords.y)) {
+                    found = objects[i];
+                    break;
+                }
+            }
+
+            if (found) {
+                selectObject(found.id);
+                isDragging = true;
+                dragOffset = {
+                    x: coords.x - found.x,
+                    y: coords.y - found.y
+                };
+            } else {
+                selectedObjectId = null;
+                updateObjectList();
+                updatePropertyPanel();
+                render();
+            }
+        }
+
+        // マウス移動
+        function onCanvasMouseMove(e) {
+            if (!isDragging || selectedObjectId === null) return;
+
+            const coords = getCanvasCoords(e);
+            const obj = getSelectedObject();
+            if (obj) {
+                obj.x = coords.x - dragOffset.x;
+                obj.y = coords.y - dragOffset.y;
+                updatePropertyPanel();
+                render();
+            }
+        }
+
+        // マウスアップ
+        function onCanvasMouseUp(e) {
+            isDragging = false;
+        }
+
+        // デフォルトスタイルを取得
+        function getDefaultStyle() {
+            return {
+                fontFamily: 'Yu Gothic UI',
+                fontSize: 72,
+                bold: true,
+                italic: false,
+                scaleX: 100,
+                tracking: 0,
+                leading: 0,
+                slant: 0,
+                fillType: 'solid',
+                color: '#ffffff',
+                color2: '#000000',
+                gradientAngle: 90,
+                gradientStops: [],
+                strokes: [],
+                shadowEnabled: false,
+                shadowColor: '#000000',
+                shadowOpacity: 50,
+                shadowDistance: 5,
+                shadowAngle: 135,
+                shadowBlur: 5,
+                glossEnabled: false,
+                glossColor: '#ffffff',
+                glossOpacity: 50,
+                glossWidth: 30,
+                glossBlur: 5
+            };
+        }
+
+        // テキストオブジェクト追加
+        function addTextObject() {
+            const obj = {
+                id: nextObjectId++,
+                type: 'text',
+                text: 'テキスト',
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                chars: []
+            };
+
+            // 文字ごとのスタイルを初期化
+            initializeChars(obj);
+
+            objects.push(obj);
+            selectObject(obj.id);
+            updateObjectList();
+            render();
+        }
+
+        // 文字配列を初期化
+        function initializeChars(obj) {
+            const style = getDefaultStyle();
+            obj.chars = [];
+            for (let i = 0; i < obj.text.length; i++) {
+                obj.chars.push({
+                    char: obj.text[i],
+                    ...JSON.parse(JSON.stringify(style))
+                });
+            }
+        }
+
+        // オブジェクト選択
+        function selectObject(id) {
+            selectedObjectId = id;
+            updateObjectList();
+            updatePropertyPanel();
+            render();
+        }
+
+        // 選択中のオブジェクトを取得
+        function getSelectedObject() {
+            return objects.find(o => o.id === selectedObjectId);
+        }
+
+        // オブジェクトリスト更新
+        function updateObjectList() {
+            const list = document.getElementById('objectList');
+            list.innerHTML = objects.map(obj => `
+                <div class="object-item ${obj.id === selectedObjectId ? 'selected' : ''}"
+                     onclick="selectObject(${obj.id})">
+                    ${obj.text.substring(0, 20)}${obj.text.length > 20 ? '...' : ''}
+                </div>
+            `).join('');
+
+            document.getElementById('statusBar').textContent =
+                `Ready | ${canvas.width}x${canvas.height} | オブジェクト: ${objects.length}`;
+        }
+
+        // プロパティパネル更新
+        function updatePropertyPanel() {
+            const obj = getSelectedObject();
+            const noSel = document.getElementById('noSelection');
+            const editor = document.getElementById('propertyEditor');
+
+            if (!obj || obj.chars.length === 0) {
+                noSel.style.display = 'block';
+                editor.style.display = 'none';
+                return;
+            }
+
+            noSel.style.display = 'none';
+            editor.style.display = 'block';
+
+            // 最初の文字のスタイルを使用
+            const c = obj.chars[0];
+
+            document.getElementById('propText').value = obj.text;
+            document.getElementById('propFontFamily').value = c.fontFamily;
+            document.getElementById('propFontSize').value = c.fontSize;
+            document.getElementById('propScaleX').value = c.scaleX || 100;
+            document.getElementById('propBold').checked = c.bold !== false;
+            document.getElementById('propItalic').checked = c.italic || false;
+            document.getElementById('propTracking').value = c.tracking || 0;
+            document.getElementById('propLeading').value = c.leading || 0;
+            document.getElementById('propFillType').value = c.fillType || 'solid';
+            document.getElementById('propColor').value = c.color || '#ffffff';
+            document.getElementById('propColor2').value = c.color2 || '#000000';
+            document.getElementById('propGradientAngle').value = c.gradientAngle || 90;
+            document.getElementById('propShadowEnabled').checked = c.shadowEnabled || false;
+            document.getElementById('propShadowColor').value = c.shadowColor || '#000000';
+            document.getElementById('propShadowOpacity').value = c.shadowOpacity || 50;
+            document.getElementById('propShadowDistance').value = c.shadowDistance || 5;
+            document.getElementById('propShadowAngle').value = c.shadowAngle || 135;
+            document.getElementById('propShadowBlur').value = c.shadowBlur || 5;
+            document.getElementById('propGlossEnabled').checked = c.glossEnabled || false;
+            document.getElementById('propGlossColor').value = c.glossColor || '#ffffff';
+            document.getElementById('propGlossOpacity').value = c.glossOpacity || 50;
+            document.getElementById('propGlossWidth').value = c.glossWidth || 30;
+            document.getElementById('propGlossBlur').value = c.glossBlur || 5;
+            document.getElementById('propX').value = obj.x;
+            document.getElementById('propY').value = obj.y;
+
+            updateStrokeList();
+        }
+
+        // プロパティ更新
+        function updateProperty(prop, value) {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            if (prop === 'text') {
+                obj.text = value;
+                initializeChars(obj);
+                updateObjectList();
+            } else if (prop === 'x' || prop === 'y') {
+                obj[prop] = value;
+            } else {
+                // 全文字に適用
+                obj.chars.forEach(c => {
+                    c[prop] = value;
+                });
+            }
+
+            render();
+        }
+
+        // ストロークリスト更新
+        function updateStrokeList() {
+            const obj = getSelectedObject();
+            if (!obj || obj.chars.length === 0) return;
+
+            const strokes = obj.chars[0].strokes || [];
+            const list = document.getElementById('strokeList');
+
+            list.innerHTML = strokes.map((s, i) => `
+                <div class="stroke-item">
+                    <div class="stroke-header">
+                        <label class="checkbox-group">
+                            <input type="checkbox" ${s.enabled ? 'checked' : ''}
+                                   onchange="updateStroke(${i}, 'enabled', this.checked)">
+                            ストローク ${i + 1}
+                        </label>
+                        <button onclick="removeStroke(${i})" style="padding: 2px 8px;">削除</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>色</label>
+                            <input type="color" value="${s.color || '#000000'}"
+                                   onchange="updateStroke(${i}, 'color', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>幅</label>
+                            <input type="number" value="${s.width || 2}" min="0" max="100"
+                                   onchange="updateStroke(${i}, 'width', parseFloat(this.value))">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-group">
+                            <input type="checkbox" ${s.gradientEnabled ? 'checked' : ''}
+                                   onchange="updateStroke(${i}, 'gradientEnabled', this.checked)">
+                            グラデーション
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ストローク追加
+        function addStroke() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const newStroke = {
+                enabled: true,
+                type: 'edge',
+                color: '#000000',
+                width: 3,
+                opacity: 100,
+                gradientEnabled: false,
+                gradientStops: []
+            };
+
+            obj.chars.forEach(c => {
+                if (!c.strokes) c.strokes = [];
+                c.strokes.push({...newStroke});
+            });
+
+            updateStrokeList();
+            render();
+        }
+
+        // ストローク更新
+        function updateStroke(index, prop, value) {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            obj.chars.forEach(c => {
+                if (c.strokes && c.strokes[index]) {
+                    c.strokes[index][prop] = value;
+                }
+            });
+
+            render();
+        }
+
+        // ストローク削除
+        function removeStroke(index) {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            obj.chars.forEach(c => {
+                if (c.strokes) {
+                    c.strokes.splice(index, 1);
+                }
+            });
+
+            updateStrokeList();
+            render();
+        }
+
+        // 選択オブジェクト削除
+        function deleteSelectedObject() {
+            if (selectedObjectId === null) return;
+            objects = objects.filter(o => o.id !== selectedObjectId);
+            selectedObjectId = null;
+            updateObjectList();
+            updatePropertyPanel();
+            render();
+        }
+
+        // キャンバスクリア
+        function clearCanvas() {
+            objects = [];
+            selectedObjectId = null;
+            updateObjectList();
+            updatePropertyPanel();
+            render();
+        }
+
+        // 解像度変更
+        function changeResolution(value) {
+            const [w, h] = value.split('x').map(Number);
+            canvas.width = w;
+            canvas.height = h;
+            render();
+            updateObjectList();
+        }
+
+        // オブジェクト複製
+        function duplicateSelectedObject() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const newObj = {
+                id: nextObjectId++,
+                type: obj.type,
+                text: obj.text,
+                x: obj.x + 20,
+                y: obj.y + 20,
+                chars: JSON.parse(JSON.stringify(obj.chars))
+            };
+
+            objects.push(newObj);
+            selectObject(newObj.id);
+            updateObjectList();
+            render();
+        }
+
+        // オブジェクトを上に移動（レイヤー順序）
+        function moveObjectUp() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const index = objects.findIndex(o => o.id === obj.id);
+            if (index < objects.length - 1) {
+                [objects[index], objects[index + 1]] = [objects[index + 1], objects[index]];
+                updateObjectList();
+                render();
+            }
+        }
+
+        // オブジェクトを下に移動（レイヤー順序）
+        function moveObjectDown() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const index = objects.findIndex(o => o.id === obj.id);
+            if (index > 0) {
+                [objects[index], objects[index - 1]] = [objects[index - 1], objects[index]];
+                updateObjectList();
+                render();
+            }
+        }
+
+        // PNG書き出し
+        function exportPNG() {
+            // 選択境界線を非表示にして描画
+            const tempSelected = selectedObjectId;
+            selectedObjectId = null;
+            render();
+
+            // キャンバスをPNGとしてダウンロード
+            const link = document.createElement('a');
+            link.download = 'telop.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            // 選択を復元
+            selectedObjectId = tempSelected;
+            render();
+
+            document.getElementById('statusBar').textContent = 'PNG書き出し完了';
+        }
+
+        // メインレンダリング
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 背景
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 各オブジェクトを描画
+            objects.forEach(obj => {
+                if (obj.type === 'text') {
+                    renderTextObject(obj);
+                }
+            });
+
+            // 選択オブジェクトの境界線
+            const selected = getSelectedObject();
+            if (selected) {
+                const bounds = getObjectBounds(selected);
+                if (bounds) {
+                    ctx.save();
+                    ctx.strokeStyle = '#00aaff';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.width + 10, bounds.height + 10);
+                    ctx.restore();
+                }
+            }
+        }
+
+        // テキストオブジェクト描画
+        function renderTextObject(obj) {
+            if (!obj.chars || obj.chars.length === 0) return;
+
+            // テキスト全体の幅を計算
+            let totalWidth = 0;
+            obj.chars.forEach(c => {
+                const fs = c.fontSize || 72;
+                const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                const fontStyle = c.italic ? 'italic' : 'normal';
+                ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                totalWidth += ctx.measureText(c.char).width * ((c.scaleX || 100) / 100);
+                totalWidth += c.tracking || 0;
+            });
+
+            // 中央揃えで開始位置を計算
+            let x = obj.x - totalWidth / 2;
+            let y = obj.y;
+
+            obj.chars.forEach((c, i) => {
+                const fs = c.fontSize || 72;
+                const scaleX = (c.scaleX || 100) / 100;
+
+                // フォント設定
+                const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                const fontStyle = c.italic ? 'italic' : 'normal';
+                ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+
+                const charWidth = ctx.measureText(c.char).width * scaleX;
+                const tracking = c.tracking || 0;
+
+                // シャドウ描画
+                if (c.shadowEnabled) {
+                    ctx.save();
+                    const angle = (c.shadowAngle || 135) * Math.PI / 180;
+                    const dist = c.shadowDistance || 5;
+                    const sx = x + Math.cos(angle) * dist;
+                    const sy = y + Math.sin(angle) * dist;
+
+                    ctx.globalAlpha = (c.shadowOpacity || 50) / 100;
+                    ctx.shadowColor = c.shadowColor || '#000000';
+                    ctx.shadowBlur = c.shadowBlur || 5;
+                    ctx.fillStyle = c.shadowColor || '#000000';
+
+                    ctx.save();
+                    ctx.translate(sx, sy);
+                    ctx.scale(scaleX, 1);
+                    ctx.fillText(c.char, 0, 0);
+                    ctx.restore();
+
+                    ctx.restore();
+                }
+
+                // ストローク描画（逆順で大きいものから）
+                if (c.strokes && c.strokes.length > 0) {
+                    const sortedStrokes = [...c.strokes].reverse();
+                    sortedStrokes.forEach(st => {
+                        if (!st.enabled) return;
+
+                        ctx.save();
+                        ctx.lineWidth = (st.width || 2) * 2;
+                        ctx.lineJoin = 'round';
+                        ctx.lineCap = 'round';
+
+                        // ストロークのグラデーション
+                        if (st.gradientEnabled && st.gradientStops && st.gradientStops.length >= 2) {
+                            const h = fs;
+                            const grad = ctx.createLinearGradient(x, y - h, x, y);
+                            st.gradientStops.forEach(stop => {
+                                const pos = Math.max(0, Math.min(1, stop.pos / 100));
+                                grad.addColorStop(pos, stop.color);
+                            });
+                            ctx.strokeStyle = grad;
+                        } else {
+                            ctx.strokeStyle = st.color || '#000000';
+                        }
+
+                        ctx.globalAlpha = (st.opacity || 100) / 100;
+
+                        ctx.save();
+                        ctx.translate(x, y);
+                        ctx.scale(scaleX, 1);
+                        ctx.strokeText(c.char, 0, 0);
+                        ctx.restore();
+
+                        ctx.restore();
+                    });
+                }
+
+                // 塗り描画
+                ctx.save();
+
+                if (c.fillType === 'linear' || c.fillType === 'radial') {
+                    const h = fs;
+                    const angle = (c.gradientAngle || 90) * Math.PI / 180;
+
+                    let grad;
+                    if (c.fillType === 'linear') {
+                        // 角度に基づいてグラデーション方向を計算
+                        const dx = Math.cos(angle) * h;
+                        const dy = Math.sin(angle) * h;
+                        grad = ctx.createLinearGradient(x - dx/2, y - h/2 - dy/2, x + dx/2, y - h/2 + dy/2);
+                    } else {
+                        grad = ctx.createRadialGradient(x, y - h/2, 0, x, y - h/2, h);
+                    }
+
+                    // グラデーションストップ
+                    if (c.gradientStops && c.gradientStops.length >= 2) {
+                        c.gradientStops.forEach(stop => {
+                            const pos = Math.max(0, Math.min(1, stop.pos / 100));
+                            grad.addColorStop(pos, stop.color);
+                        });
+                    } else {
+                        grad.addColorStop(0, c.color || '#ffffff');
+                        grad.addColorStop(1, c.color2 || '#000000');
+                    }
+
+                    ctx.fillStyle = grad;
+                } else if (c.fillType !== 'none') {
+                    ctx.fillStyle = c.color || '#ffffff';
+                }
+
+                if (c.fillType !== 'none') {
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.scale(scaleX, 1);
+                    ctx.fillText(c.char, 0, 0);
+                    ctx.restore();
+                }
+
+                ctx.restore();
+
+                // 光沢描画
+                if (c.glossEnabled) {
+                    renderGloss(c, x, y, fs, scaleX);
+                }
+
+                // 次の文字位置
+                x += charWidth + tracking;
+            });
+        }
+
+        // 光沢レンダリング
+        function renderGloss(c, x, y, fs, scaleX) {
+            const glossCanvas = document.createElement('canvas');
+            const glossCtx = glossCanvas.getContext('2d');
+            const padding = 50;
+
+            glossCanvas.width = fs * 2 + padding * 2;
+            glossCanvas.height = fs * 2 + padding * 2;
+
+            const centerX = glossCanvas.width / 2;
+            const centerY = glossCanvas.height / 2 + fs / 3;
+
+            // フォント設定
+            const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            glossCtx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+
+            // テキストをマスクとして描画
+            glossCtx.save();
+            glossCtx.translate(centerX, centerY);
+            glossCtx.scale(scaleX, 1);
+            glossCtx.fillStyle = '#ffffff';
+            glossCtx.fillText(c.char, 0, 0);
+            glossCtx.restore();
+
+            // source-inで光沢をクリップ
+            glossCtx.globalCompositeOperation = 'source-in';
+
+            // 光沢の横バンド
+            const glossWidth = c.glossWidth || 30;
+            const glossHeight = fs * (glossWidth / 100) * 0.15;
+            const glossY = glossCanvas.height * 0.35;
+
+            glossCtx.globalAlpha = (c.glossOpacity || 50) / 100;
+            glossCtx.fillStyle = c.glossColor || '#ffffff';
+
+            if (c.glossBlur > 0) {
+                glossCtx.filter = `blur(${c.glossBlur}px)`;
+            }
+
+            glossCtx.fillRect(0, glossY - glossHeight / 2, glossCanvas.width, glossHeight);
+
+            // メインキャンバスに合成
+            ctx.drawImage(
+                glossCanvas,
+                x - centerX,
+                y - centerY
+            );
+        }
+
+        // PRSLファイル読み込み
+        function loadPRSLFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    parsePRSLContent(content);
+                    document.getElementById('prslStatus').textContent =
+                        `読み込み完了: ${prslStyles.length} スタイル`;
+                } catch (error) {
+                    console.error('PRSL parse error:', error);
+                    document.getElementById('prslStatus').textContent =
+                        `エラー: ${error.message}`;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // PRSLコンテンツをパース
+        function parsePRSLContent(content) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(content, 'text/xml');
+
+            prslStyles = [];
+            const styleBlocks = doc.querySelectorAll('style_block');
+
+            styleBlocks.forEach(block => {
+                const style = parsePRSLStyle(block);
+                if (style) {
+                    prslStyles.push(style);
+                }
+            });
+
+            displayPRSLStyles();
+        }
+
+        // PRSLスタイルブロックをパース
+        function parsePRSLStyle(block) {
+            const name = block.querySelector('name')?.textContent || 'Unknown';
+
+            // フォント情報
+            const fontFamily = block.querySelector('font > family')?.textContent || 'Yu Gothic UI';
+            const fontSize = parseFloat(block.querySelector('text_specification > size')?.textContent) || 72;
+
+            // フォントスタイル
+            const fontStyleText = block.querySelector('font > style')?.textContent || '';
+            const isBold = fontStyleText.toLowerCase().includes('bold') ||
+                          block.querySelector('font > synthetic_bold')?.textContent === 'true';
+            const isItalic = fontStyleText.toLowerCase().includes('italic') ||
+                            block.querySelector('font > synthetic_italic')?.textContent === 'true';
+
+            // scaleX (character width aspect)
+            const scaleX = parseFloat(block.querySelector('text_specification > character_width_aspect')?.textContent) || 100;
+
+            // tracking (字間)
+            const tracking = parseFloat(block.querySelector('text_specification > tracking')?.textContent) || 0;
+
+            // leading (行間)
+            const leading = parseFloat(block.querySelector('text_specification > leading')?.textContent) || 0;
+
+            // slant (斜体角度)
+            const slant = parseFloat(block.querySelector('text_specification > slant')?.textContent) || 0;
+
+            // 塗り
+            let fillColor = '#ffffff';
+            let fillOpacity = 100;
+            let gradient = null;
+
+            const fillBlock = block.querySelector('fill');
+            if (fillBlock) {
+                // グラデーション検出
+                const fourColorRamp = fillBlock.querySelector('four_colour_ramp');
+                const twoColorRamp = fillBlock.querySelector('two_colour_ramp');
+                const linearGradient = fillBlock.querySelector('linear_gradient');
+
+                if (linearGradient) {
+                    gradient = parseLinearGradient(linearGradient);
+                } else if (fourColorRamp) {
+                    gradient = parseFourColorRamp(fourColorRamp);
+                } else if (twoColorRamp) {
+                    gradient = parseTwoColorRamp(twoColorRamp);
+                } else {
+                    // 単色
+                    const colorBlock = fillBlock.querySelector('colour');
+                    if (colorBlock) {
+                        fillColor = parseColor(colorBlock);
+                        fillOpacity = parseFloat(colorBlock.querySelector('alpha')?.textContent) * 100 || 100;
+                    }
+                }
+            }
+
+            // ストローク
+            const strokes = [];
+            const strokeBlocks = block.querySelectorAll('stroke');
+            strokeBlocks.forEach(strokeBlock => {
+                const stroke = parseStroke(strokeBlock);
+                if (stroke) {
+                    strokes.push(stroke);
+                }
+            });
+
+            // シャドウ
+            let shadow = null;
+            const shadowBlock = block.querySelector('shadow');
+            if (shadowBlock) {
+                shadow = parseShadow(shadowBlock);
+            }
+
+            // 光沢
+            let gloss = null;
+            const glossBlock = block.querySelector('gloss, sheen');
+            if (glossBlock) {
+                gloss = parseGloss(glossBlock, fontSize);
+            }
+
+            return {
+                name,
+                fontFamily,
+                fontSize,
+                isBold,
+                isItalic,
+                scaleX,
+                tracking,
+                leading,
+                slant,
+                fillColor,
+                fillOpacity,
+                gradient,
+                strokes,
+                shadow,
+                gloss
+            };
+        }
+
+        // 4色グラデーションパース
+        function parseFourColorRamp(ramp) {
+            const topLeft = ramp.querySelector('top_left');
+            const bottomLeft = ramp.querySelector('bottom_left');
+            const topRight = ramp.querySelector('top_right');
+            const bottomRight = ramp.querySelector('bottom_right');
+
+            // 垂直グラデーションとして処理（top→bottom）
+            const stops = [];
+            if (topLeft) {
+                stops.push({ color: parseColor(topLeft), pos: 0 });
+            }
+            if (bottomLeft) {
+                stops.push({ color: parseColor(bottomLeft), pos: 100 });
+            }
+
+            return {
+                type: 'linear',
+                angle: 90, // 垂直（上から下）
+                stops
+            };
+        }
+
+        // 2色グラデーションパース
+        function parseTwoColorRamp(ramp) {
+            const top = ramp.querySelector('top');
+            const bottom = ramp.querySelector('bottom');
+
+            const stops = [];
+            if (top) {
+                stops.push({ color: parseColor(top), pos: 0 });
+            }
+            if (bottom) {
+                stops.push({ color: parseColor(bottom), pos: 100 });
+            }
+
+            return {
+                type: 'linear',
+                angle: 90, // 垂直（上から下）
+                stops
+            };
+        }
+
+        // リニアグラデーションパース（中間色対応）
+        function parseLinearGradient(gradBlock) {
+            const angle = parseFloat(gradBlock.querySelector('angle')?.textContent) || 90;
+            const stops = [];
+
+            // 開始色
+            const startColor = gradBlock.querySelector('start_colour, start_color');
+            if (startColor) {
+                stops.push({ color: parseColor(startColor), pos: 0 });
+            }
+
+            // 中間色（colour_stops）
+            const colourStops = gradBlock.querySelectorAll('colour_stop, color_stop');
+            colourStops.forEach(cs => {
+                const color = cs.querySelector('colour, color');
+                const position = parseFloat(cs.querySelector('position')?.textContent) || 50;
+                if (color) {
+                    stops.push({ color: parseColor(color), pos: position });
+                }
+            });
+
+            // 終了色
+            const endColor = gradBlock.querySelector('end_colour, end_color');
+            if (endColor) {
+                stops.push({ color: parseColor(endColor), pos: 100 });
+            }
+
+            // 位置でソート
+            stops.sort((a, b) => a.pos - b.pos);
+
+            return {
+                type: 'linear',
+                angle,
+                stops
+            };
+        }
+
+        // 色パース
+        function parseColor(colorBlock) {
+            if (!colorBlock) return '#ffffff';
+
+            const r = Math.round(parseFloat(colorBlock.querySelector('red')?.textContent || 1) * 255);
+            const g = Math.round(parseFloat(colorBlock.querySelector('green')?.textContent || 1) * 255);
+            const b = Math.round(parseFloat(colorBlock.querySelector('blue')?.textContent || 1) * 255);
+
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        // ストロークパース
+        function parseStroke(strokeBlock) {
+            if (!strokeBlock) return null;
+
+            const width = parseFloat(strokeBlock.querySelector('size')?.textContent || 20) / 10;
+
+            let color = '#000000';
+            let gradient = null;
+
+            const colorBlock = strokeBlock.querySelector('colour');
+            const fourColorRamp = strokeBlock.querySelector('four_colour_ramp');
+            const twoColorRamp = strokeBlock.querySelector('two_colour_ramp');
+
+            if (fourColorRamp) {
+                gradient = parseFourColorRamp(fourColorRamp);
+            } else if (twoColorRamp) {
+                gradient = parseTwoColorRamp(twoColorRamp);
+            } else if (colorBlock) {
+                color = parseColor(colorBlock);
+            }
+
+            return {
+                enabled: true,
+                type: strokeBlock.querySelector('type')?.textContent || 'edge',
+                color,
+                width,
+                opacity: parseFloat(colorBlock?.querySelector('alpha')?.textContent || 1) * 100,
+                gradient
+            };
+        }
+
+        // シャドウパース
+        function parseShadow(shadowBlock) {
+            if (!shadowBlock) return null;
+
+            const colorBlock = shadowBlock.querySelector('colour');
+
+            return {
+                enabled: true,
+                color: parseColor(colorBlock),
+                opacity: parseFloat(colorBlock?.querySelector('alpha')?.textContent || 0.5) * 100,
+                distance: parseFloat(shadowBlock.querySelector('distance')?.textContent || 5),
+                angle: parseFloat(shadowBlock.querySelector('angle')?.textContent || 135),
+                blur: parseFloat(shadowBlock.querySelector('blur')?.textContent || 5)
+            };
+        }
+
+        // 光沢パース
+        function parseGloss(glossBlock, fontSize) {
+            if (!glossBlock) return null;
+
+            const colorBlock = glossBlock.querySelector('colour');
+            const size = parseFloat(glossBlock.querySelector('size')?.textContent || 50);
+
+            return {
+                enabled: true,
+                color: parseColor(colorBlock),
+                opacity: parseFloat(colorBlock?.querySelector('alpha')?.textContent || 0.5) * 100,
+                width: fontSize * (size / 100) * 0.15,
+                blur: parseFloat(glossBlock.querySelector('blur')?.textContent || 5)
+            };
+        }
+
+        // PRSLスタイル表示
+        function displayPRSLStyles() {
+            const container = document.getElementById('prslStyles');
+            container.innerHTML = '';
+
+            prslStyles.forEach((style, index) => {
+                const item = document.createElement('div');
+                item.className = 'prsl-style-item';
+                item.onclick = () => applyPRSLStyle(index);
+
+                // プレビューキャンバス
+                const previewCanvas = document.createElement('canvas');
+                previewCanvas.width = 80;
+                previewCanvas.height = 60;
+                renderStylePreview(previewCanvas, style);
+
+                // 名前
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'name';
+                nameDiv.textContent = style.name;
+                nameDiv.title = style.name;
+
+                item.appendChild(previewCanvas);
+                item.appendChild(nameDiv);
+                container.appendChild(item);
+            });
+        }
+
+        // スタイルプレビュー描画
+        function renderStylePreview(canvas, style) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // チェッカーボード背景
+            const checkSize = 5;
+            for (let i = 0; i < w; i += checkSize) {
+                for (let j = 0; j < h; j += checkSize) {
+                    ctx.fillStyle = ((i + j) / checkSize) % 2 === 0 ? '#333' : '#444';
+                    ctx.fillRect(i, j, checkSize, checkSize);
+                }
+            }
+
+            const text = 'あa';
+            const fs = 24;
+
+            // フォント設定
+            const fontWeight = style.isBold ? 'bold' : 'normal';
+            const fontStyle = style.isItalic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${style.fontFamily}"`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const x = w / 2;
+            const y = h / 2;
+
+            // シャドウ
+            if (style.shadow) {
+                ctx.save();
+                const angle = (style.shadow.angle || 135) * Math.PI / 180;
+                const dist = style.shadow.distance || 5;
+                const sx = x + Math.cos(angle) * dist * 0.3;
+                const sy = y + Math.sin(angle) * dist * 0.3;
+
+                ctx.globalAlpha = (style.shadow.opacity || 50) / 100;
+                ctx.fillStyle = style.shadow.color || '#000000';
+                ctx.fillText(text, sx, sy);
+                ctx.restore();
+            }
+
+            // ストローク
+            if (style.strokes) {
+                [...style.strokes].reverse().forEach(st => {
+                    ctx.save();
+                    ctx.lineWidth = st.width * 0.5;
+                    ctx.lineJoin = 'round';
+
+                    if (st.gradient && st.gradient.stops.length >= 2) {
+                        const grad = ctx.createLinearGradient(x, y - fs/2, x, y + fs/2);
+                        st.gradient.stops.forEach(stop => {
+                            const pos = Math.max(0, Math.min(1, stop.pos / 100));
+                            grad.addColorStop(pos, stop.color);
+                        });
+                        ctx.strokeStyle = grad;
+                    } else {
+                        ctx.strokeStyle = st.color || '#000000';
+                    }
+
+                    ctx.strokeText(text, x, y);
+                    ctx.restore();
+                });
+            }
+
+            // 塗り
+            ctx.save();
+            if (style.gradient && style.gradient.stops.length >= 2) {
+                const grad = ctx.createLinearGradient(x, y - fs/2, x, y + fs/2);
+                style.gradient.stops.forEach(stop => {
+                    const pos = Math.max(0, Math.min(1, stop.pos / 100));
+                    grad.addColorStop(pos, stop.color);
+                });
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = style.fillColor || '#ffffff';
+            }
+            ctx.fillText(text, x, y);
+            ctx.restore();
+
+            // 光沢
+            if (style.gloss) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.globalAlpha = (style.gloss.opacity || 50) / 100;
+                ctx.fillStyle = style.gloss.color || '#ffffff';
+                const glossH = fs * 0.15;
+                ctx.fillRect(0, h * 0.35 - glossH/2, w, glossH);
+                ctx.restore();
+            }
+        }
+
+        // PRSLスタイル適用
+        function applyPRSLStyle(index) {
+            const obj = getSelectedObject();
+            if (!obj) {
+                alert('オブジェクトを選択してください');
+                return;
+            }
+
+            const style = prslStyles[index];
+            if (!style) return;
+
+            // 全文字にスタイル適用
+            obj.chars.forEach(c => {
+                c.fontFamily = style.fontFamily;
+                c.fontSize = style.fontSize;
+                c.bold = style.isBold !== false;
+                c.italic = style.isItalic || false;
+                c.scaleX = style.scaleX || 100;
+                c.tracking = style.tracking || 0;
+                c.leading = style.leading || 0;
+                c.slant = style.slant || 0;
+
+                // グラデーション
+                if (style.gradient && style.gradient.stops.length >= 2) {
+                    c.fillType = style.gradient.type || 'linear';
+                    c.color = style.gradient.stops[0].color;
+                    c.color2 = style.gradient.stops[style.gradient.stops.length - 1].color;
+                    c.gradientAngle = style.gradient.angle || 90;
+                    c.gradientStops = style.gradient.stops.map(s => ({
+                        color: s.color,
+                        pos: s.pos
+                    }));
+                } else {
+                    c.fillType = 'solid';
+                    c.color = style.fillColor || '#ffffff';
+                    c.gradientStops = [];
+                }
+
+                // ストローク
+                c.strokes = style.strokes.map(s => ({
+                    enabled: true,
+                    type: s.type || 'edge',
+                    color: s.color,
+                    width: s.width,
+                    opacity: s.opacity || 100,
+                    gradientEnabled: s.gradient ? true : false,
+                    gradientStops: s.gradient ? s.gradient.stops.map(gs => ({
+                        color: gs.color,
+                        pos: gs.pos
+                    })) : []
+                }));
+
+                // シャドウ
+                if (style.shadow) {
+                    c.shadowEnabled = true;
+                    c.shadowColor = style.shadow.color;
+                    c.shadowOpacity = style.shadow.opacity;
+                    c.shadowDistance = style.shadow.distance;
+                    c.shadowAngle = style.shadow.angle;
+                    c.shadowBlur = style.shadow.blur;
+                } else {
+                    c.shadowEnabled = false;
+                }
+
+                // 光沢
+                if (style.gloss) {
+                    c.glossEnabled = true;
+                    c.glossColor = style.gloss.color;
+                    c.glossOpacity = style.gloss.opacity;
+                    c.glossWidth = style.gloss.width;
+                    c.glossBlur = style.gloss.blur;
+                } else {
+                    c.glossEnabled = false;
+                }
+            });
+
+            updatePropertyPanel();
+            render();
+
+            document.getElementById('prslStatus').textContent =
+                `適用完了: ${style.name}`;
+        }
+
+        // PRTL書き出し
+        function exportPRTL() {
+            if (objects.length === 0) {
+                alert('オブジェクトがありません');
+                return;
+            }
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            let xml = `<?xml version="1.0" encoding="UTF-16"?>\n`;
+            xml += `<PremiereData Version="3">\n`;
+            xml += `  <TitleSpecifics>\n`;
+            xml += `    <Width>${width}</Width>\n`;
+            xml += `    <Height>${height}</Height>\n`;
+            xml += `    <PixelAspectRatio>1.0</PixelAspectRatio>\n`;
+            xml += `    <FieldType>progressiveScan</FieldType>\n`;
+            xml += `    <AudioStreamSpecs></AudioStreamSpecs>\n`;
+
+            // DrawObjects
+            xml += `    <DrawObjects>\n`;
+            xml += `      <NumDrawObjects>${objects.length}</NumDrawObjects>\n`;
+
+            objects.forEach((obj, i) => {
+                xml += `      <DrawObject Index="${i}">\n`;
+                xml += `        <DrawClassName>cTextDraw</DrawClassName>\n`;
+                xml += `        <DrawObjectPaintingRange>normalLayout</DrawObjectPaintingRange>\n`;
+                xml += `        <DrawObjectLayoutInfo>\n`;
+                xml += `          <TextLineReferenceArraySize>1</TextLineReferenceArraySize>\n`;
+                xml += `          <TextLineReferenceIndex0>${i}</TextLineReferenceIndex0>\n`;
+                xml += `        </DrawObjectLayoutInfo>\n`;
+                xml += `        <DrawObjectPosition>\n`;
+                xml += `          <HorizontalPos>${Math.round(obj.x)}</HorizontalPos>\n`;
+                xml += `          <VerticalPos>${Math.round(obj.y)}</VerticalPos>\n`;
+                xml += `        </DrawObjectPosition>\n`;
+                xml += `      </DrawObject>\n`;
+            });
+
+            xml += `    </DrawObjects>\n`;
+
+            // TextLines
+            xml += `    <TextLines>\n`;
+            xml += `      <NumTextLines>${objects.length}</NumTextLines>\n`;
+
+            objects.forEach((obj, i) => {
+                const c = obj.chars[0] || getDefaultStyle();
+                const runCount = obj.text.length + 1;
+                const rgb = hexToRgb(c.color || '#ffffff');
+
+                xml += `      <TextLine Index="${i}">\n`;
+                xml += `        <RunCount>${runCount}</RunCount>\n`;
+                xml += `        <Text>${escapeXml(obj.text)}</Text>\n`;
+                xml += `        <DispPrevTextStyles>1</DispPrevTextStyles>\n`;
+                xml += `        <TextStyleArraySize>1</TextStyleArraySize>\n`;
+                xml += `        <TextStyle Index="0">\n`;
+                xml += `          <RunStart>0</RunStart>\n`;
+                xml += `          <RunCount>${runCount}</RunCount>\n`;
+                xml += `          <DispPrevTextStyles>1</DispPrevTextStyles>\n`;
+                xml += `          <FontName>${escapeXml(c.fontFamily)}</FontName>\n`;
+                xml += `          <FontSize>${c.fontSize}</FontSize>\n`;
+                xml += `          <FontFace>${c.bold ? 'BoldFace' : 'RegularFace'}</FontFace>\n`;
+                xml += `          <FontColor>${rgb.r} ${rgb.g} ${rgb.b}</FontColor>\n`;
+                xml += `          <PainterStyleID>4099</PainterStyleID>\n`;
+                xml += `        </TextStyle>\n`;
+                xml += `        <MarginArraySize>0</MarginArraySize>\n`;
+                xml += `        <VerticalAlignmentAttribute>top</VerticalAlignmentAttribute>\n`;
+                xml += `        <HorizontalAlignmentAttribute>center</HorizontalAlignmentAttribute>\n`;
+                xml += `        <LeadingType>auto</LeadingType>\n`;
+                xml += `        <LeadingValue>${c.leading || 120}</LeadingValue>\n`;
+                xml += `        <BaselineShift>0</BaselineShift>\n`;
+                xml += `        <LineBasedParagraphAlignment>false</LineBasedParagraphAlignment>\n`;
+                xml += `      </TextLine>\n`;
+            });
+
+            xml += `    </TextLines>\n`;
+
+            // MergeGroups, PainterStyles (minimal)
+            xml += `    <MergeGroups>\n`;
+            xml += `      <NumMergeGroups>0</NumMergeGroups>\n`;
+            xml += `    </MergeGroups>\n`;
+            xml += `    <PainterStyles>\n`;
+            xml += `      <NumPainterStyles>0</NumPainterStyles>\n`;
+            xml += `    </PainterStyles>\n`;
+            xml += `    <ShaderReferences>\n`;
+            xml += `      <NumShaderReferences>0</NumShaderReferences>\n`;
+            xml += `    </ShaderReferences>\n`;
+
+            xml += `  </TitleSpecifics>\n`;
+            xml += `</PremiereData>\n`;
+
+            // UTF-16 LE BOM付きで書き出し
+            const blob = new Blob(['\ufeff' + xml], { type: 'text/xml;charset=utf-16le' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'output.prtl';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            document.getElementById('statusBar').textContent = 'PRTL書き出し完了';
+        }
+
+        // 16進数色をRGBに変換
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 255, g: 255, b: 255 };
+        }
+
+        // XMLエスケープ
+        function escapeXml(str) {
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&apos;');
+        }
+
+        // PRTL読み込み（プレースホルダ）
+        function loadPRTL() {
+            alert('PRTL読み込み機能は開発中です');
+        }
+    </script>
+</body>
+</html>
