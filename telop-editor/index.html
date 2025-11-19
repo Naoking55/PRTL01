@@ -273,6 +273,12 @@
                 <button onclick="exportPNG()">PNG書き出し</button>
                 <button onclick="loadPRTL()">PRTL読込</button>
                 <button onclick="clearCanvas()">クリア</button>
+                <select onchange="changeResolution(this.value)" style="margin-left: auto;">
+                    <option value="1920x1080" selected>1920x1080 (FHD)</option>
+                    <option value="3840x2160">3840x2160 (4K)</option>
+                    <option value="1280x720">1280x720 (HD)</option>
+                    <option value="720x480">720x480 (NTSC)</option>
+                </select>
             </div>
 
             <canvas id="mainCanvas" width="1920" height="1080"></canvas>
@@ -924,6 +930,15 @@
             updateObjectList();
             updatePropertyPanel();
             render();
+        }
+
+        // 解像度変更
+        function changeResolution(value) {
+            const [w, h] = value.split('x').map(Number);
+            canvas.width = w;
+            canvas.height = h;
+            render();
+            updateObjectList();
         }
 
         // オブジェクト複製
