@@ -6509,7 +6509,7 @@
             list.innerHTML = '';
 
             // グリッドレイアウトで表示
-            list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px;max-height:250px;overflow-y:auto;margin-top:8px;padding:4px;';
+            list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;max-height:300px;overflow-y:auto;margin-top:8px;padding:4px;';
 
             loadedPRSLStyles.forEach((style, i) => {
                 const container = document.createElement('div');
@@ -6521,12 +6521,12 @@
 
                 // Canvasでプレビューを描画
                 const canvas = document.createElement('canvas');
-                canvas.width = 64;
-                canvas.height = 48;
+                canvas.width = 80;
+                canvas.height = 60;
                 const ctx = canvas.getContext('2d');
 
                 // チェッカーボード背景（透明表示用）
-                const checkerSize = 6;
+                const checkerSize = 8;
                 for (let cy = 0; cy < canvas.height; cy += checkerSize) {
                     for (let cx = 0; cx < canvas.width; cx += checkerSize) {
                         ctx.fillStyle = ((cx + cy) / checkerSize) % 2 === 0 ? '#555' : '#777';
@@ -6535,7 +6535,7 @@
                 }
 
                 // テキスト描画設定
-                const previewFontSize = 20;
+                const previewFontSize = 24;
                 const text = 'あa';
                 const fontWeight = style.isBold ? 'bold' : 'normal';
                 const fontStyleStr = style.isItalic ? 'italic' : 'normal';
