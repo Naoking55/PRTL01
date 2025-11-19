@@ -314,8 +314,8 @@
         <div style="display:flex;gap:3px;margin-top:6px;">
             <button class="btn btn-small btn-secondary" onclick="moveLayerUp()">↑</button>
             <button class="btn btn-small btn-secondary" onclick="moveLayerDown()">↓</button>
-            <button class="btn btn-small btn-secondary" onclick="alignToCenter('h')">縦中央</button>
-            <button class="btn btn-small btn-secondary" onclick="alignToCenter('v')">横中央</button>
+            <button class="btn btn-small btn-secondary" onclick="alignToCenter('h')">たて中央</button>
+            <button class="btn btn-small btn-secondary" onclick="alignToCenter('v')">よこ中央</button>
             <button class="btn btn-small btn-danger" onclick="deleteSelected()">削除</button>
         </div>
 
@@ -734,6 +734,15 @@
                 </button>
                 <button class="tool-icon" id="toolPathText" onclick="setTool('pathText')" title="パス上文字">
                     <svg viewBox="0 0 24 24"><path d="M3 17c3-2 6-6 9-6s6 4 9 6" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="10" font-size="8" fill="currentColor" text-anchor="middle">T</text></svg>
+                </button>
+            </div>
+            <!-- 整列 -->
+            <div class="tool-group">
+                <button class="tool-icon" onclick="alignToCenter('h')" title="たて中央">
+                    <svg viewBox="0 0 24 24"><path d="M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z"/></svg>
+                </button>
+                <button class="tool-icon" onclick="alignToCenter('v')" title="よこ中央">
+                    <svg viewBox="0 0 24 24"><path d="M19 16v-3h4v-2h-4V8l-4 4 4 4zM5 8v3H1v2h4v3l4-4-4-4zm6-4h2v16h-2V4z"/></svg>
                 </button>
             </div>
         </div>
@@ -3645,39 +3654,72 @@
             const padX = nt.padX || 10;
             const padY = nt.padY || 5;
             const gap = nt.gap || 10;
+            const isVertical = obj.vertical || false;  // 親オブジェクトが縦書きかどうか
 
             ctx.save();
             ctx.font = `bold ${fontSize}px "${fontFamily}"`;
-            const textWidth = ctx.measureText(nt.text).width;
-            const textHeight = fontSize;
+
+            let textWidth, textHeight, bgW, bgH;
+
+            if (isVertical) {
+                // 縦書き: 幅は1文字分、高さは文字数×フォントサイズ
+                textWidth = fontSize;
+                textHeight = nt.text.length * fontSize * 1.1;
+                bgW = textWidth + padX * 2;
+                bgH = textHeight + padY * 2;
+            } else {
+                // 横書き
+                textWidth = ctx.measureText(nt.text).width;
+                textHeight = fontSize;
+                bgW = textWidth + padX * 2;
+                bgH = textHeight + padY * 2;
+            }
 
             // Calculate position based on position setting
             let nx, ny;
             const pos = nt.position || 'top-left';
 
-            if (pos.includes('left')) {
-                nx = bounds.x;
-            } else if (pos.includes('right')) {
-                nx = bounds.x + bounds.w - textWidth - padX * 2;
-            } else {
-                nx = bounds.x + (bounds.w - textWidth - padX * 2) / 2;
-            }
+            if (isVertical) {
+                // 縦書きの場合の位置計算
+                if (pos.includes('left')) {
+                    nx = bounds.x - gap - bgW;
+                } else if (pos.includes('right')) {
+                    nx = bounds.x + bounds.w + gap;
+                } else {
+                    nx = bounds.x + (bounds.w - bgW) / 2;
+                }
 
-            if (pos.includes('top')) {
-                ny = bounds.y - gap - textHeight - padY * 2;
+                if (pos.includes('top')) {
+                    ny = bounds.y;
+                } else if (pos.includes('bottom')) {
+                    ny = bounds.y + bounds.h - bgH;
+                } else {
+                    ny = bounds.y + (bounds.h - bgH) / 2;
+                }
             } else {
-                ny = bounds.y + bounds.h + gap;
+                // 横書きの場合の位置計算
+                if (pos.includes('left')) {
+                    nx = bounds.x;
+                } else if (pos.includes('right')) {
+                    nx = bounds.x + bounds.w - bgW;
+                } else {
+                    nx = bounds.x + (bounds.w - bgW) / 2;
+                }
+
+                if (pos.includes('top')) {
+                    ny = bounds.y - gap - bgH;
+                } else {
+                    ny = bounds.y + bounds.h + gap;
+                }
             }
 
             // Draw background
             if (nt.bgEnabled) {
                 ctx.globalAlpha = (nt.bgOpacity || 100) / 100;
-                const bgW = textWidth + padX * 2;
-                const bgH = textHeight + padY * 2;
 
                 let radius = nt.bgRadius || 5;
                 if (nt.bgShape === 'pill') {
-                    radius = bgH / 2;
+                    radius = Math.min(bgW, bgH) / 2;
                 } else if (nt.bgShape === 'rect') {
                     radius = 0;
                 }
@@ -3697,8 +3739,24 @@
             // Draw text
             ctx.globalAlpha = 1;
             ctx.fillStyle = nt.color || '#ffffff';
-            ctx.textBaseline = 'top';
-            ctx.fillText(nt.text, nx + padX, ny + padY);
+
+            if (isVertical) {
+                // 縦書きテキスト描画
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'center';
+                const chars = nt.text.split('');
+                const charHeight = fontSize * 1.1;
+                const startY = ny + padY + charHeight / 2;
+                const centerX = nx + bgW / 2;
+
+                chars.forEach((char, i) => {
+                    ctx.fillText(char, centerX, startY + i * charHeight);
+                });
+            } else {
+                // 横書きテキスト描画
+                ctx.textBaseline = 'top';
+                ctx.fillText(nt.text, nx + padX, ny + padY);
+            }
 
             ctx.restore();
         }
