@@ -759,6 +759,10 @@
         let isComposing = false;
         let pathPoints = [];  // パス描画中のポイント
         let isDrawingPath = false;
+        let penDragging = false;  // ペンツールでドラッグ中
+        let penDragStart = null;  // ドラッグ開始位置
+        let editingPenPath = null;  // 制御点編集中のパスオブジェクトID
+        let editingControlPoint = null;  // 編集中の制御点 {pointIndex, type: 'cp1'|'cp2'|'anchor'}
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -1576,6 +1580,17 @@
                 if (selectedObjId && !editingObjId) {
                     const obj = textObjects.find(o => o.id === selectedObjId);
                     if (obj) {
+                        // ペンパスの制御点編集をチェック
+                        if (obj.type === 'penPath') {
+                            const cpInfo = getPenControlPointAt(obj, x, y);
+                            if (cpInfo) {
+                                saveState();
+                                editingControlPoint = cpInfo;
+                                editingPenPath = obj.id;
+                                return;
+                            }
+                        }
+
                         const handle = getHandleAtPoint(obj, x, y);
                         if (handle) {
                             saveState();
@@ -1661,14 +1676,25 @@
                     x1: x, y1: y,
                     x2: x, y2: y
                 };
-            } else if (currentTool === 'pathText' || currentTool === 'pen') {
-                // パス上文字ツール / ペンツール - ポイント追加
+            } else if (currentTool === 'pathText') {
+                // パス上文字ツール - ポイント追加（シンプルなポリライン）
                 if (!isDrawingPath) {
                     isDrawingPath = true;
                     pathPoints = [{ x, y }];
                 } else {
                     pathPoints.push({ x, y });
                 }
+                render();
+            } else if (currentTool === 'pen') {
+                // ペンツール - ベジェ曲線対応
+                if (!isDrawingPath) {
+                    isDrawingPath = true;
+                    pathPoints = [{ x, y, cp1: null, cp2: null }];
+                } else {
+                    pathPoints.push({ x, y, cp1: null, cp2: null });
+                }
+                penDragging = true;
+                penDragStart = { x, y };
                 render();
             }
         });
@@ -1777,6 +1803,44 @@
                 tempShape.x2 = x;
                 tempShape.y2 = y;
                 render();
+            } else if (penDragging && isDrawingPath && pathPoints.length > 0) {
+                // ペンツール - ドラッグで制御点を設定
+                const lastPoint = pathPoints[pathPoints.length - 1];
+                const dx = x - penDragStart.x;
+                const dy = y - penDragStart.y;
+                // 対称的なベジェハンドルを設定
+                lastPoint.cp2 = { x: x, y: y };
+                lastPoint.cp1 = { x: penDragStart.x - dx, y: penDragStart.y - dy };
+                render();
+            } else if (editingControlPoint && editingPenPath) {
+                // 制御点のドラッグ編集
+                const obj = textObjects.find(o => o.id === editingPenPath);
+                if (obj && obj.path) {
+                    const point = obj.path[editingControlPoint.pointIndex];
+                    const relX = x - obj.x;
+                    const relY = y - obj.y;
+
+                    if (editingControlPoint.type === 'anchor') {
+                        // アンカーポイントを移動（制御点も一緒に移動）
+                        const dx = relX - point.x;
+                        const dy = relY - point.y;
+                        point.x = relX;
+                        point.y = relY;
+                        if (point.cp1) {
+                            point.cp1.x += dx;
+                            point.cp1.y += dy;
+                        }
+                        if (point.cp2) {
+                            point.cp2.x += dx;
+                            point.cp2.y += dy;
+                        }
+                    } else if (editingControlPoint.type === 'cp1') {
+                        point.cp1 = { x: relX, y: relY };
+                    } else if (editingControlPoint.type === 'cp2') {
+                        point.cp2 = { x: relX, y: relY };
+                    }
+                    render();
+                }
             }
         });
 
@@ -1802,6 +1866,18 @@
                 isDrawingShape = false;
                 tempShape = null;
                 render();
+            }
+
+            // ペンツール - ドラッグ終了
+            if (penDragging) {
+                penDragging = false;
+                penDragStart = null;
+            }
+
+            // 制御点編集終了
+            if (editingControlPoint) {
+                editingControlPoint = null;
+                editingPenPath = null;
             }
 
             updateCharInfo();
@@ -2120,8 +2196,16 @@
                 height: maxY - minY || 10,
                 rotation: 0,
                 opacity: 100,
-                // Store path points relative to center
-                path: points.map(p => ({ x: p.x - cx, y: p.y - cy })),
+                // Store path points relative to center with bezier control points
+                // Each point: {x, y, cp1: {x, y}, cp2: {x, y}}
+                // cp1: control point for curve coming INTO this point
+                // cp2: control point for curve going OUT OF this point
+                path: points.map(p => ({
+                    x: p.x - cx,
+                    y: p.y - cy,
+                    cp1: p.cp1 ? { x: p.cp1.x - cx, y: p.cp1.y - cy } : null,
+                    cp2: p.cp2 ? { x: p.cp2.x - cx, y: p.cp2.y - cy } : null
+                })),
                 closed: false,  // 閉じたパス
                 // 塗り設定
                 fillType: 'none',
@@ -2419,8 +2503,20 @@
             }
 
             if (obj.type === 'penPath' && obj.path) {
-                const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
-                const xs = absPath.map(p => p.x), ys = absPath.map(p => p.y);
+                const absPath = obj.path.map(p => ({
+                    x: p.x + obj.x,
+                    y: p.y + obj.y,
+                    cp1: p.cp1 ? { x: p.cp1.x + obj.x, y: p.cp1.y + obj.y } : null,
+                    cp2: p.cp2 ? { x: p.cp2.x + obj.x, y: p.cp2.y + obj.y } : null
+                }));
+                // Include control points in bounds calculation
+                const allPoints = [];
+                absPath.forEach(p => {
+                    allPoints.push({ x: p.x, y: p.y });
+                    if (p.cp1) allPoints.push(p.cp1);
+                    if (p.cp2) allPoints.push(p.cp2);
+                });
+                const xs = allPoints.map(p => p.x), ys = allPoints.map(p => p.y);
                 const sw = obj.strokeWidth || 3;
                 return {
                     x: Math.min(...xs) - sw,
@@ -2495,6 +2591,43 @@
             editingObjId = null; selectedCharStart = -1; selectedCharEnd = -1;
             if (cursorInterval) clearInterval(cursorInterval);
             imeInput.blur(); updateLayerList(); render();
+        }
+
+        // ペンパスの制御点を検出
+        function getPenControlPointAt(obj, x, y) {
+            if (obj.type !== 'penPath' || !obj.path) return null;
+            const threshold = 8;
+
+            for (let i = 0; i < obj.path.length; i++) {
+                const p = obj.path[i];
+                const absX = p.x + obj.x;
+                const absY = p.y + obj.y;
+
+                // 制御点1をチェック
+                if (p.cp1) {
+                    const cp1X = p.cp1.x + obj.x;
+                    const cp1Y = p.cp1.y + obj.y;
+                    if (Math.abs(x - cp1X) < threshold && Math.abs(y - cp1Y) < threshold) {
+                        return { pointIndex: i, type: 'cp1' };
+                    }
+                }
+
+                // 制御点2をチェック
+                if (p.cp2) {
+                    const cp2X = p.cp2.x + obj.x;
+                    const cp2Y = p.cp2.y + obj.y;
+                    if (Math.abs(x - cp2X) < threshold && Math.abs(y - cp2Y) < threshold) {
+                        return { pointIndex: i, type: 'cp2' };
+                    }
+                }
+
+                // アンカーポイントをチェック
+                if (Math.abs(x - absX) < threshold && Math.abs(y - absY) < threshold) {
+                    return { pointIndex: i, type: 'anchor' };
+                }
+            }
+
+            return null;
         }
 
         function applyStyle() {
@@ -3161,12 +3294,26 @@
 
                 // ペンパスオブジェクトの描画
                 if (obj.type === 'penPath' && obj.path) {
-                    const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
+                    const absPath = obj.path.map(p => ({
+                        x: p.x + obj.x,
+                        y: p.y + obj.y,
+                        cp1: p.cp1 ? { x: p.cp1.x + obj.x, y: p.cp1.y + obj.y } : null,
+                        cp2: p.cp2 ? { x: p.cp2.x + obj.x, y: p.cp2.y + obj.y } : null
+                    }));
 
                     ctx.beginPath();
                     ctx.moveTo(absPath[0].x, absPath[0].y);
                     for (let i = 1; i < absPath.length; i++) {
-                        ctx.lineTo(absPath[i].x, absPath[i].y);
+                        const prev = absPath[i - 1];
+                        const curr = absPath[i];
+                        // ベジェ曲線または直線を描画
+                        if (prev.cp2 || curr.cp1) {
+                            const cp1 = prev.cp2 || { x: prev.x, y: prev.y };
+                            const cp2 = curr.cp1 || { x: curr.x, y: curr.y };
+                            ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+                        } else {
+                            ctx.lineTo(curr.x, curr.y);
+                        }
                     }
                     if (obj.closed) ctx.closePath();
 
@@ -3185,12 +3332,48 @@
                     ctx.lineJoin = 'round';
                     ctx.stroke();
 
-                    // Selection box
+                    // Selection box and control points
                     if (obj.id === selectedObjId) {
                         const bounds = getObjectBounds(obj);
                         ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
                         ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
                         ctx.setLineDash([]);
+
+                        // Draw control point handles for editing
+                        ctx.globalAlpha = 1;
+                        absPath.forEach((p, i) => {
+                            // Draw anchor point
+                            ctx.fillStyle = '#0078d4';
+                            ctx.beginPath();
+                            ctx.rect(p.x - 4, p.y - 4, 8, 8);
+                            ctx.fill();
+
+                            // Draw control point handles
+                            if (p.cp1) {
+                                ctx.strokeStyle = '#ff6600';
+                                ctx.lineWidth = 1;
+                                ctx.beginPath();
+                                ctx.moveTo(p.x, p.y);
+                                ctx.lineTo(p.cp1.x, p.cp1.y);
+                                ctx.stroke();
+                                ctx.fillStyle = '#ff6600';
+                                ctx.beginPath();
+                                ctx.arc(p.cp1.x, p.cp1.y, 3, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                            if (p.cp2) {
+                                ctx.strokeStyle = '#ff6600';
+                                ctx.lineWidth = 1;
+                                ctx.beginPath();
+                                ctx.moveTo(p.x, p.y);
+                                ctx.lineTo(p.cp2.x, p.cp2.y);
+                                ctx.stroke();
+                                ctx.fillStyle = '#ff6600';
+                                ctx.beginPath();
+                                ctx.arc(p.cp2.x, p.cp2.y, 3, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        });
                     }
 
                     ctx.restore();
@@ -3721,18 +3904,59 @@
                 ctx.beginPath();
                 ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
                 for (let i = 1; i < pathPoints.length; i++) {
-                    ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+                    const prev = pathPoints[i - 1];
+                    const curr = pathPoints[i];
+                    // ベジェ曲線または直線
+                    if (prev.cp2 || curr.cp1) {
+                        const cp1 = prev.cp2 || { x: prev.x, y: prev.y };
+                        const cp2 = curr.cp1 || { x: curr.x, y: curr.y };
+                        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+                    } else {
+                        ctx.lineTo(curr.x, curr.y);
+                    }
                 }
                 ctx.stroke();
                 ctx.setLineDash([]);
 
-                // Draw points
+                // Draw anchor points
                 ctx.fillStyle = '#0078d4';
                 pathPoints.forEach(p => {
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
                     ctx.fill();
                 });
+
+                // Draw control point handles for last point (during drag)
+                if (currentTool === 'pen' && pathPoints.length > 0) {
+                    const lastPoint = pathPoints[pathPoints.length - 1];
+                    if (lastPoint.cp1 || lastPoint.cp2) {
+                        ctx.strokeStyle = '#ff6600';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([]);
+
+                        // Draw handle lines and control points
+                        if (lastPoint.cp1) {
+                            ctx.beginPath();
+                            ctx.moveTo(lastPoint.x, lastPoint.y);
+                            ctx.lineTo(lastPoint.cp1.x, lastPoint.cp1.y);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.arc(lastPoint.cp1.x, lastPoint.cp1.y, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ff6600';
+                            ctx.fill();
+                        }
+                        if (lastPoint.cp2) {
+                            ctx.beginPath();
+                            ctx.moveTo(lastPoint.x, lastPoint.y);
+                            ctx.lineTo(lastPoint.cp2.x, lastPoint.cp2.y);
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.arc(lastPoint.cp2.x, lastPoint.cp2.y, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ff6600';
+                            ctx.fill();
+                        }
+                    }
+                }
                 ctx.restore();
             }
 
