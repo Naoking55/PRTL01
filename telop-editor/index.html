@@ -247,7 +247,12 @@
 
             <div class="toolbar">
                 <button onclick="addTextObject()">テキスト追加</button>
+                <button onclick="duplicateSelectedObject()">複製</button>
                 <button onclick="deleteSelectedObject()">削除</button>
+            </div>
+            <div class="toolbar">
+                <button onclick="moveObjectUp()">↑上へ</button>
+                <button onclick="moveObjectDown()">↓下へ</button>
             </div>
 
             <div class="object-list" id="objectList"></div>
@@ -265,6 +270,7 @@
         <div class="panel">
             <div class="toolbar">
                 <button class="primary" onclick="exportPRTL()">PRTL書き出し</button>
+                <button onclick="exportPNG()">PNG書き出し</button>
                 <button onclick="loadPRTL()">PRTL読込</button>
                 <button onclick="clearCanvas()">クリア</button>
             </div>
@@ -909,6 +915,72 @@
             updateObjectList();
             updatePropertyPanel();
             render();
+        }
+
+        // オブジェクト複製
+        function duplicateSelectedObject() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const newObj = {
+                id: nextObjectId++,
+                type: obj.type,
+                text: obj.text,
+                x: obj.x + 20,
+                y: obj.y + 20,
+                chars: JSON.parse(JSON.stringify(obj.chars))
+            };
+
+            objects.push(newObj);
+            selectObject(newObj.id);
+            updateObjectList();
+            render();
+        }
+
+        // オブジェクトを上に移動（レイヤー順序）
+        function moveObjectUp() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const index = objects.findIndex(o => o.id === obj.id);
+            if (index < objects.length - 1) {
+                [objects[index], objects[index + 1]] = [objects[index + 1], objects[index]];
+                updateObjectList();
+                render();
+            }
+        }
+
+        // オブジェクトを下に移動（レイヤー順序）
+        function moveObjectDown() {
+            const obj = getSelectedObject();
+            if (!obj) return;
+
+            const index = objects.findIndex(o => o.id === obj.id);
+            if (index > 0) {
+                [objects[index], objects[index - 1]] = [objects[index - 1], objects[index]];
+                updateObjectList();
+                render();
+            }
+        }
+
+        // PNG書き出し
+        function exportPNG() {
+            // 選択境界線を非表示にして描画
+            const tempSelected = selectedObjectId;
+            selectedObjectId = null;
+            render();
+
+            // キャンバスをPNGとしてダウンロード
+            const link = document.createElement('a');
+            link.download = 'telop.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            // 選択を復元
+            selectedObjectId = tempSelected;
+            render();
+
+            document.getElementById('statusBar').textContent = 'PNG書き出し完了';
         }
 
         // メインレンダリング
