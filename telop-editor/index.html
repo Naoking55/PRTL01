@@ -649,6 +649,9 @@
         </div>
 
         <h3>出力</h3>
+        <div style="margin-bottom:8px;">
+            <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
+        </div>
         <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
         <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
         <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
@@ -791,6 +794,7 @@
         let textEditSaveTimer = null;  // テキスト編集Undoのデバウンスタイマー
         let lastSavedState = null;  // 最後に保存した状態（重複保存を防ぐ）
         let clipboard = null;  // コピーしたオブジェクト
+        let exportingTransparent = false;  // 透過エクスポート中
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -1295,6 +1299,9 @@
         }
 
         function drawBackground(ctx) {
+            // 透過エクスポート中は背景をスキップ
+            if (exportingTransparent) return;
+
             // 背景色（不透明度が0より大きい場合のみ描画）
             if (canvasBgOpacity > 0) {
                 ctx.save();
@@ -4129,12 +4136,18 @@
             const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
             const wasEnabled = safeMarginCheckbox.checked;
             safeMarginCheckbox.checked = false;
+
+            // 背景透過設定
+            exportingTransparent = document.getElementById('exportTransparent').checked;
             render();
+
             const link = document.createElement('a');
             link.download = `telop_${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
+
             // 元に戻す
+            exportingTransparent = false;
             safeMarginCheckbox.checked = wasEnabled;
             render();
         }
