@@ -648,6 +648,45 @@
             </div>
         </div>
 
+        <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">画像設定</h3>
+        <div class="collapse-content hidden" id="imageSettings">
+            <div class="row2">
+                <div><label>幅</label><input type="number" id="imageWidth" min="1" onchange="updateImageSize()"></div>
+                <div><label>高さ</label><input type="number" id="imageHeight" min="1" onchange="updateImageSize()"></div>
+            </div>
+            <div style="margin-top:8px;">
+                <label><input type="checkbox" id="imageLockAspect" checked> 縦横比を維持</label>
+            </div>
+            <h4>反転</h4>
+            <div style="display:flex;gap:5px;">
+                <button class="btn btn-small btn-secondary" onclick="flipImage('h')">左右反転</button>
+                <button class="btn btn-small btn-secondary" onclick="flipImage('v')">上下反転</button>
+            </div>
+            <h4>トリミング</h4>
+            <div class="row2">
+                <div><label>左</label><input type="number" id="imageCropLeft" min="0" value="0" onchange="updateImageCrop()"></div>
+                <div><label>上</label><input type="number" id="imageCropTop" min="0" value="0" onchange="updateImageCrop()"></div>
+            </div>
+            <div class="row2">
+                <div><label>右</label><input type="number" id="imageCropRight" min="0" value="0" onchange="updateImageCrop()"></div>
+                <div><label>下</label><input type="number" id="imageCropBottom" min="0" value="0" onchange="updateImageCrop()"></div>
+            </div>
+            <h4>色透過</h4>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="imageTransparentColor" value="#00ff00" onchange="updateImageTransparency()"></div>
+                <div><label>許容値</label><input type="number" id="imageTransparentTolerance" min="0" max="255" value="30" onchange="updateImageTransparency()"></div>
+            </div>
+            <div style="margin-top:5px;">
+                <label><input type="checkbox" id="imageTransparentEnabled" onchange="updateImageTransparency()"> 透過有効</label>
+                <button class="btn btn-small btn-secondary" onclick="pickTransparentColor()" style="margin-left:5px;">スポイト</button>
+            </div>
+            <h4>ストローク</h4>
+            <div class="row2">
+                <div><label>色</label><input type="color" id="imageStrokeColor" value="#000000" onchange="updateImageStroke()"></div>
+                <div><label>太さ</label><input type="number" id="imageStrokeWidth" value="0" min="0" onchange="updateImageStroke()"></div>
+            </div>
+        </div>
+
         <h3>出力</h3>
         <div style="margin-bottom:8px;">
             <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
@@ -736,6 +775,12 @@
                     <svg viewBox="0 0 24 24"><path d="M3 17c3-2 6-6 9-6s6 4 9 6" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="10" font-size="8" fill="currentColor" text-anchor="middle">T</text></svg>
                 </button>
             </div>
+            <!-- 画像 -->
+            <div class="tool-group">
+                <button class="tool-icon" onclick="insertImage()" title="画像挿入">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+            </div>
             <!-- 整列 -->
             <div class="tool-group">
                 <button class="tool-icon" onclick="alignToCenter('h')" title="たて中央">
@@ -767,6 +812,7 @@
 
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportProject(event)">
+    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageLoad(event)">
     <input type="text" id="imeInput" autocomplete="off">
 
     <script>
@@ -1678,6 +1724,18 @@
             const x = (e.clientX - rect.left) * scale;
             const y = (e.clientY - rect.top) * scale;
 
+            // スポイトモード
+            if (pickingColor) {
+                pickingColor = false;
+                canvas.style.cursor = 'default';
+                // キャンバスから色を取得
+                const pixel = ctx.getImageData(x, y, 1, 1).data;
+                const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(c => c.toString(16).padStart(2, '0')).join('');
+                document.getElementById('imageTransparentColor').value = hex;
+                updateImageTransparency();
+                return;
+            }
+
             if (currentTool === 'select') {
                 if (selectedObjId && !editingObjId) {
                     const obj = textObjects.find(o => o.id === selectedObjId);
@@ -1706,12 +1764,24 @@
                 }
                 const obj = findObjectAt(x, y);
                 if (obj) {
-                    saveState();
-                    selectObject(obj.id, e.shiftKey);
-                    // 複数選択時はドラッグしない
-                    if (selectedObjIds.length <= 1) {
-                        isDragging = true;
-                        dragOffset = { x: x - obj.x, y: y - obj.y };
+                    // Shift+クリックでない場合、クリックしたオブジェクトが選択されていなければ新規選択
+                    if (!e.shiftKey && !selectedObjIds.includes(obj.id)) {
+                        saveState();
+                        selectObject(obj.id, false);
+                    } else if (e.shiftKey) {
+                        saveState();
+                        selectObject(obj.id, true);
+                    }
+                    // ドラッグ開始（複数選択時も対応）
+                    isDragging = true;
+                    dragOffset = { x: x - obj.x, y: y - obj.y };
+                    // 複数選択時は各オブジェクトのオフセットを保存
+                    if (selectedObjIds.length > 1) {
+                        window.multiDragOffsets = {};
+                        selectedObjIds.forEach(id => {
+                            const o = textObjects.find(t => t.id === id);
+                            if (o) window.multiDragOffsets[id] = { x: x - o.x, y: y - o.y };
+                        });
                     }
                 } else {
                     selectedObjId = null;
@@ -1881,9 +1951,23 @@
             } else if (isSelecting && editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
                 if (obj) { selectedCharEnd = getCharIndexAt(obj, x, y); render(); }
-            } else if (isDragging && selectedObjId) {
-                const obj = textObjects.find(o => o.id === selectedObjId);
-                if (obj) { obj.x = x - dragOffset.x; obj.y = y - dragOffset.y; updateLayerProps(); render(); }
+            } else if (isDragging && selectedObjIds.length > 0) {
+                // 複数オブジェクト移動
+                if (selectedObjIds.length > 1 && window.multiDragOffsets) {
+                    selectedObjIds.forEach(id => {
+                        const obj = textObjects.find(o => o.id === id);
+                        const offset = window.multiDragOffsets[id];
+                        if (obj && offset) {
+                            obj.x = x - offset.x;
+                            obj.y = y - offset.y;
+                        }
+                    });
+                } else if (selectedObjId) {
+                    const obj = textObjects.find(o => o.id === selectedObjId);
+                    if (obj) { obj.x = x - dragOffset.x; obj.y = y - dragOffset.y; }
+                }
+                updateLayerProps();
+                render();
             } else if (currentTool === 'select' && selectedObjId && !editingObjId) {
                 const obj = textObjects.find(o => o.id === selectedObjId);
                 if (obj) {
@@ -2028,6 +2112,24 @@
             if (e.ctrlKey && e.shiftKey && (e.key === 'g' || e.key === 'G') && !editingObjId) {
                 e.preventDefault();
                 ungroupSelected();
+                return;
+            }
+            // 矢印キー微調整
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !editingObjId && selectedObjIds.length > 0) {
+                e.preventDefault();
+                const step = e.shiftKey ? 10 : 1;
+                saveState();
+                selectedObjIds.forEach(id => {
+                    const obj = textObjects.find(o => o.id === id);
+                    if (obj) {
+                        if (e.key === 'ArrowUp') obj.y -= step;
+                        else if (e.key === 'ArrowDown') obj.y += step;
+                        else if (e.key === 'ArrowLeft') obj.x -= step;
+                        else if (e.key === 'ArrowRight') obj.x += step;
+                    }
+                });
+                updateLayerProps();
+                render();
                 return;
             }
             if ((e.key === 'v' || e.key === 'V') && !editingObjId && document.activeElement.tagName !== 'INPUT') { setTool('select'); return; }
@@ -2664,6 +2766,21 @@
                 };
             }
 
+            // 画像オブジェクトの場合
+            if (obj.type === 'image') {
+                const crop = obj.crop || { left: 0, top: 0, right: 0, bottom: 0 };
+                const srcW = obj.originalWidth - crop.left - crop.right;
+                const srcH = obj.originalHeight - crop.top - crop.bottom;
+                const dstW = obj.width * (srcW / obj.originalWidth);
+                const dstH = obj.height * (srcH / obj.originalHeight);
+                return {
+                    x: obj.x - dstW / 2,
+                    y: obj.y - dstH / 2,
+                    w: dstW,
+                    h: dstH
+                };
+            }
+
             // 図形オブジェクトの場合
             if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(obj.type)) {
                 return {
@@ -3089,6 +3206,9 @@
             if (obj.chars && obj.chars.length > 0) {
                 loadCharStyleUI(obj);
             }
+
+            // 画像オブジェクトの場合、画像設定UIを更新
+            loadImageUI(obj);
         }
 
         // テキストオブジェクト選択時に文字スタイルUIを更新
@@ -3844,6 +3964,28 @@
                         handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
                     }
                     ctx.restore();
+                    return;
+                }
+
+                // 画像オブジェクトの描画
+                if (obj.type === 'image') {
+                    drawImageObject(ctx, obj);
+                    ctx.restore();
+
+                    // 選択枠
+                    if (selectedObjIds.includes(obj.id)) {
+                        const bounds = getObjectBounds(obj);
+                        ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+                        ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.w + 10, bounds.h + 10);
+                        ctx.setLineDash([]);
+                        const handles = [
+                            { x: bounds.x, y: bounds.y }, { x: bounds.x + bounds.w / 2, y: bounds.y }, { x: bounds.x + bounds.w, y: bounds.y },
+                            { x: bounds.x + bounds.w, y: bounds.y + bounds.h / 2 }, { x: bounds.x + bounds.w, y: bounds.y + bounds.h },
+                            { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h }, { x: bounds.x, y: bounds.y + bounds.h }, { x: bounds.x, y: bounds.y + bounds.h / 2 }
+                        ];
+                        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0078d4'; ctx.lineWidth = 1;
+                        handles.forEach(h => { ctx.fillRect(h.x - 4, h.y - 4, 8, 8); ctx.strokeRect(h.x - 4, h.y - 4, 8, 8); });
+                    }
                     return;
                 }
 
@@ -4658,6 +4800,250 @@
             canvas.width = w; canvas.height = h;
             document.getElementById('resolution-display').textContent = `${w}×${h}`;
             render();
+        }
+
+        // 画像関連の関数
+        let pickingColor = false;  // スポイトモード
+
+        function insertImage() {
+            document.getElementById('imageInput').click();
+        }
+
+        function handleImageLoad(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    saveState();
+                    const imageObj = {
+                        id: Date.now(),
+                        type: 'image',
+                        name: file.name.substring(0, 20),
+                        x: canvas.width / 2,
+                        y: canvas.height / 2,
+                        width: img.width,
+                        height: img.height,
+                        originalWidth: img.width,
+                        originalHeight: img.height,
+                        rotation: 0,
+                        opacity: 100,
+                        flipH: false,
+                        flipV: false,
+                        crop: { left: 0, top: 0, right: 0, bottom: 0 },
+                        transparent: { enabled: false, color: '#00ff00', tolerance: 30 },
+                        stroke: { color: '#000000', width: 0 },
+                        imageData: event.target.result  // Base64データ
+                    };
+                    // キャンバスに収まるようにリサイズ
+                    const maxW = canvas.width * 0.8;
+                    const maxH = canvas.height * 0.8;
+                    if (imageObj.width > maxW || imageObj.height > maxH) {
+                        const scale = Math.min(maxW / imageObj.width, maxH / imageObj.height);
+                        imageObj.width = Math.round(imageObj.width * scale);
+                        imageObj.height = Math.round(imageObj.height * scale);
+                    }
+                    textObjects.push(imageObj);
+                    selectObject(imageObj.id);
+                    updateLayerList();
+                    render();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+
+        function updateImageSize() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'image') return;
+
+            const newW = parseInt(document.getElementById('imageWidth').value) || obj.width;
+            const newH = parseInt(document.getElementById('imageHeight').value) || obj.height;
+            const lockAspect = document.getElementById('imageLockAspect').checked;
+
+            if (lockAspect) {
+                if (newW !== obj.width) {
+                    const scale = newW / obj.width;
+                    obj.width = newW;
+                    obj.height = Math.round(obj.height * scale);
+                    document.getElementById('imageHeight').value = obj.height;
+                } else if (newH !== obj.height) {
+                    const scale = newH / obj.height;
+                    obj.height = newH;
+                    obj.width = Math.round(obj.width * scale);
+                    document.getElementById('imageWidth').value = obj.width;
+                }
+            } else {
+                obj.width = newW;
+                obj.height = newH;
+            }
+            render();
+        }
+
+        function flipImage(direction) {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'image') return;
+            saveState();
+            if (direction === 'h') obj.flipH = !obj.flipH;
+            else obj.flipV = !obj.flipV;
+            render();
+        }
+
+        function updateImageCrop() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'image') return;
+
+            obj.crop = {
+                left: parseInt(document.getElementById('imageCropLeft').value) || 0,
+                top: parseInt(document.getElementById('imageCropTop').value) || 0,
+                right: parseInt(document.getElementById('imageCropRight').value) || 0,
+                bottom: parseInt(document.getElementById('imageCropBottom').value) || 0
+            };
+            render();
+        }
+
+        function updateImageTransparency() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'image') return;
+
+            obj.transparent = {
+                enabled: document.getElementById('imageTransparentEnabled').checked,
+                color: document.getElementById('imageTransparentColor').value,
+                tolerance: parseInt(document.getElementById('imageTransparentTolerance').value) || 30
+            };
+            render();
+        }
+
+        function pickTransparentColor() {
+            pickingColor = true;
+            canvas.style.cursor = 'crosshair';
+        }
+
+        function updateImageStroke() {
+            if (!selectedObjId) return;
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'image') return;
+
+            obj.stroke = {
+                color: document.getElementById('imageStrokeColor').value,
+                width: parseInt(document.getElementById('imageStrokeWidth').value) || 0
+            };
+            render();
+        }
+
+        function loadImageUI(obj) {
+            const panel = document.getElementById('imageSettings');
+            if (!obj || obj.type !== 'image') {
+                panel.classList.add('hidden');
+                panel.previousElementSibling.classList.add('collapsed');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            panel.previousElementSibling.classList.remove('collapsed');
+
+            document.getElementById('imageWidth').value = obj.width;
+            document.getElementById('imageHeight').value = obj.height;
+            document.getElementById('imageCropLeft').value = obj.crop?.left || 0;
+            document.getElementById('imageCropTop').value = obj.crop?.top || 0;
+            document.getElementById('imageCropRight').value = obj.crop?.right || 0;
+            document.getElementById('imageCropBottom').value = obj.crop?.bottom || 0;
+            document.getElementById('imageTransparentEnabled').checked = obj.transparent?.enabled || false;
+            document.getElementById('imageTransparentColor').value = obj.transparent?.color || '#00ff00';
+            document.getElementById('imageTransparentTolerance').value = obj.transparent?.tolerance || 30;
+            document.getElementById('imageStrokeColor').value = obj.stroke?.color || '#000000';
+            document.getElementById('imageStrokeWidth').value = obj.stroke?.width || 0;
+        }
+
+        // 画像の描画関数
+        const imageCache = {};  // 画像キャッシュ
+
+        function drawImageObject(ctx, obj) {
+            if (!obj.imageData) return;
+
+            // 画像をキャッシュから取得または作成
+            let img = imageCache[obj.id];
+            if (!img || img.src !== obj.imageData) {
+                img = new Image();
+                img.src = obj.imageData;
+                imageCache[obj.id] = img;
+            }
+
+            if (!img.complete) return;
+
+            const crop = obj.crop || { left: 0, top: 0, right: 0, bottom: 0 };
+            const srcX = crop.left;
+            const srcY = crop.top;
+            const srcW = obj.originalWidth - crop.left - crop.right;
+            const srcH = obj.originalHeight - crop.top - crop.bottom;
+
+            if (srcW <= 0 || srcH <= 0) return;
+
+            ctx.save();
+
+            // 反転
+            const scaleX = obj.flipH ? -1 : 1;
+            const scaleY = obj.flipV ? -1 : 1;
+            ctx.translate(obj.x, obj.y);
+            ctx.scale(scaleX, scaleY);
+            ctx.translate(-obj.x, -obj.y);
+
+            const dstW = obj.width * (srcW / obj.originalWidth);
+            const dstH = obj.height * (srcH / obj.originalHeight);
+            const dstX = obj.x - dstW / 2;
+            const dstY = obj.y - dstH / 2;
+
+            // 色透過処理
+            if (obj.transparent?.enabled) {
+                // オフスクリーンキャンバスで処理
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = srcW;
+                offCanvas.height = srcH;
+                const offCtx = offCanvas.getContext('2d');
+                offCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+
+                const imageData = offCtx.getImageData(0, 0, srcW, srcH);
+                const data = imageData.data;
+                const targetColor = hexToRgb(obj.transparent.color);
+                const tolerance = obj.transparent.tolerance;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    const diff = Math.abs(r - targetColor.r) + Math.abs(g - targetColor.g) + Math.abs(b - targetColor.b);
+                    if (diff <= tolerance * 3) {
+                        data[i + 3] = 0;  // 透明に
+                    }
+                }
+                offCtx.putImageData(imageData, 0, 0);
+                ctx.drawImage(offCanvas, dstX, dstY, dstW, dstH);
+            } else {
+                ctx.drawImage(img, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
+            }
+
+            // ストローク
+            if (obj.stroke?.width > 0) {
+                ctx.strokeStyle = obj.stroke.color;
+                ctx.lineWidth = obj.stroke.width;
+                ctx.strokeRect(dstX, dstY, dstW, dstH);
+            }
+
+            ctx.restore();
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 0, b: 0 };
         }
 
         function exportPNG() {
