@@ -5797,23 +5797,30 @@
                     }
                     break;
                 case 'slot':
-                    // スロットのように縦回転して止まる
+                    // スロットのように縦スクロールして左から順番に止まる
                     if (obj.chars && charCount > 0) {
                         charAnimations = [];
                         for (let i = 0; i < charCount; i++) {
-                            const charDelay = i * 0.15;  // 各文字の遅延
-                            const charT = Math.max(0, Math.min(1, (t - charDelay) / (1 - charDelay * charCount / (charCount + 1))));
-                            // 回転が止まる前に減速
+                            // 左の文字から順番に止まる（各文字に遅延）
+                            const stopDelay = i * (0.8 / charCount);  // 全体の80%の時間で順番に止まる
+                            const charT = Math.max(0, Math.min(1, (t - stopDelay) / (1 - stopDelay)));
+
+                            // スクロール効果（上から下へ流れる）
                             let slotOffset = 0;
                             if (charT < 1) {
-                                const spins = 3;  // 回転数
-                                const totalRotation = spins * 100;  // 総移動量
-                                slotOffset = (1 - charT) * totalRotation % 100;
-                                if (charT > 0.8) {
-                                    // 最後は徐々に止まる
-                                    slotOffset *= (1 - charT) / 0.2;
+                                // 高速スクロール中
+                                const scrollSpeed = 8;  // スクロール速度
+                                const phase = (1 - charT) * scrollSpeed * Math.PI * 2;
+                                // サイン波で上下にスクロール（上から下へ流れるように見える）
+                                slotOffset = Math.sin(phase) * 30;
+
+                                // 止まる直前は減速
+                                if (charT > 0.7) {
+                                    const slowdown = (charT - 0.7) / 0.3;
+                                    slotOffset *= (1 - slowdown);
                                 }
                             }
+
                             charAnimations.push({
                                 opacity: 1,
                                 rotation: 0,
