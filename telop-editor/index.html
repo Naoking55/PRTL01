@@ -6181,6 +6181,11 @@
             // フォント情報
             const fontFamily = block.querySelector('font > family')?.textContent || 'Yu Gothic UI';
             const fontSize = parseFloat(block.querySelector('text_specification > size')?.textContent) || 72;
+            const fontStyle = block.querySelector('font > style')?.textContent || '';
+            const isBold = fontStyle.toLowerCase().includes('bold') ||
+                           block.querySelector('text_specification > bold')?.textContent === 'true';
+            const isItalic = fontStyle.toLowerCase().includes('italic') ||
+                             block.querySelector('text_specification > italic')?.textContent === 'true';
 
             // ヘルパー関数: RGBAカラーを抽出
             function extractColor(elem) {
@@ -6456,7 +6461,7 @@
                 }
             }
 
-            return { name, fontFamily, fontSize, fillColor, fillOpacity, gradient, strokes, shadow, gloss };
+            return { name, fontFamily, fontSize, isBold, isItalic, fillColor, fillOpacity, gradient, strokes, shadow, gloss };
         }
 
         function displayPRSLStyles() {
@@ -6490,7 +6495,9 @@
                 // テキスト描画設定
                 const previewFontSize = 20;
                 const text = 'あa';
-                ctx.font = `bold ${previewFontSize}px "${style.fontFamily}", "Yu Gothic UI", sans-serif`;
+                const fontWeight = style.isBold ? 'bold' : 'normal';
+                const fontStyleStr = style.isItalic ? 'italic' : 'normal';
+                ctx.font = `${fontStyleStr} ${fontWeight} ${previewFontSize}px "${style.fontFamily}", "Yu Gothic UI", sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
