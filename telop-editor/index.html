@@ -2435,7 +2435,9 @@
         function getCharWidth(c) {
             const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
             const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
-            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+            const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
             return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) + (c.kerning || 0);
         }
 
@@ -3862,7 +3864,9 @@
                     const charW = getCharWidth(c);
 
                     ctx.save();
-                    ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                    const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                     ctx.textBaseline = 'middle';
                     ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
 
@@ -4221,7 +4225,9 @@
                         const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
 
                         ctx.save();
-                        ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                        const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                         ctx.textBaseline = 'middle';
                         ctx.textAlign = 'center';
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
@@ -4485,7 +4491,9 @@
                             const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
                             const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
                             ctx.save();
-                            ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                            const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                             ctx.textBaseline = 'top';
                             ctx.textAlign = 'center';
 
@@ -4687,7 +4695,9 @@
 
                         const fs = c.smallCaps && /[a-z]/.test(c.char) ? fontSize * (c.smallCapsSize || 70) / 100 : fontSize;
                         ctx.save();
-                        ctx.font = `bold ${fs}px "${c.fontFamily}"`;
+                        const fontWeight = c.bold !== false ? 'bold' : 'normal';
+            const fontStyle = c.italic ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                         ctx.textBaseline = 'middle';
 
                         // 文字アニメーションの不透明度を適用
@@ -6691,6 +6701,8 @@
             obj.chars.forEach(c => {
                 c.fontFamily = style.fontFamily;
                 c.fontSize = style.fontSize;
+                c.bold = style.isBold !== false;  // デフォルトはtrue
+                c.italic = style.isItalic || false;
                 c.opacity = style.fillOpacity || 100;
                 c.tracking = style.tracking || 0;
                 c.slant = style.slant || 0;
