@@ -6199,21 +6199,19 @@
                     const topLeft = fourColourRamp.querySelector('top_left');
                     const bottomLeft = fourColourRamp.querySelector('bottom_left');
 
-                    if (topLeft && bottomLeft) {
-                        const topColor = extractColor(topLeft);
-                        const bottomColor = extractColor(bottomLeft);
+                    const topColor = topLeft ? extractColor(topLeft) : null;
+                    const bottomColor = bottomLeft ? extractColor(bottomLeft) : null;
 
-                        if (topColor && bottomColor) {
-                            gradient = {
-                                type: 'linear',
-                                angle: 180, // 上から下へ
-                                stops: [
-                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
-                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
-                                ]
-                            };
-                            fillColor = topColor.hex;
-                        }
+                    if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
+                        gradient = {
+                            type: 'linear',
+                            angle: 180, // 上から下へ
+                            stops: [
+                                { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                            ]
+                        };
+                        fillColor = topColor.hex;
                     }
                 }
 
@@ -6223,21 +6221,19 @@
                     const top = twoColourRamp.querySelector('top');
                     const bottom = twoColourRamp.querySelector('bottom');
 
-                    if (top && bottom) {
-                        const topColor = extractColor(top);
-                        const bottomColor = extractColor(bottom);
+                    const topColor = top ? extractColor(top) : null;
+                    const bottomColor = bottom ? extractColor(bottom) : null;
 
-                        if (topColor && bottomColor) {
-                            gradient = {
-                                type: 'linear',
-                                angle: 180,
-                                stops: [
-                                    { position: 0, color: topColor.hex, opacity: topColor.opacity },
-                                    { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
-                                ]
-                            };
-                            fillColor = topColor.hex;
-                        }
+                    if (topColor && bottomColor && topColor.hex && bottomColor.hex) {
+                        gradient = {
+                            type: 'linear',
+                            angle: 180,
+                            stops: [
+                                { position: 0, color: topColor.hex, opacity: topColor.opacity },
+                                { position: 1, color: bottomColor.hex, opacity: bottomColor.opacity }
+                            ]
+                        };
+                        fillColor = topColor.hex;
                     }
                 }
 
