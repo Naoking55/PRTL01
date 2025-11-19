@@ -3758,17 +3758,38 @@
                     // 累積幅を計算して外側から描画
                     for (let i = enabledStrokes.length - 1; i >= 0; i--) {
                         const st = enabledStrokes[i];
-                        // 累積幅 = このストロークまでの全幅の合計
-                        let cumulativeWidth = 0;
-                        for (let j = 0; j <= i; j++) {
-                            cumulativeWidth += enabledStrokes[j].width;
+                        // 内側のストロークの累積幅
+                        let innerWidth = 0;
+                        for (let j = 0; j < i; j++) {
+                            innerWidth += enabledStrokes[j].width;
                         }
+                        let cumulativeWidth = innerWidth + st.width;
                         ctx.save();
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                         ctx.strokeStyle = st.color;
-                        ctx.lineWidth = cumulativeWidth * 2;
-                        ctx.lineJoin = 'round';
-                        ctx.strokeText(dc, px + charW / 2, ly);
+                        ctx.lineJoin = st.join || 'round';
+
+                        if (st.type === 'depth') {
+                            const depthAngle = (st.angle || 45) * Math.PI / 180;
+                            const depthDx = Math.cos(depthAngle);
+                            const depthDy = Math.sin(depthAngle);
+                            for (let d = st.width; d > 0; d--) {
+                                ctx.lineWidth = (innerWidth + d) * 2;
+                                ctx.save();
+                                ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
+                                ctx.strokeText(dc, px + charW / 2, ly);
+                                ctx.restore();
+                            }
+                        } else if (st.type === 'drop') {
+                            ctx.save();
+                            ctx.translate(innerWidth + st.width, innerWidth + st.width);
+                            ctx.fillStyle = st.color;
+                            ctx.fillText(dc, px + charW / 2, ly);
+                            ctx.restore();
+                        } else {
+                            ctx.lineWidth = cumulativeWidth * 2;
+                            ctx.strokeText(dc, px + charW / 2, ly);
+                        }
                         ctx.restore();
                     }
 
@@ -4136,16 +4157,38 @@
                         const enabledStrokes = strokes.filter(st => st.enabled);
                         for (let i = enabledStrokes.length - 1; i >= 0; i--) {
                             const st = enabledStrokes[i];
-                            let cumulativeWidth = 0;
-                            for (let j = 0; j <= i; j++) {
-                                cumulativeWidth += enabledStrokes[j].width;
+                            // 内側のストロークの累積幅
+                            let innerWidth = 0;
+                            for (let j = 0; j < i; j++) {
+                                innerWidth += enabledStrokes[j].width;
                             }
+                            let cumulativeWidth = innerWidth + st.width;
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                             ctx.strokeStyle = st.color;
-                            ctx.lineWidth = cumulativeWidth * 2;
                             ctx.lineJoin = st.join || 'round';
-                            ctx.strokeText(dc, 0, 0);
+
+                            if (st.type === 'depth') {
+                                const depthAngle = (st.angle || 45) * Math.PI / 180;
+                                const depthDx = Math.cos(depthAngle);
+                                const depthDy = Math.sin(depthAngle);
+                                for (let d = st.width; d > 0; d--) {
+                                    ctx.lineWidth = (innerWidth + d) * 2;
+                                    ctx.save();
+                                    ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
+                                    ctx.strokeText(dc, 0, 0);
+                                    ctx.restore();
+                                }
+                            } else if (st.type === 'drop') {
+                                ctx.save();
+                                ctx.translate(innerWidth + st.width, innerWidth + st.width);
+                                ctx.fillStyle = st.color;
+                                ctx.fillText(dc, 0, 0);
+                                ctx.restore();
+                            } else {
+                                ctx.lineWidth = cumulativeWidth * 2;
+                                ctx.strokeText(dc, 0, 0);
+                            }
                             ctx.restore();
                         }
 
@@ -4437,16 +4480,38 @@
                             const enabledStrokes = strokes.filter(st => st.enabled);
                             for (let si = enabledStrokes.length - 1; si >= 0; si--) {
                                 const st = enabledStrokes[si];
-                                let cumulativeWidth = 0;
-                                for (let sj = 0; sj <= si; sj++) {
-                                    cumulativeWidth += enabledStrokes[sj].width;
+                                // 内側のストロークの累積幅
+                                let innerWidth = 0;
+                                for (let sj = 0; sj < si; sj++) {
+                                    innerWidth += enabledStrokes[sj].width;
                                 }
+                                let cumulativeWidth = innerWidth + st.width;
                                 ctx.save();
                                 ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                                 ctx.strokeStyle = st.color;
-                                ctx.lineWidth = cumulativeWidth * 2;
                                 ctx.lineJoin = st.join || 'round';
-                                ctx.strokeText(dc, 0, 0);
+
+                                if (st.type === 'depth') {
+                                    const depthAngle = (st.angle || 45) * Math.PI / 180;
+                                    const depthDx = Math.cos(depthAngle);
+                                    const depthDy = Math.sin(depthAngle);
+                                    for (let d = st.width; d > 0; d--) {
+                                        ctx.lineWidth = (innerWidth + d) * 2;
+                                        ctx.save();
+                                        ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
+                                        ctx.strokeText(dc, 0, 0);
+                                        ctx.restore();
+                                    }
+                                } else if (st.type === 'drop') {
+                                    ctx.save();
+                                    ctx.translate(innerWidth + st.width, innerWidth + st.width);
+                                    ctx.fillStyle = st.color;
+                                    ctx.fillText(dc, 0, 0);
+                                    ctx.restore();
+                                } else {
+                                    ctx.lineWidth = cumulativeWidth * 2;
+                                    ctx.strokeText(dc, 0, 0);
+                                }
                                 ctx.restore();
                             }
 
@@ -4665,10 +4730,14 @@
                         const enabledStrokes = strokes.filter(st => st.enabled);
                         for (let si = enabledStrokes.length - 1; si >= 0; si--) {
                             const st = enabledStrokes[si];
-                            let cumulativeWidth = 0;
-                            for (let sj = 0; sj <= si; sj++) {
-                                cumulativeWidth += enabledStrokes[sj].width;
+                            // 内側のストロークの累積幅（このストロークより前のストロークの合計）
+                            let innerWidth = 0;
+                            for (let sj = 0; sj < si; sj++) {
+                                innerWidth += enabledStrokes[sj].width;
                             }
+                            // このストロークまでの累積幅
+                            let cumulativeWidth = innerWidth + st.width;
+
                             ctx.save();
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
 
@@ -4698,21 +4767,24 @@
                                 const depthAngle = (st.angle || 45) * Math.PI / 180;
                                 const depthDx = Math.cos(depthAngle);
                                 const depthDy = Math.sin(depthAngle);
-                                for (let d = cumulativeWidth; d > 0; d--) {
+                                // 内側のストロークの外側から描画開始
+                                for (let d = st.width; d > 0; d--) {
                                     if (!st.gradientEnabled) ctx.strokeStyle = st.color;
-                                    ctx.lineWidth = 2;
+                                    ctx.lineWidth = (innerWidth + d) * 2;
                                     ctx.save();
-                                    ctx.translate(d * depthDx, d * depthDy);
+                                    ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
                                     ctx.strokeText(dc, 0, 0);
                                     ctx.restore();
                                 }
                             } else if (st.type === 'drop') {
                                 ctx.save();
-                                ctx.translate(cumulativeWidth, cumulativeWidth);
+                                // 内側のストロークの外側にドロップを配置
+                                ctx.translate(innerWidth + st.width, innerWidth + st.width);
                                 ctx.fillStyle = st.gradientEnabled ? ctx.strokeStyle : st.color;
                                 ctx.fillText(dc, 0, 0);
                                 ctx.restore();
                             } else {
+                                // エッジタイプ
                                 ctx.lineWidth = cumulativeWidth * 2;
                                 ctx.strokeText(dc, 0, 0);
                             }
