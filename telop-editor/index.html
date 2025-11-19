@@ -6572,69 +6572,75 @@
             obj.chars.forEach(c => {
                 c.fontFamily = style.fontFamily;
                 c.fontSize = style.fontSize;
-                c.color = style.fillColor;  // fillColor → color
                 c.opacity = style.fillOpacity || 100;
 
-                // グラデーション
-                if (style.gradient) {
+                // グラデーション/塗り
+                if (style.gradient && style.gradient.stops && style.gradient.stops.length >= 2) {
                     c.fillType = style.gradient.type;  // 'linear' or 'radial'
-                    if (style.gradient.stops.length >= 2) {
-                        c.color = style.gradient.stops[0].color;
-                        c.color2 = style.gradient.stops[style.gradient.stops.length - 1].color;
-                        // 中間ストップがある場合
-                        if (style.gradient.stops.length > 2) {
-                            c.gradientStops = style.gradient.stops.map(s => ({
-                                color: s.color,
-                                pos: s.position * 100,
-                                endPos: s.position * 100
-                            }));
-                        } else {
-                            c.gradientStops = null;
-                        }
-                    }
+                    c.color = style.gradient.stops[0].color;
+                    c.color2 = style.gradient.stops[style.gradient.stops.length - 1].color;
                     c.gradientAngle = style.gradient.angle || 0;
+                    c.gradientBlur = 0;
+
+                    // 中間ストップがある場合
+                    if (style.gradient.stops.length > 2) {
+                        c.gradientStops = style.gradient.stops.map(s => ({
+                            color: s.color,
+                            pos: s.position * 100,
+                            endPos: s.position * 100
+                        }));
+                    } else {
+                        c.gradientStops = [
+                            { color: c.color, pos: 0, endPos: 0 },
+                            { color: c.color2, pos: 100, endPos: 100 }
+                        ];
+                    }
                 } else {
                     c.fillType = 'solid';
-                    c.gradientStops = null;
+                    c.color = style.fillColor;
+                    c.color2 = style.fillColor;
+                    c.gradientStops = [
+                        { color: style.fillColor, pos: 0, endPos: 0 },
+                        { color: style.fillColor, pos: 100, endPos: 100 }
+                    ];
+                    c.gradientAngle = 0;
+                    c.gradientBlur = 0;
                 }
 
                 // ストローク
-                if (style.strokes.length > 0) {
+                if (style.strokes && style.strokes.length > 0) {
                     c.strokes = style.strokes.map(s => ({
                         enabled: true,
                         type: 'edge',
                         color: s.color,
                         width: s.width,
                         opacity: s.opacity || 100,
+                        angle: 45,
                         join: 'round'
                     }));
                 } else {
                     c.strokes = [];
                 }
 
-                // シャドウ
+                // シャドウ（個別プロパティとして設定）
                 if (style.shadow) {
                     c.shadowEnabled = true;
-                    c.shadow = {
-                        enabled: true,
-                        color: style.shadow.color,
-                        opacity: style.shadow.opacity,
-                        distance: style.shadow.distance,
-                        angle: style.shadow.angle,
-                        blur: style.shadow.blur,
-                        size: 0
-                    };
+                    c.shadowColor = style.shadow.color;
+                    c.shadowOpacity = style.shadow.opacity;
+                    c.shadowDistance = style.shadow.distance;
+                    c.shadowAngle = style.shadow.angle;
+                    c.shadowBlur = style.shadow.blur;
+                    c.shadowSize = 0;
                 } else {
                     c.shadowEnabled = false;
-                    c.shadow = null;
                 }
 
-                // 光沢
+                // 光沢（個別プロパティとして設定）
                 if (style.gloss) {
                     c.glossEnabled = true;
                     c.glossColor = style.gloss.color;
                     c.glossOpacity = style.gloss.opacity;
-                    // PRSLのsizeからwidth/blurを計算（sizeは高さの割合）
+                    // PRSLのsizeからwidth/blurを計算
                     c.glossWidth = Math.max(5, style.gloss.size * 0.3);
                     c.glossBlur = Math.max(3, style.gloss.size * 0.2);
                 } else {
