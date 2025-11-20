@@ -906,40 +906,71 @@
 
         // システムフォント読み込み（両環境対応）
         async function loadSystemFonts() {
+            // ログヘルパー（debugLogが存在する場合は使用、なければconsole.log）
+            const log = (msg, level) => {
+                console[level || 'log'](msg);
+                if (typeof debugLog === 'function') {
+                    debugLog(msg, level === 'warn' ? 'warn' : level === 'error' ? 'error' : 'info');
+                }
+            };
+
+            log('loadSystemFonts() started');
             let fonts = [];
 
             // CEP環境の場合: ExtendScriptから取得
-            if (isInCEP() && typeof csInterface !== 'undefined') {
-                try {
-                    const result = await new Promise((resolve) => {
-                        csInterface.evalScript('TelopEditor.getSystemFonts()', resolve);
-                    });
-                    const parsed = JSON.parse(result);
-                    if (parsed.success && parsed.fonts) {
-                        fonts = parsed.fonts;
-                        console.log('Loaded fonts from Premiere Pro:', fonts.length);
+            if (isInCEP()) {
+                log('CEP environment detected');
+                if (typeof csInterface !== 'undefined') {
+                    log('csInterface available, calling TelopEditor.getSystemFonts()');
+                    try {
+                        const result = await new Promise((resolve) => {
+                            csInterface.evalScript('TelopEditor.getSystemFonts()', resolve);
+                        });
+                        log('ExtendScript result received: ' + result);
+                        const parsed = JSON.parse(result);
+                        log('Parsed result: ' + JSON.stringify(parsed));
+                        if (parsed.success && parsed.fonts) {
+                            fonts = parsed.fonts;
+                            log('Loaded ' + fonts.length + ' fonts from Premiere Pro');
+                        } else {
+                            log('ExtendScript returned no fonts or failed: ' + (parsed.error || 'unknown'), 'warn');
+                        }
+                    } catch(e) {
+                        log('Failed to load fonts from Premiere Pro: ' + e.message, 'error');
                     }
-                } catch(e) {
-                    console.warn('Failed to load fonts from Premiere Pro:', e);
+                } else {
+                    log('csInterface is undefined in CEP mode!', 'error');
                 }
+            } else {
+                log('Not in CEP environment (standalone mode)');
             }
 
             // スタンドアローン環境の場合: QueryLocalFontAccessAPIを試行
-            if (fonts.length === 0 && 'queryLocalFonts' in window) {
-                try {
-                    const permission = await navigator.permissions.query({ name: 'local-fonts' });
-                    if (permission.state === 'granted' || permission.state === 'prompt') {
-                        const availableFonts = await window.queryLocalFonts();
-                        fonts = [...new Set(availableFonts.map(f => f.family))].sort();
-                        console.log('Loaded fonts via QueryLocalFonts API:', fonts.length);
+            if (fonts.length === 0) {
+                log('No fonts loaded yet, trying QueryLocalFonts API...');
+                if ('queryLocalFonts' in window) {
+                    log('QueryLocalFonts API available');
+                    try {
+                        const permission = await navigator.permissions.query({ name: 'local-fonts' });
+                        log('Font permission state: ' + permission.state);
+                        if (permission.state === 'granted' || permission.state === 'prompt') {
+                            const availableFonts = await window.queryLocalFonts();
+                            fonts = [...new Set(availableFonts.map(f => f.family))].sort();
+                            log('Loaded ' + fonts.length + ' fonts via QueryLocalFonts API');
+                        } else {
+                            log('Font permission denied', 'warn');
+                        }
+                    } catch(e) {
+                        log('QueryLocalFonts API error: ' + e.message, 'warn');
                     }
-                } catch(e) {
-                    console.warn('QueryLocalFonts API not available:', e);
+                } else {
+                    log('QueryLocalFonts API not available in this browser', 'warn');
                 }
             }
 
             // フォールバック: 一般的なフォントリスト
             if (fonts.length === 0) {
+                log('Using fallback font list');
                 fonts = [
                     "Arial", "Arial Black", "Comic Sans MS", "Courier New", "Georgia",
                     "Impact", "Times New Roman", "Trebuchet MS", "Verdana",
@@ -950,16 +981,18 @@
                     "Hiragino Maru Gothic Pro", "Osaka", "Noto Sans JP", "Noto Serif JP",
                     "Source Han Sans", "Source Han Serif"
                 ].sort();
-                console.log('Using fallback font list:', fonts.length);
+                log('Fallback font list loaded: ' + fonts.length + ' fonts');
             }
 
             loadedSystemFonts = fonts;
 
             // システムフォントグループを表示・更新
+            log('Updating font dropdowns...');
             const groups = ['systemFontsGroup', 'nameTagSystemFontsGroup'];
             groups.forEach(groupId => {
                 const group = document.getElementById(groupId);
                 if (group) {
+                    log('Updating dropdown: ' + groupId);
                     group.style.display = '';
                     group.innerHTML = '';
                     loadedSystemFonts.forEach(font => {
@@ -968,10 +1001,14 @@
                         option.textContent = font;
                         group.appendChild(option);
                     });
+                    log('Dropdown ' + groupId + ' updated with ' + loadedSystemFonts.length + ' fonts');
+                } else {
+                    log('Dropdown not found: ' + groupId, 'warn');
                 }
             });
 
-            console.log(`Total loaded fonts: ${loadedSystemFonts.length}`);
+            log('Total loaded fonts: ' + loadedSystemFonts.length);
+            return fonts; // 戻り値を追加（CEP initで使用）
         }
 
         // フォント選択ハンドラ（メインテキスト用）

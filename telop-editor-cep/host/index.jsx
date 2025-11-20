@@ -7,10 +7,37 @@
 var TelopEditor = TelopEditor || {};
 
 /**
+ * デバッグログ機能（ExtendScript用）
+ * @param {string} message - ログメッセージ
+ * @param {string} level - ログレベル
+ */
+TelopEditor.log = function(message, level) {
+    level = level || 'INFO';
+    var timestamp = new Date().toISOString();
+    var logEntry = '[' + timestamp + '] [' + level + '] [ExtendScript] ' + message;
+
+    // コンソールに出力
+    $.writeln(logEntry);
+
+    // ファイルにも書き出し（オプション）
+    try {
+        var logFile = new File(Folder.temp + '/telop-editor-debug.log');
+        logFile.encoding = 'UTF-8';
+        if (logFile.open('a')) {
+            logFile.writeln(logEntry);
+            logFile.close();
+        }
+    } catch(e) {
+        $.writeln('[ERROR] Failed to write to log file: ' + e.toString());
+    }
+};
+
+/**
  * システムフォントリストを取得
  * @returns {Object} フォントリスト
  */
 TelopEditor.getSystemFonts = function() {
+    TelopEditor.log('getSystemFonts() called', 'INFO');
     try {
         var fonts = [];
 
@@ -28,15 +55,19 @@ TelopEditor.getSystemFonts = function() {
             "Source Han Sans", "Source Han Serif"
         ];
 
+        TelopEditor.log('Common fonts list prepared: ' + commonFonts.length + ' fonts', 'INFO');
+
         // Premiere Proがサポートするフォントを取得する試み
         // 注: ExtendScriptではフォントリストの完全な取得は制限されています
 
+        TelopEditor.log('Returning font list', 'INFO');
         return {
             success: true,
             fonts: commonFonts.sort(),
             message: "一般的なフォントリストを返しました。完全なシステムフォントリストはクライアント側で取得してください。"
         };
     } catch (e) {
+        TelopEditor.log('getSystemFonts() error: ' + e.toString(), 'ERROR');
         return { success: false, error: e.toString() };
     }
 };
@@ -209,15 +240,18 @@ TelopEditor.exportPNG = function(base64Data, outputPath) {
  * @param {string} binPath - ビンパス（オプション）
  */
 TelopEditor.importImage = function(imagePath, binPath) {
+    TelopEditor.log('importImage() called with path: ' + imagePath, 'INFO');
     try {
         var targetBin = app.project.rootItem;
 
         // ビンパスが指定されている場合は作成または取得
         if (binPath) {
+            TelopEditor.log('Creating/getting bin: ' + binPath, 'INFO');
             targetBin = app.project.rootItem.createBin(binPath);
         }
 
         // 画像をインポート
+        TelopEditor.log('Importing file...', 'INFO');
         var importedFile = app.project.importFiles(
             [imagePath],
             true, // suppressUI
@@ -226,15 +260,18 @@ TelopEditor.importImage = function(imagePath, binPath) {
         );
 
         if (importedFile) {
+            TelopEditor.log('Import successful', 'INFO');
             return {
                 success: true,
                 message: "画像をインポートしました",
                 path: imagePath
             };
         } else {
+            TelopEditor.log('Import failed: importFiles returned null', 'ERROR');
             return { success: false, error: "インポートに失敗しました" };
         }
     } catch (e) {
+        TelopEditor.log('importImage() error: ' + e.toString(), 'ERROR');
         return { success: false, error: e.toString() };
     }
 };
@@ -274,10 +311,18 @@ TelopEditor.getFunctionList = function() {
 
 // テスト用
 TelopEditor.test = function() {
-    return {
-        success: true,
-        message: "Telop Editor ExtendScript is running!",
-        version: "1.0.0",
-        host: app.name + " " + app.version
-    };
+    TelopEditor.log('test() called', 'INFO');
+    try {
+        var result = {
+            success: true,
+            message: "Telop Editor ExtendScript is running!",
+            version: "1.0.0",
+            host: app.name + " " + app.version
+        };
+        TelopEditor.log('Test successful: ' + app.name + ' ' + app.version, 'INFO');
+        return result;
+    } catch(e) {
+        TelopEditor.log('test() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
 };
