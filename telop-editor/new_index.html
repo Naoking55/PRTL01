@@ -800,6 +800,9 @@
         let clipboard = null;  // コピーしたオブジェクト
         let exportingTransparent = false;  // 透過エクスポート中
         let selectedObjIds = [];  // 複数選択中のオブジェクトID
+        let isBoxSelecting = false;  // 矩形選択中
+        let boxSelectStart = { x: 0, y: 0 };  // 矩形選択開始位置
+        let boxSelectEnd = { x: 0, y: 0 };  // 矩形選択終了位置
         let bgImage = null;   // 背景画像
         let canvasBgColor = '#000000';
         let canvasBgOpacity = 0;
@@ -1713,11 +1716,15 @@
                 }
                 const obj = findObjectAt(x, y);
                 if (obj) {
-                    // Shift+クリックでない場合、クリックしたオブジェクトが選択されていなければ新規選択
-                    if (!e.shiftKey && !selectedObjIds.includes(obj.id)) {
+                    // Ctrl/Shift+クリックの場合は追加選択
+                    const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
+
+                    if (!isMultiSelect && !selectedObjIds.includes(obj.id)) {
+                        // 通常クリック：新規選択
                         saveState();
                         selectObject(obj.id, false);
-                    } else if (e.shiftKey) {
+                    } else if (isMultiSelect) {
+                        // Ctrl/Shift+クリック：追加/削除選択
                         saveState();
                         selectObject(obj.id, true);
                     }
@@ -1733,8 +1740,16 @@
                         });
                     }
                 } else {
-                    selectedObjId = null;
-                    selectedObjIds = [];
+                    // 何もない場所をクリック：矩形選択開始
+                    const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
+                    if (!isMultiSelect) {
+                        selectedObjId = null;
+                        selectedObjIds = [];
+                    }
+                    // 矩形選択開始
+                    isBoxSelecting = true;
+                    boxSelectStart = { x, y };
+                    boxSelectEnd = { x, y };
                     updateLayerList();
                     updateLayerProps();
                     render();
@@ -1874,7 +1889,11 @@
             const x = (e.clientX - rect.left) * scale;
             const y = (e.clientY - rect.top) * scale;
 
-            if (isResizing && resizeHandle) {
+            if (isBoxSelecting) {
+                // 矩形選択中：終了位置を更新
+                boxSelectEnd = { x, y };
+                render();
+            } else if (isResizing && resizeHandle) {
                 const obj = textObjects.find(o => o.id === selectedObjId);
                 if (obj) {
                     const dx = x - resizeStart.x;
@@ -2017,6 +2036,20 @@
             if (editingControlPoint) {
                 editingControlPoint = null;
                 editingPenPath = null;
+            }
+
+            // 矩形選択終了
+            if (isBoxSelecting) {
+                isBoxSelecting = false;
+                // 矩形内のオブジェクトを選択
+                const selectedIds = findObjectsInBox(boxSelectStart, boxSelectEnd);
+                if (selectedIds.length > 0) {
+                    selectedObjIds = selectedIds;
+                    selectedObjId = selectedIds[selectedIds.length - 1];  // 最後のオブジェクトを主選択
+                }
+                updateLayerList();
+                updateLayerProps();
+                render();
             }
 
             updateCharInfo();
@@ -2761,6 +2794,29 @@
             return null;
         }
 
+        function findObjectsInBox(start, end) {
+            // 矩形の正規化（左上から右下に）
+            const minX = Math.min(start.x, end.x);
+            const minY = Math.min(start.y, end.y);
+            const maxX = Math.max(start.x, end.x);
+            const maxY = Math.max(start.y, end.y);
+
+            const selected = [];
+            for (let i = 0; i < textObjects.length; i++) {
+                const obj = textObjects[i];
+                const bounds = getObjectBounds(obj);
+                const objCenterX = bounds.x + bounds.w / 2;
+                const objCenterY = bounds.y + bounds.h / 2;
+
+                // オブジェクトの中心が矩形内にあれば選択
+                if (objCenterX >= minX && objCenterX <= maxX &&
+                    objCenterY >= minY && objCenterY <= maxY) {
+                    selected.push(obj.id);
+                }
+            }
+            return selected;
+        }
+
         function getObjectBounds(obj) {
             // グループオブジェクトの場合
             if (obj.type === 'group') {
@@ -2983,12 +3039,15 @@
             }
 
             // 選択ツールでレイヤーを選択している場合：全文字に適用
-            if (selectedObjId) {
-                const obj = textObjects.find(o => o.id === selectedObjId);
-                if (!obj || !obj.chars) return;  // テキストオブジェクトでない場合は無視
-
+            if (selectedObjIds.length > 0) {
                 const style = getDefaultStyle();
-                obj.chars.forEach(c => Object.assign(c, style));
+                // 複数選択時：すべての選択オブジェクトに適用
+                selectedObjIds.forEach(id => {
+                    const obj = textObjects.find(o => o.id === id);
+                    if (obj && obj.chars) {  // テキストオブジェクトのみ
+                        obj.chars.forEach(c => Object.assign(c, style));
+                    }
+                });
                 render();
             }
         }
@@ -2996,13 +3055,27 @@
         function setTextAlign(a) {
             document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-align="${a}"]`).classList.add('active');
-            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.textAlign = a; render(); } }
+            // 複数選択時：すべての選択オブジェクトに適用
+            if (selectedObjIds.length > 0) {
+                selectedObjIds.forEach(id => {
+                    const obj = textObjects.find(o => o.id === id);
+                    if (obj) { obj.textAlign = a; }
+                });
+                render();
+            }
         }
 
         function setVerticalAlign(a) {
             document.querySelectorAll('[data-valign]').forEach(b => b.classList.remove('active'));
             document.querySelector(`[data-valign="${a}"]`).classList.add('active');
-            if (selectedObjId) { const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.verticalAlign = a; render(); } }
+            // 複数選択時：すべての選択オブジェクトに適用
+            if (selectedObjIds.length > 0) {
+                selectedObjIds.forEach(id => {
+                    const obj = textObjects.find(o => o.id === id);
+                    if (obj) { obj.verticalAlign = a; }
+                });
+                render();
+            }
         }
 
         function updateCharInfo() {
@@ -3162,9 +3235,37 @@
 
         function updateLayerName() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.name = document.getElementById('layerName').value; updateLayerList(); } }
         function updateLayerPosition() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.x = parseFloat(document.getElementById('layerX').value) || 0; obj.y = parseFloat(document.getElementById('layerY').value) || 0; render(); } }
-        function updateLayerRotation() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.rotation = parseFloat(document.getElementById('layerRotation').value) || 0; render(); } }
-        function updateLayerLineHeight() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.lineHeight = parseFloat(document.getElementById('layerLineHeight').value) || 1.2; render(); } }
-        function updateLayerOpacity() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.opacity = parseInt(document.getElementById('layerOpacity').value); document.getElementById('opacityVal').textContent = obj.opacity; render(); } }
+        function updateLayerRotation() {
+            if (selectedObjIds.length === 0) return;
+            const newRotation = parseFloat(document.getElementById('layerRotation').value) || 0;
+            // 複数選択時：すべての選択オブジェクトに適用
+            selectedObjIds.forEach(id => {
+                const obj = textObjects.find(o => o.id === id);
+                if (obj) { obj.rotation = newRotation; }
+            });
+            render();
+        }
+        function updateLayerLineHeight() {
+            if (selectedObjIds.length === 0) return;
+            const newLineHeight = parseFloat(document.getElementById('layerLineHeight').value) || 1.2;
+            // 複数選択時：すべての選択オブジェクトに適用
+            selectedObjIds.forEach(id => {
+                const obj = textObjects.find(o => o.id === id);
+                if (obj) { obj.lineHeight = newLineHeight; }
+            });
+            render();
+        }
+        function updateLayerOpacity() {
+            if (selectedObjIds.length === 0) return;
+            const newOpacity = parseInt(document.getElementById('layerOpacity').value);
+            // 複数選択時：すべての選択オブジェクトに適用
+            selectedObjIds.forEach(id => {
+                const obj = textObjects.find(o => o.id === id);
+                if (obj) { obj.opacity = newOpacity; }
+            });
+            document.getElementById('opacityVal').textContent = newOpacity;
+            render();
+        }
 
         function updateLayerSize() {
             if (!selectedObjId) return;
@@ -3187,6 +3288,22 @@
             const obj = textObjects.find(o => o.id === selectedObjId);
             if (!obj) { propsDiv.style.display = 'none'; return; }
             propsDiv.style.display = 'block';
+
+            // 複数選択時のメッセージ表示
+            let bulkEditMsg = document.getElementById('bulkEditMessage');
+            if (!bulkEditMsg) {
+                bulkEditMsg = document.createElement('div');
+                bulkEditMsg.id = 'bulkEditMessage';
+                bulkEditMsg.style.cssText = 'background: #e3f2fd; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 12px; color: #1976d2;';
+                propsDiv.insertBefore(bulkEditMsg, propsDiv.firstChild);
+            }
+            if (selectedObjIds.length > 1) {
+                bulkEditMsg.style.display = 'block';
+                bulkEditMsg.textContent = `📋 ${selectedObjIds.length}個のオブジェクトを選択中（一括編集モード）`;
+            } else {
+                bulkEditMsg.style.display = 'none';
+            }
+
             const bounds = getObjectBounds(obj);
             document.getElementById('layerName').value = obj.name || '';
             document.getElementById('layerX').value = obj.x.toFixed(1);
@@ -3358,7 +3475,7 @@
                     div.textContent = obj.name || (obj.chars ? obj.chars.map(c => c.char).join('').substring(0, 10) : 'オブジェクト');
                 }
 
-                div.onclick = (e) => { exitEditMode(); selectObject(obj.id, e.shiftKey); };
+                div.onclick = (e) => { exitEditMode(); selectObject(obj.id, e.shiftKey || e.ctrlKey || e.metaKey); };
                 div.ondblclick = () => {
                     if (obj.type === 'group') {
                         // グループをダブルクリックで選択解除してグループ内を選択
@@ -5443,6 +5560,25 @@
                         }
                     }
                 }
+                ctx.restore();
+            }
+
+            // 矩形選択の描画
+            if (isBoxSelecting) {
+                ctx.save();
+                ctx.strokeStyle = '#0066cc';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 3]);
+                ctx.fillStyle = 'rgba(0, 102, 204, 0.1)';
+
+                const minX = Math.min(boxSelectStart.x, boxSelectEnd.x);
+                const minY = Math.min(boxSelectStart.y, boxSelectEnd.y);
+                const width = Math.abs(boxSelectEnd.x - boxSelectStart.x);
+                const height = Math.abs(boxSelectEnd.y - boxSelectStart.y);
+
+                ctx.fillRect(minX, minY, width, height);
+                ctx.strokeRect(minX, minY, width, height);
+                ctx.setLineDash([]);
                 ctx.restore();
             }
 
