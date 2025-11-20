@@ -3773,8 +3773,8 @@
                             const depthAngle = (st.angle || 45) * Math.PI / 180;
                             const depthDx = Math.cos(depthAngle);
                             const depthDy = Math.sin(depthAngle);
-                            for (let d = st.width; d > 0; d--) {
-                                ctx.lineWidth = (innerWidth + d) * 2;
+                            for (let d = st.width; d > 0; d -= 0.5) {
+                                ctx.lineWidth = innerWidth + d;
                                 ctx.save();
                                 ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
                                 ctx.strokeText(dc, px + charW / 2, ly);
@@ -3815,8 +3815,8 @@
                                     const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
                                     const depthDx = Math.cos(depthAngle);
                                     const depthDy = Math.sin(depthAngle);
-                                    for (let d = innerSt.width; d > 0; d--) {
-                                        tempCtx.lineWidth = (innerInnerWidth + d) * 2;
+                                    for (let d = innerSt.width; d > 0; d -= 0.5) {
+                                        tempCtx.lineWidth = innerInnerWidth + d;
                                         tempCtx.strokeStyle = innerSt.color;
                                         tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                         tempCtx.save();
@@ -3833,7 +3833,7 @@
                                     tempCtx.restore();
                                 } else {
                                     // 内側のエッジ（通常描画）
-                                    tempCtx.lineWidth = (innerInnerWidth + innerSt.width) * 2;
+                                    tempCtx.lineWidth = innerInnerWidth + innerSt.width;
                                     tempCtx.strokeStyle = innerSt.color;
                                     tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                     tempCtx.strokeText(dc, tempX, tempY);
@@ -3853,10 +3853,12 @@
                             edgeCanvas.height = tempCanvas.height;
                             const edgeCtx = edgeCanvas.getContext('2d');
 
-                            // 8方向にオフセットして描画し、形状を膨張させる
-                            const edgeSteps = Math.ceil(st.width);
-                            for (let step = 1; step <= edgeSteps; step++) {
-                                for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                            // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                            const edgeSteps = Math.max(1, st.width);
+                            const angleStep = Math.PI / 16;  // 32方向
+                            for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
+                                for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
                                     const dx = Math.cos(angle) * step;
                                     const dy = Math.sin(angle) * step;
                                     edgeCtx.drawImage(tempCanvas, dx, dy);
@@ -3865,6 +3867,7 @@
 
                             // 元の内容を引いてエッジ部分のみを残す
                             edgeCtx.globalCompositeOperation = 'destination-out';
+                            edgeCtx.globalAlpha = 1.0;
                             edgeCtx.drawImage(tempCanvas, 0, 0);
 
                             // エッジに色を適用
@@ -3873,6 +3876,7 @@
                             edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
 
                             // メインキャンバスに描画
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                             ctx.drawImage(edgeCanvas, px + charW / 2 - tempX, ly - tempY);
                         }
                         ctx.restore();
@@ -4257,8 +4261,8 @@
                                 const depthAngle = (st.angle || 45) * Math.PI / 180;
                                 const depthDx = Math.cos(depthAngle);
                                 const depthDy = Math.sin(depthAngle);
-                                for (let d = st.width; d > 0; d--) {
-                                    ctx.lineWidth = (innerWidth + d) * 2;
+                                for (let d = st.width; d > 0; d -= 0.5) {
+                                    ctx.lineWidth = innerWidth + d;
                                     ctx.save();
                                     ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
                                     ctx.strokeText(dc, 0, 0);
@@ -4299,8 +4303,8 @@
                                         const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
                                         const depthDx = Math.cos(depthAngle);
                                         const depthDy = Math.sin(depthAngle);
-                                        for (let d = innerSt.width; d > 0; d--) {
-                                            tempCtx.lineWidth = (innerInnerWidth + d) * 2;
+                                        for (let d = innerSt.width; d > 0; d -= 0.5) {
+                                            tempCtx.lineWidth = innerInnerWidth + d;
                                             tempCtx.strokeStyle = innerSt.color;
                                             tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                             tempCtx.save();
@@ -4317,7 +4321,7 @@
                                         tempCtx.restore();
                                     } else {
                                         // 内側のエッジ（通常描画）
-                                        tempCtx.lineWidth = (innerInnerWidth + innerSt.width) * 2;
+                                        tempCtx.lineWidth = innerInnerWidth + innerSt.width;
                                         tempCtx.strokeStyle = innerSt.color;
                                         tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                         tempCtx.strokeText(dc, tempX, tempY);
@@ -4337,10 +4341,12 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 8方向にオフセットして描画し、形状を膨張させる
-                                const edgeSteps = Math.ceil(st.width);
-                                for (let step = 1; step <= edgeSteps; step++) {
-                                    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                const edgeSteps = Math.max(1, st.width);
+                                const angleStep = Math.PI / 16;  // 32方向
+                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
+                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
                                         const dx = Math.cos(angle) * step;
                                         const dy = Math.sin(angle) * step;
                                         edgeCtx.drawImage(tempCanvas, dx, dy);
@@ -4349,6 +4355,7 @@
 
                                 // 元の内容を引いてエッジ部分のみを残す
                                 edgeCtx.globalCompositeOperation = 'destination-out';
+                                edgeCtx.globalAlpha = 1.0;
                                 edgeCtx.drawImage(tempCanvas, 0, 0);
 
                                 // エッジに色を適用
@@ -4357,6 +4364,7 @@
                                 edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
 
                                 // メインキャンバスに描画
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                                 ctx.drawImage(edgeCanvas, -tempX, -tempY);
                             }
                             ctx.restore();
@@ -4665,8 +4673,8 @@
                                     const depthAngle = (st.angle || 45) * Math.PI / 180;
                                     const depthDx = Math.cos(depthAngle);
                                     const depthDy = Math.sin(depthAngle);
-                                    for (let d = st.width; d > 0; d--) {
-                                        ctx.lineWidth = (innerWidth + d) * 2;
+                                    for (let d = st.width; d > 0; d -= 0.5) {
+                                        ctx.lineWidth = innerWidth + d;
                                         ctx.save();
                                         ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
                                         ctx.strokeText(dc, 0, 0);
@@ -4707,8 +4715,8 @@
                                             const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
                                             const depthDx = Math.cos(depthAngle);
                                             const depthDy = Math.sin(depthAngle);
-                                            for (let d = innerSt.width; d > 0; d--) {
-                                                tempCtx.lineWidth = (innerInnerWidth + d) * 2;
+                                            for (let d = innerSt.width; d > 0; d -= 0.5) {
+                                                tempCtx.lineWidth = innerInnerWidth + d;
                                                 tempCtx.strokeStyle = innerSt.color;
                                                 tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                                 tempCtx.save();
@@ -4725,7 +4733,7 @@
                                             tempCtx.restore();
                                         } else {
                                             // 内側のエッジ（通常描画）
-                                            tempCtx.lineWidth = (innerInnerWidth + innerSt.width) * 2;
+                                            tempCtx.lineWidth = innerInnerWidth + innerSt.width;
                                             tempCtx.strokeStyle = innerSt.color;
                                             tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                             tempCtx.strokeText(dc, tempX, tempY);
@@ -4745,10 +4753,12 @@
                                     edgeCanvas.height = tempCanvas.height;
                                     const edgeCtx = edgeCanvas.getContext('2d');
 
-                                    // 8方向にオフセットして描画し、形状を膨張させる
-                                    const edgeSteps = Math.ceil(st.width);
-                                    for (let step = 1; step <= edgeSteps; step++) {
-                                        for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                                    // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                    const edgeSteps = Math.max(1, st.width);
+                                    const angleStep = Math.PI / 16;  // 32方向
+                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                        edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
+                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
                                             const dx = Math.cos(angle) * step;
                                             const dy = Math.sin(angle) * step;
                                             edgeCtx.drawImage(tempCanvas, dx, dy);
@@ -4757,6 +4767,7 @@
 
                                     // 元の内容を引いてエッジ部分のみを残す
                                     edgeCtx.globalCompositeOperation = 'destination-out';
+                                    edgeCtx.globalAlpha = 1.0;
                                     edgeCtx.drawImage(tempCanvas, 0, 0);
 
                                     // エッジに色を適用
@@ -4765,6 +4776,7 @@
                                     edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
 
                                     // メインキャンバスに描画
+                                    ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                                     ctx.drawImage(edgeCanvas, -tempX, -tempY);
                                 }
                                 ctx.restore();
@@ -5023,9 +5035,9 @@
                                 const depthDx = Math.cos(depthAngle);
                                 const depthDy = Math.sin(depthAngle);
                                 // 内側のストロークの外側から描画開始
-                                for (let d = st.width; d > 0; d--) {
+                                for (let d = st.width; d > 0; d -= 0.5) {
                                     if (!st.gradientEnabled) ctx.strokeStyle = st.color;
-                                    ctx.lineWidth = (innerWidth + d) * 2;
+                                    ctx.lineWidth = innerWidth + d;
                                     ctx.save();
                                     ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
                                     ctx.strokeText(dc, 0, 0);
@@ -5067,8 +5079,8 @@
                                         const depthAngle = (innerSt.angle || 45) * Math.PI / 180;
                                         const depthDx = Math.cos(depthAngle);
                                         const depthDy = Math.sin(depthAngle);
-                                        for (let d = innerSt.width; d > 0; d--) {
-                                            tempCtx.lineWidth = (innerInnerWidth + d) * 2;
+                                        for (let d = innerSt.width; d > 0; d -= 0.5) {
+                                            tempCtx.lineWidth = innerInnerWidth + d;
                                             tempCtx.strokeStyle = innerSt.color;
                                             tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                             tempCtx.save();
@@ -5085,7 +5097,7 @@
                                         tempCtx.restore();
                                     } else {
                                         // 内側のエッジ（通常描画）
-                                        tempCtx.lineWidth = (innerInnerWidth + innerSt.width) * 2;
+                                        tempCtx.lineWidth = innerInnerWidth + innerSt.width;
                                         tempCtx.strokeStyle = innerSt.color;
                                         tempCtx.globalAlpha = (innerSt.opacity || 100) / 100;
                                         tempCtx.strokeText(dc, tempX, tempY);
@@ -5105,10 +5117,12 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 8方向にオフセットして描画し、形状を膨張させる
-                                const edgeSteps = Math.ceil(st.width);
-                                for (let step = 1; step <= edgeSteps; step++) {
-                                    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                const edgeSteps = Math.max(1, st.width);
+                                const angleStep = Math.PI / 16;  // 32方向
+                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
+                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
                                         const dx = Math.cos(angle) * step;
                                         const dy = Math.sin(angle) * step;
                                         edgeCtx.drawImage(tempCanvas, dx, dy);
@@ -5117,6 +5131,7 @@
 
                                 // 元の内容を引いてエッジ部分のみを残す
                                 edgeCtx.globalCompositeOperation = 'destination-out';
+                                edgeCtx.globalAlpha = 1.0;
                                 edgeCtx.drawImage(tempCanvas, 0, 0);
 
                                 // エッジに色を適用
@@ -5125,6 +5140,7 @@
                                 edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
 
                                 // メインキャンバスに描画
+                                ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
                                 ctx.drawImage(edgeCanvas, -tempX, -tempY);
                             }
                             ctx.restore();
