@@ -40,7 +40,24 @@ sudo bash install.sh
 - Windows: `uninstall.bat` を管理者として実行
 - macOS/Linux: `sudo bash uninstall.sh`
 
-#### ZXPパッケージでインストール（本番用）
+#### macOS PKGインストーラー（推奨 - macOSのみ）
+
+1. PKGインストーラーをビルド:
+   ```bash
+   bash build-mac-pkg.sh
+   ```
+
+2. 生成された `package/TelopEditor-macOS.pkg` をダブルクリック
+3. インストーラーの指示に従う
+4. Premiere Pro を再起動
+
+**特徴:**
+- ✅ 1ファイルで完結
+- ✅ GUIインストーラー（ようこそ画面、ライセンス、進捗表示）
+- ✅ 自動デバッグモード設定
+- ✅ インストール先: `/Library/Application Support/Adobe/CEP/extensions/TelopEditor`
+
+#### ZXPパッケージでインストール（クロスプラットフォーム）
 
 1. ZXPパッケージをビルド:
    ```bash

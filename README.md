@@ -82,13 +82,24 @@ cd telop-editor-cep
 右クリック install.bat → 管理者として実行
 ```
 
-macOS/Linux:
+macOS:
+```bash
+# 方法1: PKGインストーラー（推奨 - GUIで簡単）
+cd telop-editor-cep
+bash build-mac-pkg.sh
+# 生成された package/TelopEditor-macOS.pkg をダブルクリック
+
+# 方法2: シェルスクリプト
+sudo bash install.sh
+```
+
+Linux:
 ```bash
 cd telop-editor-cep
 sudo bash install.sh
 ```
 
-**ZXPパッケージインストール（本番用）:**
+**ZXPパッケージインストール（クロスプラットフォーム）:**
 ```bash
 # パッケージビルド
 cd telop-editor-cep
