@@ -73,8 +73,37 @@ PRTL01/
 3. PNG/MP4/プロジェクトファイルとして書き出し
 
 ### CEPエクステンション版
-1. `telop-editor-cep/INSTALL.md` の手順でインストール
-2. Premiere Proで起動
+
+**簡単インストール（推奨）:**
+
+Windows:
+```cmd
+cd telop-editor-cep
+右クリック install.bat → 管理者として実行
+```
+
+macOS/Linux:
+```bash
+cd telop-editor-cep
+sudo bash install.sh
+```
+
+**ZXPパッケージインストール（本番用）:**
+```bash
+# パッケージビルド
+cd telop-editor-cep
+bash package-zxp.sh  # または package-zxp.bat
+
+# インストール
+# Anastasiy's Extension Manager を使用:
+# https://install.anastasiy.com/
+```
+
+詳細: [CEPインストールガイド](telop-editor-cep/INSTALL.md)
+
+**使い方:**
+1. Premiere Proで起動（ウィンドウ > エクステンション > Telop Editor）
+2. テロップ作成・編集
 3. タイムラインに直接追加可能
 
 ## 📚 ドキュメント

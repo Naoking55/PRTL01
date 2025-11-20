@@ -22,7 +22,40 @@ Premiere Pro用のテロップ作成エクステンション
 - Adobe Premiere Pro CC 2020以降
 - Windows 10/11 または macOS 10.14以降
 
-### インストール手順
+### インストール方法（推奨）
+
+#### 自動インストーラーを使用
+
+**Windows:**
+1. `install.bat` を右クリック → **管理者として実行**
+2. 画面の指示に従う
+3. Premiere Pro を再起動
+
+**macOS/Linux:**
+```bash
+sudo bash install.sh
+```
+
+**アンインストール:**
+- Windows: `uninstall.bat` を管理者として実行
+- macOS/Linux: `sudo bash uninstall.sh`
+
+#### ZXPパッケージでインストール（本番用）
+
+1. ZXPパッケージをビルド:
+   ```bash
+   # Windows
+   package-zxp.bat
+
+   # macOS/Linux
+   bash package-zxp.sh
+   ```
+
+2. 生成された `package/TelopEditor.zxp` をインストール:
+   - [Anastasiy's Extension Manager](https://install.anastasiy.com/) を使用（推奨）
+   - または ExManCmd: `ExManCmd /install TelopEditor.zxp`
+
+### 手動インストール
 
 #### 1. エクステンションフォルダにコピー
 
