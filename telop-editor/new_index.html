@@ -898,42 +898,80 @@
         // CEP環境検出
         function isInCEP() {
             try {
-                return typeof require !== 'undefined' &&
-                       typeof CSInterface !== 'undefined';
+                return typeof CSInterface !== 'undefined';
             } catch(e) {
                 return false;
             }
         }
 
-        // システムフォント読み込み（CEP環境用）
+        // システムフォント読み込み（両環境対応）
         async function loadSystemFonts() {
-            if (!isInCEP()) return;
+            let fonts = [];
 
-            try {
-                const fontList = require('font-list');
-                const fonts = await fontList.getFonts();
-                loadedSystemFonts = fonts.map(f => f.replace(/"/g, '')).sort();
-
-                // システムフォントグループを表示・更新
-                const groups = ['systemFontsGroup', 'nameTagSystemFontsGroup'];
-                groups.forEach(groupId => {
-                    const group = document.getElementById(groupId);
-                    if (group) {
-                        group.style.display = '';
-                        group.innerHTML = '';
-                        loadedSystemFonts.forEach(font => {
-                            const option = document.createElement('option');
-                            option.value = font;
-                            option.textContent = font;
-                            group.appendChild(option);
-                        });
+            // CEP環境の場合: ExtendScriptから取得
+            if (isInCEP() && typeof csInterface !== 'undefined') {
+                try {
+                    const result = await new Promise((resolve) => {
+                        csInterface.evalScript('TelopEditor.getSystemFonts()', resolve);
+                    });
+                    const parsed = JSON.parse(result);
+                    if (parsed.success && parsed.fonts) {
+                        fonts = parsed.fonts;
+                        console.log('Loaded fonts from Premiere Pro:', fonts.length);
                     }
-                });
-
-                console.log(`Loaded ${loadedSystemFonts.length} system fonts`);
-            } catch(e) {
-                console.warn('Failed to load system fonts:', e);
+                } catch(e) {
+                    console.warn('Failed to load fonts from Premiere Pro:', e);
+                }
             }
+
+            // スタンドアローン環境の場合: QueryLocalFontAccessAPIを試行
+            if (fonts.length === 0 && 'queryLocalFonts' in window) {
+                try {
+                    const permission = await navigator.permissions.query({ name: 'local-fonts' });
+                    if (permission.state === 'granted' || permission.state === 'prompt') {
+                        const availableFonts = await window.queryLocalFonts();
+                        fonts = [...new Set(availableFonts.map(f => f.family))].sort();
+                        console.log('Loaded fonts via QueryLocalFonts API:', fonts.length);
+                    }
+                } catch(e) {
+                    console.warn('QueryLocalFonts API not available:', e);
+                }
+            }
+
+            // フォールバック: 一般的なフォントリスト
+            if (fonts.length === 0) {
+                fonts = [
+                    "Arial", "Arial Black", "Comic Sans MS", "Courier New", "Georgia",
+                    "Impact", "Times New Roman", "Trebuchet MS", "Verdana",
+                    "Helvetica", "Helvetica Neue", "Lucida Grande", "Tahoma",
+                    "MS Gothic", "MS Mincho", "MS PGothic", "MS PMincho",
+                    "Meiryo", "Meiryo UI", "Yu Gothic", "Yu Gothic UI", "Yu Mincho",
+                    "Hiragino Sans", "Hiragino Kaku Gothic Pro", "Hiragino Mincho Pro",
+                    "Hiragino Maru Gothic Pro", "Osaka", "Noto Sans JP", "Noto Serif JP",
+                    "Source Han Sans", "Source Han Serif"
+                ].sort();
+                console.log('Using fallback font list:', fonts.length);
+            }
+
+            loadedSystemFonts = fonts;
+
+            // システムフォントグループを表示・更新
+            const groups = ['systemFontsGroup', 'nameTagSystemFontsGroup'];
+            groups.forEach(groupId => {
+                const group = document.getElementById(groupId);
+                if (group) {
+                    group.style.display = '';
+                    group.innerHTML = '';
+                    loadedSystemFonts.forEach(font => {
+                        const option = document.createElement('option');
+                        option.value = font;
+                        option.textContent = font;
+                        group.appendChild(option);
+                    });
+                }
+            });
+
+            console.log(`Total loaded fonts: ${loadedSystemFonts.length}`);
         }
 
         // フォント選択ハンドラ（メインテキスト用）

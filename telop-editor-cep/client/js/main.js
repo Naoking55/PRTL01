@@ -20,6 +20,17 @@ function initCEP() {
 
         // テスト実行
         testConnection();
+
+        // システムフォントを読み込み（new_index.htmlのloadSystemFonts関数を呼び出し）
+        setTimeout(function() {
+            if (typeof loadSystemFonts === 'function') {
+                loadSystemFonts().then(function() {
+                    console.log('System fonts loaded in CEP mode');
+                }).catch(function(err) {
+                    console.error('Failed to load system fonts:', err);
+                });
+            }
+        }, 1000);
     } else {
         console.warn('CSInterface not found. Running in standalone mode.');
     }

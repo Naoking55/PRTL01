@@ -7,6 +7,41 @@
 var TelopEditor = TelopEditor || {};
 
 /**
+ * システムフォントリストを取得
+ * @returns {Object} フォントリスト
+ */
+TelopEditor.getSystemFonts = function() {
+    try {
+        var fonts = [];
+
+        // Windows/macOSで一般的なフォントのリスト
+        // 実際のシステムフォントの完全な取得はExtendScriptでは困難なため、
+        // 一般的なフォントリストを返す
+        var commonFonts = [
+            "Arial", "Arial Black", "Comic Sans MS", "Courier New", "Georgia",
+            "Impact", "Times New Roman", "Trebuchet MS", "Verdana",
+            "Helvetica", "Helvetica Neue", "Lucida Grande", "Tahoma",
+            "MS Gothic", "MS Mincho", "MS PGothic", "MS PMincho",
+            "Meiryo", "Meiryo UI", "Yu Gothic", "Yu Gothic UI", "Yu Mincho",
+            "Hiragino Sans", "Hiragino Kaku Gothic Pro", "Hiragino Mincho Pro",
+            "Hiragino Maru Gothic Pro", "Osaka", "Noto Sans JP", "Noto Serif JP",
+            "Source Han Sans", "Source Han Serif"
+        ];
+
+        // Premiere Proがサポートするフォントを取得する試み
+        // 注: ExtendScriptではフォントリストの完全な取得は制限されています
+
+        return {
+            success: true,
+            fonts: commonFonts.sort(),
+            message: "一般的なフォントリストを返しました。完全なシステムフォントリストはクライアント側で取得してください。"
+        };
+    } catch (e) {
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
  * アクティブシーケンスを取得
  */
 TelopEditor.getActiveSequence = function() {
