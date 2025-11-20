@@ -752,7 +752,7 @@
         </div>
     </div>
 
-    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+    <input type="file" id="fileInput" accept=".json,.telop" style="display:none" onchange="handleFileLoad(event)">
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportProject(event)">
     <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageLoad(event)">
     <input type="text" id="imeInput" autocomplete="off">
@@ -6611,17 +6611,42 @@
         }
 
         function saveProject() {
-            // 現在のキャンバスを保存
-            saveCurrentCanvas();
-
+            // .telop形式でプロジェクトを保存
             const project = {
-                version: '3.0',
-                canvases: canvases,
-                activeCanvasId: activeCanvasId
+                version: '4.0',  // 新しいバージョン
+                fileType: 'telop',
+                metadata: {
+                    createdAt: new Date().toISOString(),
+                    appVersion: '1.0.0'
+                },
+                canvas: {
+                    width: canvas.width,
+                    height: canvas.height,
+                    bgColor: canvasBgColor,
+                    bgOpacity: canvasBgOpacity,
+                    bgImage: bgImage  // base64またはnull
+                },
+                objects: JSON.parse(JSON.stringify(textObjects)),  // Deep copy
+                animation: {
+                    totalDuration: totalDuration,
+                    currentTime: animationTime
+                },
+                // 下位互換性のため既存の形式も保持
+                canvases: canvases.length > 0 ? canvases : [{
+                    id: Date.now(),
+                    name: 'Main',
+                    objects: textObjects,
+                    resolution: document.getElementById('resolution').value,
+                    bgColor: canvasBgColor,
+                    bgOpacity: canvasBgOpacity
+                }],
+                activeCanvasId: activeCanvasId || (canvases.length > 0 ? canvases[0].id : Date.now())
             };
-            const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
+
+            const jsonStr = JSON.stringify(project, null, 2);  // Pretty print
+            const blob = new Blob([jsonStr], { type: 'application/json' });
             const link = document.createElement('a');
-            link.download = `telop_${Date.now()}.json`;
+            link.download = `telop_project_${Date.now()}.telop`;
             link.href = URL.createObjectURL(blob);
             link.click();
         }
@@ -7298,8 +7323,40 @@
                 try {
                     const p = JSON.parse(ev.target.result);
 
+                    // v4.0形式（.telop形式）
+                    if (p.version === '4.0' && p.fileType === 'telop') {
+                        // キャンバス設定を復元
+                        if (p.canvas) {
+                            canvas.width = p.canvas.width || 1920;
+                            canvas.height = p.canvas.height || 1080;
+                            canvasBgColor = p.canvas.bgColor || '#000000';
+                            canvasBgOpacity = p.canvas.bgOpacity || 0;
+                            bgImage = p.canvas.bgImage || null;
+                            // 解像度セレクタを更新
+                            const resValue = `${canvas.width}x${canvas.height}`;
+                            const resSelect = document.getElementById('resolution');
+                            if ([...resSelect.options].some(opt => opt.value === resValue)) {
+                                resSelect.value = resValue;
+                            }
+                        }
+                        // オブジェクトを復元
+                        textObjects = p.objects || [];
+                        migrateObjects(textObjects);
+
+                        // アニメーション設定を復元
+                        if (p.animation) {
+                            totalDuration = p.animation.totalDuration || 5;
+                            animationTime = p.animation.currentTime || 0;
+                        }
+
+                        // 下位互換性のため既存のcanvases形式も復元
+                        if (p.canvases) {
+                            canvases = p.canvases;
+                            activeCanvasId = p.activeCanvasId;
+                        }
+                    }
                     // v3.0形式（複数キャンバス）
-                    if (p.version === '3.0' && p.canvases) {
+                    else if (p.version === '3.0' && p.canvases) {
                         canvases = p.canvases;
                         activeCanvasId = p.activeCanvasId || canvases[0].id;
                         // オブジェクトのマイグレーション
@@ -7323,7 +7380,10 @@
 
                     selectedObjId = null; selectedObjIds = []; editingObjId = null;
                     updateLayerList(); updateLayerProps(); render();
-                } catch { alert('読込失敗'); }
+                } catch (err) {
+                    console.error('Load error:', err);
+                    alert('読込失敗: ' + err.message);
+                }
             };
             reader.readAsText(file);
             e.target.value = '';
