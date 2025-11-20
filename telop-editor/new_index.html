@@ -2215,7 +2215,11 @@
                 render();
             }
             else if (e.key === 'Escape') {
-                if (isDrawingPath) {
+                if (isBoxSelecting) {
+                    // Cancel box selection
+                    isBoxSelecting = false;
+                    render();
+                } else if (isDrawingPath) {
                     // Cancel path drawing
                     pathPoints = [];
                     isDrawingPath = false;
@@ -3095,22 +3099,41 @@
         }
 
         function copySelected() {
-            if (!selectedObjId) return;
-            const obj = textObjects.find(o => o.id === selectedObjId);
-            if (!obj) return;
-            clipboard = JSON.parse(JSON.stringify(obj));
+            if (selectedObjIds.length === 0) return;
+            // 複数選択時：すべての選択オブジェクトをコピー
+            clipboard = selectedObjIds.map(id => {
+                const obj = textObjects.find(o => o.id === id);
+                return obj ? JSON.parse(JSON.stringify(obj)) : null;
+            }).filter(o => o !== null);
         }
 
         function pasteObject() {
-            if (!clipboard) return;
+            if (!clipboard || clipboard.length === 0) return;
             saveState();
-            const newObj = JSON.parse(JSON.stringify(clipboard));
-            newObj.id = Date.now();
-            newObj.x += 20;  // オフセット
-            newObj.y += 20;
-            newObj.name = (newObj.name || 'Object') + ' (コピー)';
-            textObjects.push(newObj);
-            selectObject(newObj.id);
+            const newIds = [];
+
+            // 配列でない場合（旧形式の互換性のため）
+            if (!Array.isArray(clipboard)) {
+                clipboard = [clipboard];
+            }
+
+            clipboard.forEach((clipObj, index) => {
+                const newObj = JSON.parse(JSON.stringify(clipObj));
+                newObj.id = Date.now() + index;
+                newObj.x += 20;  // オフセット
+                newObj.y += 20;
+                newObj.name = (newObj.name || 'Object') + ' (コピー)';
+                textObjects.push(newObj);
+                newIds.push(newObj.id);
+            });
+
+            // 貼り付けたオブジェクトを選択
+            if (newIds.length === 1) {
+                selectObject(newIds[0]);
+            } else {
+                selectedObjIds = newIds;
+                selectedObjId = newIds[newIds.length - 1];
+            }
             updateLayerList();
             render();
         }
@@ -3233,8 +3256,37 @@
             if (idx > 0) { saveState(); [textObjects[idx], textObjects[idx - 1]] = [textObjects[idx - 1], textObjects[idx]]; updateLayerList(); render(); }
         }
 
-        function updateLayerName() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.name = document.getElementById('layerName').value; updateLayerList(); } }
-        function updateLayerPosition() { if (!selectedObjId) return; const obj = textObjects.find(o => o.id === selectedObjId); if (obj) { obj.x = parseFloat(document.getElementById('layerX').value) || 0; obj.y = parseFloat(document.getElementById('layerY').value) || 0; render(); } }
+        function updateLayerName() {
+            if (selectedObjIds.length === 0) return;
+            const newName = document.getElementById('layerName').value;
+            // 複数選択時：最初のオブジェクトのみ名前変更（一括名前変更は複雑なので単一のみ）
+            if (selectedObjIds.length === 1) {
+                const obj = textObjects.find(o => o.id === selectedObjIds[0]);
+                if (obj) { obj.name = newName; updateLayerList(); }
+            }
+        }
+        function updateLayerPosition() {
+            if (selectedObjIds.length === 0) return;
+            const newX = parseFloat(document.getElementById('layerX').value) || 0;
+            const newY = parseFloat(document.getElementById('layerY').value) || 0;
+            // 複数選択時：すべての選択オブジェクトの相対位置を維持して移動
+            if (selectedObjIds.length === 1) {
+                const obj = textObjects.find(o => o.id === selectedObjIds[0]);
+                if (obj) { obj.x = newX; obj.y = newY; render(); }
+            } else {
+                // 複数選択時は最初のオブジェクトを基準に相対移動
+                const firstObj = textObjects.find(o => o.id === selectedObjIds[0]);
+                if (firstObj) {
+                    const deltaX = newX - firstObj.x;
+                    const deltaY = newY - firstObj.y;
+                    selectedObjIds.forEach(id => {
+                        const obj = textObjects.find(o => o.id === id);
+                        if (obj) { obj.x += deltaX; obj.y += deltaY; }
+                    });
+                    render();
+                }
+            }
+        }
         function updateLayerRotation() {
             if (selectedObjIds.length === 0) return;
             const newRotation = parseFloat(document.getElementById('layerRotation').value) || 0;
