@@ -12,7 +12,7 @@
             <Locale Code="All"/>
         </LocaleList>
         <RequiredRuntimeList>
-            <RequiredRuntime Name="CSXS" Version="10.0"/>
+            <RequiredRuntime Name="CSXS" Version="11.0"/>
         </RequiredRuntimeList>
     </ExecutionEnvironment>
     <DispatchInfoList>
@@ -46,13 +46,6 @@
                             <Width>3000</Width>
                         </MaxSize>
                     </Geometry>
-                    <Icons>
-                        <Icon Type="Normal">./icons/icon-normal.png</Icon>
-                        <Icon Type="RollOver">./icons/icon-rollover.png</Icon>
-                        <Icon Type="Disabled">./icons/icon-disabled.png</Icon>
-                        <Icon Type="DarkNormal">./icons/icon-dark-normal.png</Icon>
-                        <Icon Type="DarkRollOver">./icons/icon-dark-rollover.png</Icon>
-                    </Icons>
                 </UI>
             </DispatchInfo>
         </Extension>
