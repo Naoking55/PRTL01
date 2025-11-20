@@ -1,0 +1,15 @@
+# ビルド出力
+package/
+build/
+build-pkg/
+
+# 証明書（秘密鍵）
+*.p12
+cert.p12
+
+# macOS
+.DS_Store
+
+# 一時ファイル
+*.tmp
+*.log
