@@ -129,6 +129,88 @@ const BatchProcessor = {
     },
 
     /**
+     * Premiere Pro XML字幕形式をパース
+     * @param {string} xmlText - XML文字列
+     */
+    parsePremiereXML(xmlText) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+        // エラーチェック
+        const parserError = xmlDoc.querySelector('parsererror');
+        if (parserError) {
+            throw new Error('XMLパースエラー: ' + parserError.textContent);
+        }
+
+        const subtitles = [];
+
+        // Premiere Pro形式: <captions><caption>タグ
+        let captions = xmlDoc.querySelectorAll('caption');
+
+        // 別形式も試す: <subtitle>タグ
+        if (captions.length === 0) {
+            captions = xmlDoc.querySelectorAll('subtitle');
+        }
+
+        captions.forEach((caption, index) => {
+            const start = caption.getAttribute('start') || caption.getAttribute('in');
+            const end = caption.getAttribute('end') || caption.getAttribute('out');
+            const textElement = caption.querySelector('text') || caption;
+            const text = textElement.textContent.trim();
+
+            if (start && end && text) {
+                subtitles.push({
+                    index: index + 1,
+                    start: this.premiereTimeToSeconds(start),
+                    end: this.premiereTimeToSeconds(end),
+                    text: text
+                });
+            }
+        });
+
+        return subtitles;
+    },
+
+    /**
+     * Premiere Pro時間文字列を秒数に変換
+     * @param {string} timeStr - 時間文字列 (複数形式対応)
+     * 対応形式: HH:MM:SS:FF, HH:MM:SS.mmm, フレーム数
+     */
+    premiereTimeToSeconds(timeStr) {
+        // フレーム数のみの場合（整数）
+        if (/^\d+$/.test(timeStr)) {
+            const frameRate = 30; // デフォルト30fps
+            return parseInt(timeStr) / frameRate;
+        }
+
+        // HH:MM:SS.mmm形式
+        if (timeStr.includes('.')) {
+            const [time, ms] = timeStr.split('.');
+            const parts = time.split(':');
+            if (parts.length === 3) {
+                const [hours, minutes, seconds] = parts.map(Number);
+                return hours * 3600 + minutes * 60 + seconds + (parseInt(ms) / 1000);
+            }
+        }
+
+        // HH:MM:SS:FF形式（最後はフレーム）
+        if (timeStr.split(':').length === 4) {
+            const [hours, minutes, seconds, frames] = timeStr.split(':').map(Number);
+            const frameRate = 30; // デフォルト30fps
+            return hours * 3600 + minutes * 60 + seconds + (frames / frameRate);
+        }
+
+        // HH:MM:SS形式
+        const parts = timeStr.split(':');
+        if (parts.length === 3) {
+            const [hours, minutes, seconds] = parts.map(Number);
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        return 0;
+    },
+
+    /**
      * SRT時間文字列を秒数に変換
      * @param {string} timeStr - 時間文字列 (HH:MM:SS,mmm)
      */
@@ -194,6 +276,211 @@ const BatchProcessor = {
         }
 
         return result;
+    },
+
+    /**
+     * 音声ファイルから文字起こし（Web Speech API）
+     * @param {File} audioFile - 音声ファイル
+     * @param {Object} options - オプション
+     * @returns {Promise<Array>} 文字起こし結果
+     */
+    async transcribeAudioFile(audioFile, options = {}) {
+        const {
+            language = 'ja-JP',
+            continuous = true,
+            interimResults = false,
+            maxAlternatives = 1
+        } = options;
+
+        // Web Speech API対応チェック
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            throw new Error('このブラウザはWeb Speech APIに対応していません');
+        }
+
+        return new Promise((resolve, reject) => {
+            const recognition = new SpeechRecognition();
+            recognition.lang = language;
+            recognition.continuous = continuous;
+            recognition.interimResults = interimResults;
+            recognition.maxAlternatives = maxAlternatives;
+
+            const results = [];
+            let startTime = 0;
+
+            // 音声ファイルを再生用のAudioオブジェクトとして読み込み
+            const audioUrl = URL.createObjectURL(audioFile);
+            const audio = new Audio(audioUrl);
+
+            recognition.onstart = () => {
+                startTime = Date.now();
+                audio.play();
+            };
+
+            recognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    if (result.isFinal) {
+                        const transcript = result[0].transcript;
+                        const timestamp = (Date.now() - startTime) / 1000;
+                        results.push({
+                            text: transcript,
+                            timestamp: timestamp,
+                            confidence: result[0].confidence
+                        });
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                audio.pause();
+                URL.revokeObjectURL(audioUrl);
+                reject(new Error('文字起こしエラー: ' + event.error));
+            };
+
+            recognition.onend = () => {
+                audio.pause();
+                URL.revokeObjectURL(audioUrl);
+                resolve(results);
+            };
+
+            audio.onended = () => {
+                recognition.stop();
+            };
+
+            recognition.start();
+        });
+    },
+
+    /**
+     * 外部API（Whisper等）で文字起こし
+     * @param {File} audioFile - 音声ファイル
+     * @param {Object} options - オプション
+     * @returns {Promise<Array>} 文字起こし結果
+     */
+    async transcribeWithExternalAPI(audioFile, options = {}) {
+        const {
+            apiEndpoint = '',
+            apiKey = '',
+            language = 'ja',
+            model = 'whisper-1',
+            responseFormat = 'json'
+        } = options;
+
+        if (!apiEndpoint) {
+            throw new Error('APIエンドポイントが指定されていません');
+        }
+
+        const formData = new FormData();
+        formData.append('file', audioFile);
+        formData.append('model', model);
+        formData.append('language', language);
+        formData.append('response_format', responseFormat);
+
+        const headers = {};
+        if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Whisper API形式のレスポンスを処理
+            if (data.segments) {
+                return data.segments.map(segment => ({
+                    text: segment.text,
+                    start: segment.start,
+                    end: segment.end,
+                    confidence: segment.avg_logprob ? Math.exp(segment.avg_logprob) : 1.0
+                }));
+            }
+
+            // 汎用形式
+            if (data.transcription) {
+                return [{
+                    text: data.transcription,
+                    start: 0,
+                    end: 0,
+                    confidence: data.confidence || 1.0
+                }];
+            }
+
+            return data;
+        } catch (error) {
+            throw new Error(`文字起こしAPI呼び出しエラー: ${error.message}`);
+        }
+    },
+
+    /**
+     * 文字起こし結果からテロップを生成
+     * @param {Array} transcriptionResults - 文字起こし結果
+     * @param {Object} template - テンプレート
+     * @param {Object} options - オプション
+     */
+    generateTelopsFromTranscription(transcriptionResults, template, options = {}) {
+        const {
+            minDuration = 1.0,
+            maxDuration = 5.0,
+            fadeInDuration = 0.3,
+            fadeOutDuration = 0.3
+        } = options;
+
+        const generatedObjects = [];
+
+        transcriptionResults.forEach((result, index) => {
+            const newObj = JSON.parse(JSON.stringify(template));
+            newObj.id = Date.now() + index;
+            newObj.name = `文字起こし ${index + 1}`;
+
+            // テキストを設定
+            if (newObj.chars) {
+                newObj.chars = this.stringToChars(result.text, newObj.chars[0] || {});
+            }
+
+            // タイムスタンプがある場合
+            let startTime = result.start || result.timestamp || 0;
+            let endTime = result.end || (startTime + minDuration);
+
+            // 継続時間の制限
+            const duration = endTime - startTime;
+            if (duration > maxDuration) {
+                endTime = startTime + maxDuration;
+            } else if (duration < minDuration) {
+                endTime = startTime + minDuration;
+            }
+
+            // アニメーション設定（フェードイン・アウト）
+            if (!newObj.animation) {
+                newObj.animation = { keyframes: [] };
+            }
+
+            newObj.animation.keyframes = [
+                { time: startTime, property: 'opacity', value: 0, easing: 'linear' },
+                { time: startTime + fadeInDuration, property: 'opacity', value: 100, easing: 'easeOutQuad' },
+                { time: endTime - fadeOutDuration, property: 'opacity', value: 100, easing: 'linear' },
+                { time: endTime, property: 'opacity', value: 0, easing: 'easeInQuad' }
+            ];
+
+            // 信頼度をメタデータとして保存
+            if (result.confidence !== undefined) {
+                newObj.metadata = newObj.metadata || {};
+                newObj.metadata.transcriptionConfidence = result.confidence;
+            }
+
+            generatedObjects.push(newObj);
+        });
+
+        return generatedObjects;
     },
 
     /**
