@@ -8187,7 +8187,7 @@
                 return;
             }
 
-            const presets = window.AnimationPresets.getPresets(currentAnimPresetType, currentAnimPresetCategory);
+            const presets = window.AnimationPresets.getPresetsByCategory(currentAnimPresetCategory, currentAnimPresetType);
             if (presets.length === 0) {
                 listEl.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">プリセットがありません</div>';
                 return;
@@ -8211,7 +8211,7 @@
 
         function applyAnimPreset() {
             if (!selectedAnimPresetId || !window.AnimationPresets) return;
-            const preset = window.AnimationPresets.getPresetById(selectedAnimPresetId);
+            const preset = window.AnimationPresets.getPreset(selectedAnimPresetId);
             if (!preset) return;
 
             // アニメーション設定を適用
@@ -8265,7 +8265,7 @@
                 return;
             }
 
-            const presets = window.StylePresets.getPresets(currentStylePresetCategory);
+            const presets = window.StylePresets.getPresetsByCategory(currentStylePresetCategory);
             if (presets.length === 0) {
                 listEl.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">プリセットがありません</div>';
                 return;
@@ -8289,7 +8289,7 @@
 
         function applyStylePreset(mode) {
             if (!selectedStylePresetId || !window.StylePresets) return;
-            const preset = window.StylePresets.getPresetById(selectedStylePresetId);
+            const preset = window.StylePresets.getPreset(selectedStylePresetId);
             if (!preset || !preset.style) return;
 
             const obj = textObjects.find(o => o.id === selectedObjId);
@@ -8369,7 +8369,13 @@
             };
 
             if (window.StylePresets) {
-                window.StylePresets.saveCustomPreset(name, style);
+                const preset = {
+                    id: 'custom-' + Date.now(),
+                    name: name,
+                    category: 'custom',
+                    style: style
+                };
+                window.StylePresets.addCustomPreset(preset);
                 renderStylePresetList();
                 alert('スタイルを保存しました: ' + name);
             }

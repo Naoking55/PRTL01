@@ -559,11 +559,26 @@ window.StylePresets = (function() {
     // 初期化
     init();
 
+    // カテゴリ名取得
+    function getCategoryName(categoryId) {
+        const categoryMap = {
+            'cartoon': 'カートゥーン',
+            'cinematic': 'シネマティック',
+            'modern': 'モダン',
+            'simple': 'シンプル',
+            'news': 'ニュース',
+            'variety': 'バラエティ',
+            'custom': 'カスタム'
+        };
+        return categoryMap[categoryId] || categoryId;
+    }
+
     return {
         CATEGORIES,
         getPreset,
         getPresetsByCategory,
         getCategories,
+        getCategoryName,
         addCustomPreset,
         removeCustomPreset,
         applyStyleToChar,
