@@ -1651,10 +1651,12 @@
                     width: parseInt(item.querySelector('.stroke-width').value),
                     opacity: parseInt(item.querySelector('.stroke-opacity').value),
                     angle: parseInt(item.querySelector('.stroke-angle').value) || 45,
-                    join: item.querySelector('.stroke-join').value || 'round'
+                    join: item.querySelector('.stroke-join').value || 'round',
+                    blur: item.querySelector('.stroke-blur')?.checked || false,
+                    blurAmount: parseInt(item.querySelector('.stroke-blur-amount')?.value) || 0
                 });
             });
-            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45, join: 'round' }];
+            return strokes.length ? strokes : [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45, join: 'round', blur: false, blurAmount: 0 }];
         }
 
         function addStroke() {
@@ -1686,6 +1688,10 @@
                         <option value="miter">角</option>
                         <option value="bevel">面取り</option>
                     </select></div>
+                </div>
+                <div class="row2">
+                    <div><label><input type="checkbox" class="stroke-blur" onchange="applyStyle()"> ぼかし</label></div>
+                    <div><label>量</label><input type="number" class="stroke-blur-amount" value="0" min="0" max="20" onchange="applyStyle()"></div>
                 </div>
             `;
             list.appendChild(div);
@@ -3657,6 +3663,10 @@
                             <option value="bevel" ${st.join === 'bevel' ? 'selected' : ''}>面取り</option>
                         </select></div>
                     </div>
+                    <div class="row2">
+                        <div><label><input type="checkbox" class="stroke-blur" ${st.blur ? 'checked' : ''} onchange="applyStyle()"> ぼかし</label></div>
+                        <div><label>量</label><input type="number" class="stroke-blur-amount" value="${st.blurAmount || 0}" min="0" max="20" onchange="applyStyle()"></div>
+                    </div>
                 `;
                 list.appendChild(div);
             });
@@ -4172,15 +4182,48 @@
                             edgeCanvas.height = tempCanvas.height;
                             const edgeCtx = edgeCanvas.getContext('2d');
 
-                            // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                            // st.joinに応じたエッジ描画アルゴリズム
                             const edgeSteps = Math.max(1, st.width);
-                            const angleStep = Math.PI / 16;  // 32方向
-                            for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                    const dx = Math.cos(angle) * step;
-                                    const dy = Math.sin(angle) * step;
-                                    edgeCtx.drawImage(tempCanvas, dx, dy);
+                            const joinType = st.join || 'round';
+                            const blurEnabled = st.blur || false;
+                            const blurAmount = st.blurAmount || 0;
+
+                            if (joinType === 'miter') {
+                                // 角(miter): 正方形膨張（上下左右＋対角を同じ距離で）
+                                for (let step = 1; step <= edgeSteps; step += 1) {
+                                    edgeCtx.globalAlpha = 1.0;
+                                    // 上下左右
+                                    edgeCtx.drawImage(tempCanvas, step, 0);
+                                    edgeCtx.drawImage(tempCanvas, -step, 0);
+                                    edgeCtx.drawImage(tempCanvas, 0, step);
+                                    edgeCtx.drawImage(tempCanvas, 0, -step);
+                                    // 対角（正方形の角を埋める）
+                                    edgeCtx.drawImage(tempCanvas, step, step);
+                                    edgeCtx.drawImage(tempCanvas, step, -step);
+                                    edgeCtx.drawImage(tempCanvas, -step, step);
+                                    edgeCtx.drawImage(tempCanvas, -step, -step);
+                                }
+                            } else if (joinType === 'bevel') {
+                                // 面取り(bevel): 8方向
+                                const bevelStep = Math.PI / 4;
+                                for (let step = 1; step <= edgeSteps; step += 1) {
+                                    edgeCtx.globalAlpha = 1.0;
+                                    for (let angle = 0; angle < Math.PI * 2; angle += bevelStep) {
+                                        const dx = Math.cos(angle) * step;
+                                        const dy = Math.sin(angle) * step;
+                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                    }
+                                }
+                            } else {
+                                // 丸み(round): 64方向で滑らかなエッジ
+                                const roundStep = Math.PI / 32;
+                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                    edgeCtx.globalAlpha = 1.0;
+                                    for (let angle = 0; angle < Math.PI * 2; angle += roundStep) {
+                                        const dx = Math.cos(angle) * step;
+                                        const dy = Math.sin(angle) * step;
+                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                    }
                                 }
                             }
 
@@ -4193,6 +4236,19 @@
                             edgeCtx.globalCompositeOperation = 'source-in';
                             edgeCtx.fillStyle = st.color;
                             edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+
+                            // グラデーションぼかし（内側から外側へ）
+                            if (blurEnabled && blurAmount > 0) {
+                                const blurCanvas = document.createElement('canvas');
+                                blurCanvas.width = edgeCanvas.width;
+                                blurCanvas.height = edgeCanvas.height;
+                                const blurCtx = blurCanvas.getContext('2d');
+                                blurCtx.filter = `blur(${blurAmount}px)`;
+                                blurCtx.drawImage(edgeCanvas, 0, 0);
+                                edgeCtx.globalCompositeOperation = 'source-over';
+                                edgeCtx.clearRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+                                edgeCtx.drawImage(blurCanvas, 0, 0);
+                            }
 
                             // メインキャンバスに描画
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
@@ -4660,15 +4716,48 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                // st.joinに応じたエッジ描画アルゴリズム
                                 const edgeSteps = Math.max(1, st.width);
-                                const angleStep = Math.PI / 16;  // 32方向
-                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                        const dx = Math.cos(angle) * step;
-                                        const dy = Math.sin(angle) * step;
-                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                const joinType = st.join || 'round';
+                                const blurEnabled = st.blur || false;
+                                const blurAmount = st.blurAmount || 0;
+
+                                if (joinType === 'miter') {
+                                    // 角(miter): 正方形膨張（上下左右＋対角を同じ距離で）
+                                    for (let step = 1; step <= edgeSteps; step += 1) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        // 上下左右
+                                        edgeCtx.drawImage(tempCanvas, step, 0);
+                                        edgeCtx.drawImage(tempCanvas, -step, 0);
+                                        edgeCtx.drawImage(tempCanvas, 0, step);
+                                        edgeCtx.drawImage(tempCanvas, 0, -step);
+                                        // 対角（正方形の角を埋める）
+                                        edgeCtx.drawImage(tempCanvas, step, step);
+                                        edgeCtx.drawImage(tempCanvas, step, -step);
+                                        edgeCtx.drawImage(tempCanvas, -step, step);
+                                        edgeCtx.drawImage(tempCanvas, -step, -step);
+                                    }
+                                } else if (joinType === 'bevel') {
+                                    // 面取り(bevel): 8方向
+                                    const bevelStep = Math.PI / 4;
+                                    for (let step = 1; step <= edgeSteps; step += 1) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += bevelStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
+                                    }
+                                } else {
+                                    // 丸み(round): 64方向で滑らかなエッジ
+                                    const roundStep = Math.PI / 32;
+                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += roundStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
                                     }
                                 }
 
@@ -4681,6 +4770,19 @@
                                 edgeCtx.globalCompositeOperation = 'source-in';
                                 edgeCtx.fillStyle = st.color;
                                 edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+
+                                // グラデーションぼかし（内側から外側へ）
+                                if (blurEnabled && blurAmount > 0) {
+                                    const blurCanvas = document.createElement('canvas');
+                                    blurCanvas.width = edgeCanvas.width;
+                                    blurCanvas.height = edgeCanvas.height;
+                                    const blurCtx = blurCanvas.getContext('2d');
+                                    blurCtx.filter = `blur(${blurAmount}px)`;
+                                    blurCtx.drawImage(edgeCanvas, 0, 0);
+                                    edgeCtx.globalCompositeOperation = 'source-over';
+                                    edgeCtx.clearRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+                                    edgeCtx.drawImage(blurCanvas, 0, 0);
+                                }
 
                                 // メインキャンバスに描画
                                 ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
@@ -5072,15 +5174,51 @@
                                     edgeCanvas.height = tempCanvas.height;
                                     const edgeCtx = edgeCanvas.getContext('2d');
 
-                                    // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                    // st.joinに応じたエッジ描画アルゴリズム
                                     const edgeSteps = Math.max(1, st.width);
-                                    const angleStep = Math.PI / 16;  // 32方向
-                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                        edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                            const dx = Math.cos(angle) * step;
-                                            const dy = Math.sin(angle) * step;
-                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                    const joinType = st.join || 'round';
+                                    const blurEnabled = st.blur || false;
+                                    const blurAmount = st.blurAmount || 0;
+
+                                    if (joinType === 'miter') {
+                                        // 角(miter): 4方向のみで角張ったエッジ
+                                        const miterAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
+                                        for (let step = 1; step <= edgeSteps; step += 1) {
+                                            edgeCtx.globalAlpha = 1.0;
+                                            for (const angle of miterAngles) {
+                                                const dx = Math.cos(angle) * step;
+                                                const dy = Math.sin(angle) * step;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
+                                            // 斜め方向も追加（角を埋める）
+                                            const diagonalStep = step * Math.SQRT2;
+                                            for (let da = Math.PI/4; da < Math.PI*2; da += Math.PI/2) {
+                                                const dx = Math.cos(da) * diagonalStep;
+                                                const dy = Math.sin(da) * diagonalStep;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
+                                        }
+                                    } else if (joinType === 'bevel') {
+                                        // 面取り(bevel): 8方向
+                                        const bevelStep = Math.PI / 4;
+                                        for (let step = 1; step <= edgeSteps; step += 1) {
+                                            edgeCtx.globalAlpha = 1.0;
+                                            for (let angle = 0; angle < Math.PI * 2; angle += bevelStep) {
+                                                const dx = Math.cos(angle) * step;
+                                                const dy = Math.sin(angle) * step;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
+                                        }
+                                    } else {
+                                        // 丸み(round): 64方向で滑らかなエッジ
+                                        const roundStep = Math.PI / 32;
+                                        for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                            edgeCtx.globalAlpha = 1.0;
+                                            for (let angle = 0; angle < Math.PI * 2; angle += roundStep) {
+                                                const dx = Math.cos(angle) * step;
+                                                const dy = Math.sin(angle) * step;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
                                         }
                                     }
 
@@ -5093,6 +5231,19 @@
                                     edgeCtx.globalCompositeOperation = 'source-in';
                                     edgeCtx.fillStyle = st.color;
                                     edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+
+                                    // グラデーションぼかし（内側から外側へ）
+                                    if (blurEnabled && blurAmount > 0) {
+                                        const blurCanvas = document.createElement('canvas');
+                                        blurCanvas.width = edgeCanvas.width;
+                                        blurCanvas.height = edgeCanvas.height;
+                                        const blurCtx = blurCanvas.getContext('2d');
+                                        blurCtx.filter = `blur(${blurAmount}px)`;
+                                        blurCtx.drawImage(edgeCanvas, 0, 0);
+                                        edgeCtx.globalCompositeOperation = 'source-over';
+                                        edgeCtx.clearRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+                                        edgeCtx.drawImage(blurCanvas, 0, 0);
+                                    }
 
                                     // メインキャンバスに描画
                                     ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
@@ -5436,15 +5587,48 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                // st.joinに応じたエッジ描画アルゴリズム
                                 const edgeSteps = Math.max(1, st.width);
-                                const angleStep = Math.PI / 16;  // 32方向
-                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                        const dx = Math.cos(angle) * step;
-                                        const dy = Math.sin(angle) * step;
-                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                const joinType = st.join || 'round';
+                                const blurEnabled = st.blur || false;
+                                const blurAmount = st.blurAmount || 0;
+
+                                if (joinType === 'miter') {
+                                    // 角(miter): 正方形膨張（上下左右＋対角を同じ距離で）
+                                    for (let step = 1; step <= edgeSteps; step += 1) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        // 上下左右
+                                        edgeCtx.drawImage(tempCanvas, step, 0);
+                                        edgeCtx.drawImage(tempCanvas, -step, 0);
+                                        edgeCtx.drawImage(tempCanvas, 0, step);
+                                        edgeCtx.drawImage(tempCanvas, 0, -step);
+                                        // 対角（正方形の角を埋める）
+                                        edgeCtx.drawImage(tempCanvas, step, step);
+                                        edgeCtx.drawImage(tempCanvas, step, -step);
+                                        edgeCtx.drawImage(tempCanvas, -step, step);
+                                        edgeCtx.drawImage(tempCanvas, -step, -step);
+                                    }
+                                } else if (joinType === 'bevel') {
+                                    // 面取り(bevel): 8方向
+                                    const bevelStep = Math.PI / 4;
+                                    for (let step = 1; step <= edgeSteps; step += 1) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += bevelStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
+                                    }
+                                } else {
+                                    // 丸み(round): 64方向で滑らかなエッジ
+                                    const roundStep = Math.PI / 32;
+                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                        edgeCtx.globalAlpha = 1.0;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += roundStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
                                     }
                                 }
 
@@ -5457,6 +5641,19 @@
                                 edgeCtx.globalCompositeOperation = 'source-in';
                                 edgeCtx.fillStyle = st.color;
                                 edgeCtx.fillRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+
+                                // グラデーションぼかし（内側から外側へ）
+                                if (blurEnabled && blurAmount > 0) {
+                                    const blurCanvas = document.createElement('canvas');
+                                    blurCanvas.width = edgeCanvas.width;
+                                    blurCanvas.height = edgeCanvas.height;
+                                    const blurCtx = blurCanvas.getContext('2d');
+                                    blurCtx.filter = `blur(${blurAmount}px)`;
+                                    blurCtx.drawImage(edgeCanvas, 0, 0);
+                                    edgeCtx.globalCompositeOperation = 'source-over';
+                                    edgeCtx.clearRect(0, 0, edgeCanvas.width, edgeCanvas.height);
+                                    edgeCtx.drawImage(blurCanvas, 0, 0);
+                                }
 
                                 // メインキャンバスに描画
                                 ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
