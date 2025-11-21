@@ -7673,9 +7673,9 @@
             }
 
             // スタイルを抽出して保存
-            if (typeof CustomStyleManager !== 'undefined') {
-                const styleData = CustomStyleManager.extractStyleFromChar(targetChar);
-                const result = CustomStyleManager.saveStyle(styleName.trim(), styleData);
+            if (window.CustomStyleManager) {
+                const styleData = window.CustomStyleManager.extractStyleFromChar(targetChar);
+                const result = window.CustomStyleManager.saveStyle(styleName.trim(), styleData);
 
                 if (result.success) {
                     if (statusEl) statusEl.textContent = `スタイル「${result.name}」を保存しました`;
@@ -7705,12 +7705,12 @@
                 return;
             }
 
-            if (typeof CustomStyleManager === 'undefined') {
+            if (!window.CustomStyleManager) {
                 if (statusEl) statusEl.textContent = 'CustomStyleManagerが読み込まれていません';
                 return;
             }
 
-            const styleEntry = CustomStyleManager.getStyle(styleId);
+            const styleEntry = window.CustomStyleManager.getStyle(styleId);
             if (!styleEntry) {
                 if (statusEl) statusEl.textContent = 'スタイルが見つかりません';
                 return;
@@ -7720,7 +7720,7 @@
 
             // 全文字にスタイルを適用
             obj.chars.forEach(c => {
-                CustomStyleManager.applyStyleToChar(styleId, c);
+                window.CustomStyleManager.applyStyleToChar(styleId, c);
             });
 
             render();
@@ -7735,8 +7735,8 @@
         function exportAllCustomStyles() {
             const statusEl = document.getElementById('customStyleStatus');
 
-            if (typeof CustomStyleManager !== 'undefined') {
-                const result = CustomStyleManager.exportStyles();
+            if (window.CustomStyleManager) {
+                const result = window.CustomStyleManager.exportStyles();
                 if (result.success) {
                     if (statusEl) statusEl.textContent = `${result.count}個のスタイルをエクスポートしました`;
                 } else {
@@ -7762,8 +7762,8 @@
 
             const statusEl = document.getElementById('customStyleStatus');
 
-            if (typeof CustomStyleManager !== 'undefined') {
-                CustomStyleManager.importStyles(file)
+            if (window.CustomStyleManager) {
+                window.CustomStyleManager.importStyles(file)
                     .then(result => {
                         if (statusEl) statusEl.textContent = `${result.count}個のスタイルをインポートしました`;
                     })
@@ -7779,14 +7779,14 @@
          * CustomStyleManagerの初期化
          */
         function initCustomStyleManager() {
-            if (typeof CustomStyleManager !== 'undefined') {
+            if (window.CustomStyleManager) {
                 // CEP環境の場合、スタイルディレクトリを設定
                 if (typeof csInterface !== 'undefined' && csInterface) {
                     const basePath = csInterface.getSystemPath(SystemPath.EXTENSION);
-                    CustomStyleManager.setStylesDirectory(basePath);
+                    window.CustomStyleManager.setStylesDirectory(basePath);
                 }
 
-                CustomStyleManager.init();
+                window.CustomStyleManager.init();
             }
         }
 
@@ -7891,7 +7891,7 @@
 
             // CustomStyleManager初期化（style-manager.js読み込み後）
             setTimeout(function() {
-                if (typeof CustomStyleManager !== 'undefined') {
+                if (window.CustomStyleManager) {
                     initCustomStyleManager();
                 } else {
                     console.warn('CustomStyleManager not loaded');
