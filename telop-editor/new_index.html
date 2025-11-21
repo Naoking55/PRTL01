@@ -809,6 +809,52 @@
                     <button class="btn btn-small btn-secondary" onclick="addKeyframeFromCurrent()">現在値で追加</button>
                 </div>
             </div>
+
+            <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">アニメーションプリセット</h3>
+            <div class="collapse-content hidden" id="animationPresetSettings">
+                <div style="display:flex;gap:4px;margin-bottom:8px;">
+                    <button id="animPresetInBtn" class="btn btn-small" style="flex:1;background:#4a9eff;" onclick="switchAnimPresetType('in')">IN</button>
+                    <button id="animPresetOutBtn" class="btn btn-small btn-secondary" style="flex:1;" onclick="switchAnimPresetType('out')">OUT</button>
+                </div>
+                <div id="animPresetCategories" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
+                    <button class="btn btn-small" style="font-size:11px;" onclick="filterAnimPresets('all')">全て</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterAnimPresets('simple')">シンプル</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterAnimPresets('modern')">モダン</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterAnimPresets('dynamic')">ダイナミック</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterAnimPresets('elastic')">弾性</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterAnimPresets('creative')">クリエイティブ</button>
+                </div>
+                <div id="animPresetList" style="max-height:200px;overflow-y:auto;border:1px solid #555;padding:4px;margin-bottom:6px;">
+                    <div style="color:#888;text-align:center;padding:20px;">プリセットを読み込み中...</div>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn btn-small" onclick="applyAnimPreset()">適用</button>
+                    <button class="btn btn-small btn-secondary" onclick="previewAnimPreset()">プレビュー</button>
+                </div>
+            </div>
+
+            <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">スタイルプリセット</h3>
+            <div class="collapse-content hidden" id="stylePresetSettings">
+                <div id="stylePresetCategories" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
+                    <button class="btn btn-small" style="font-size:11px;" onclick="filterStylePresets('all')">全て</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('cartoon')">カートゥーン</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('cinematic')">シネマティック</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('modern')">モダン</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('simple')">シンプル</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('news')">ニュース</button>
+                    <button class="btn btn-small btn-secondary" style="font-size:11px;" onclick="filterStylePresets('variety')">バラエティ</button>
+                </div>
+                <div id="stylePresetList" style="max-height:200px;overflow-y:auto;border:1px solid #555;padding:4px;margin-bottom:6px;">
+                    <div style="color:#888;text-align:center;padding:20px;">プリセットを読み込み中...</div>
+                </div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    <button class="btn btn-small" onclick="applyStylePreset('selected')">選択文字に適用</button>
+                    <button class="btn btn-small btn-secondary" onclick="applyStylePreset('all')">全文字に適用</button>
+                </div>
+                <div style="margin-top:6px;">
+                    <button class="btn btn-small btn-secondary" style="width:100%;" onclick="saveCurrentStyle()">現在のスタイルを保存</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -8094,8 +8140,243 @@
                     console.warn('CustomStyleManager not loaded');
                 }
             }, 100);
+
+            // プリセット初期化
+            setTimeout(function() {
+                initAnimationPresets();
+                initStylePresets();
+            }, 200);
         });
+
+        // ========== アニメーションプリセット機能 ==========
+        let currentAnimPresetType = 'in';
+        let currentAnimPresetCategory = 'all';
+        let selectedAnimPresetId = null;
+
+        function switchAnimPresetType(type) {
+            currentAnimPresetType = type;
+            document.getElementById('animPresetInBtn').className = type === 'in' ? 'btn btn-small' : 'btn btn-small btn-secondary';
+            document.getElementById('animPresetInBtn').style.background = type === 'in' ? '#4a9eff' : '';
+            document.getElementById('animPresetOutBtn').className = type === 'out' ? 'btn btn-small' : 'btn btn-small btn-secondary';
+            document.getElementById('animPresetOutBtn').style.background = type === 'out' ? '#4a9eff' : '';
+            renderAnimPresetList();
+        }
+
+        function filterAnimPresets(category) {
+            currentAnimPresetCategory = category;
+            const btns = document.querySelectorAll('#animPresetCategories button');
+            btns.forEach((btn, i) => {
+                const cats = ['all', 'simple', 'modern', 'dynamic', 'elastic', 'creative'];
+                btn.className = cats[i] === category ? 'btn btn-small' : 'btn btn-small btn-secondary';
+            });
+            renderAnimPresetList();
+        }
+
+        function initAnimationPresets() {
+            if (!window.AnimationPresets) {
+                console.warn('AnimationPresets not loaded');
+                return;
+            }
+            renderAnimPresetList();
+        }
+
+        function renderAnimPresetList() {
+            const listEl = document.getElementById('animPresetList');
+            if (!window.AnimationPresets) {
+                listEl.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">プリセットが読み込まれていません</div>';
+                return;
+            }
+
+            const presets = window.AnimationPresets.getPresets(currentAnimPresetType, currentAnimPresetCategory);
+            if (presets.length === 0) {
+                listEl.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">プリセットがありません</div>';
+                return;
+            }
+
+            listEl.innerHTML = presets.map(p => `
+                <div class="preset-item ${selectedAnimPresetId === p.id ? 'selected' : ''}"
+                     onclick="selectAnimPreset('${p.id}')"
+                     ondblclick="applyAnimPreset()"
+                     style="padding:6px;margin:2px 0;cursor:pointer;border-radius:4px;background:${selectedAnimPresetId === p.id ? '#4a9eff' : '#333'};display:flex;justify-content:space-between;align-items:center;">
+                    <span>${p.name}</span>
+                    <span style="font-size:10px;color:#aaa;">${p.category}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectAnimPreset(id) {
+            selectedAnimPresetId = id;
+            renderAnimPresetList();
+        }
+
+        function applyAnimPreset() {
+            if (!selectedAnimPresetId || !window.AnimationPresets) return;
+            const preset = window.AnimationPresets.getPresetById(selectedAnimPresetId);
+            if (!preset) return;
+
+            // アニメーション設定を適用
+            const animType = document.getElementById('animType');
+            const animDuration = document.getElementById('animDuration');
+            const animEasing = document.getElementById('animEasing');
+
+            // プリセットからアニメーション設定を生成
+            if (preset.animation) {
+                animType.value = preset.animation.type || 'fadeIn';
+                animDuration.value = preset.animation.duration || 1;
+                animEasing.value = preset.animation.easing || 'easeOut';
+            }
+
+            updateAnimation();
+            render();
+        }
+
+        function previewAnimPreset() {
+            if (!selectedAnimPresetId) return;
+            applyAnimPreset();
+            playAnimation();
+        }
+
+        // ========== スタイルプリセット機能 ==========
+        let currentStylePresetCategory = 'all';
+        let selectedStylePresetId = null;
+
+        function filterStylePresets(category) {
+            currentStylePresetCategory = category;
+            const btns = document.querySelectorAll('#stylePresetCategories button');
+            const cats = ['all', 'cartoon', 'cinematic', 'modern', 'simple', 'news', 'variety'];
+            btns.forEach((btn, i) => {
+                btn.className = cats[i] === category ? 'btn btn-small' : 'btn btn-small btn-secondary';
+            });
+            renderStylePresetList();
+        }
+
+        function initStylePresets() {
+            if (!window.StylePresets) {
+                console.warn('StylePresets not loaded');
+                return;
+            }
+            renderStylePresetList();
+        }
+
+        function renderStylePresetList() {
+            const listEl = document.getElementById('stylePresetList');
+            if (!window.StylePresets) {
+                listEl.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">プリセットが読み込まれていません</div>';
+                return;
+            }
+
+            const presets = window.StylePresets.getPresets(currentStylePresetCategory);
+            if (presets.length === 0) {
+                listEl.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">プリセットがありません</div>';
+                return;
+            }
+
+            listEl.innerHTML = presets.map(p => `
+                <div class="preset-item ${selectedStylePresetId === p.id ? 'selected' : ''}"
+                     onclick="selectStylePreset('${p.id}')"
+                     ondblclick="applyStylePreset('selected')"
+                     style="padding:6px;margin:2px 0;cursor:pointer;border-radius:4px;background:${selectedStylePresetId === p.id ? '#4a9eff' : '#333'};display:flex;justify-content:space-between;align-items:center;">
+                    <span>${p.name}</span>
+                    <span style="font-size:10px;color:#aaa;">${window.StylePresets.getCategoryName(p.category)}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectStylePreset(id) {
+            selectedStylePresetId = id;
+            renderStylePresetList();
+        }
+
+        function applyStylePreset(mode) {
+            if (!selectedStylePresetId || !window.StylePresets) return;
+            const preset = window.StylePresets.getPresetById(selectedStylePresetId);
+            if (!preset || !preset.style) return;
+
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'text') return;
+
+            saveUndoState();
+
+            const style = preset.style;
+
+            if (mode === 'all') {
+                // 全文字に適用
+                if (obj.chars) {
+                    obj.chars.forEach(c => {
+                        Object.assign(c, {
+                            fontFamily: style.fontFamily || c.fontFamily,
+                            fontSize: style.fontSize || c.fontSize,
+                            fontWeight: style.fontWeight || c.fontWeight,
+                            fontStyle: style.fontStyle || c.fontStyle,
+                            color: style.color || c.color,
+                            opacity: style.opacity !== undefined ? style.opacity : c.opacity,
+                            strokes: style.strokes ? JSON.parse(JSON.stringify(style.strokes)) : c.strokes,
+                            shadow: style.shadow ? JSON.parse(JSON.stringify(style.shadow)) : c.shadow,
+                            gradient: style.gradient ? JSON.parse(JSON.stringify(style.gradient)) : c.gradient
+                        });
+                    });
+                }
+            } else {
+                // 選択文字に適用
+                if (obj.chars && selectedCharStart >= 0 && selectedCharEnd >= selectedCharStart) {
+                    for (let i = selectedCharStart; i <= selectedCharEnd && i < obj.chars.length; i++) {
+                        const c = obj.chars[i];
+                        Object.assign(c, {
+                            fontFamily: style.fontFamily || c.fontFamily,
+                            fontSize: style.fontSize || c.fontSize,
+                            fontWeight: style.fontWeight || c.fontWeight,
+                            fontStyle: style.fontStyle || c.fontStyle,
+                            color: style.color || c.color,
+                            opacity: style.opacity !== undefined ? style.opacity : c.opacity,
+                            strokes: style.strokes ? JSON.parse(JSON.stringify(style.strokes)) : c.strokes,
+                            shadow: style.shadow ? JSON.parse(JSON.stringify(style.shadow)) : c.shadow,
+                            gradient: style.gradient ? JSON.parse(JSON.stringify(style.gradient)) : c.gradient
+                        });
+                    }
+                } else {
+                    // 選択がない場合は全文字に適用
+                    applyStylePreset('all');
+                    return;
+                }
+            }
+
+            updateCharList();
+            render();
+        }
+
+        function saveCurrentStyle() {
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'text' || !obj.chars || obj.chars.length === 0) {
+                alert('テキストオブジェクトを選択してください');
+                return;
+            }
+
+            const name = prompt('スタイル名を入力してください:');
+            if (!name) return;
+
+            // 最初の文字のスタイルを保存
+            const c = obj.chars[0];
+            const style = {
+                fontFamily: c.fontFamily,
+                fontSize: c.fontSize,
+                fontWeight: c.fontWeight,
+                fontStyle: c.fontStyle,
+                color: c.color,
+                opacity: c.opacity,
+                strokes: c.strokes ? JSON.parse(JSON.stringify(c.strokes)) : [],
+                shadow: c.shadow ? JSON.parse(JSON.stringify(c.shadow)) : null,
+                gradient: c.gradient ? JSON.parse(JSON.stringify(c.gradient)) : null
+            };
+
+            if (window.StylePresets) {
+                window.StylePresets.saveCustomPreset(name, style);
+                renderStylePresetList();
+                alert('スタイルを保存しました: ' + name);
+            }
+        }
     </script>
     <script src="style-manager.js" onload="initCustomStyleManager()"></script>
+    <script src="animation-presets.js" onload="initAnimationPresets()"></script>
+    <script src="style-presets.js" onload="initStylePresets()"></script>
 </body>
 </html>
