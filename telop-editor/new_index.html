@@ -268,6 +268,7 @@
             <button class="btn btn-secondary" onclick="exportGIF()">GIF書き出し</button>
             <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
             <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
+            <button class="btn btn-primary" onclick="addToTimeline()" title="透過PNGをPremiereタイムラインに追加" style="margin-top:4px;background:#2d7d2d;">タイムラインに追加</button>
         </div>
 
         <!-- 左リサイズハンドル -->
@@ -6155,6 +6156,82 @@
             render();
         }
 
+        /**
+         * タイムラインに透過PNGを追加
+         * CEP環境でのみ動作
+         */
+        function addToTimeline() {
+            // CEP環境チェック
+            if (typeof csInterface === 'undefined' || !csInterface) {
+                alert('この機能はAdobe Premiere Pro内でのみ使用できます。\n通常のブラウザではPNG書き出しをご利用ください。');
+                return;
+            }
+
+            // 選択解除してクリーンなレンダリング
+            exitEditMode();
+            selectedObjId = null;
+            selectedObjIds = [];
+
+            // セーフマージンを一時的に非表示
+            const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
+            const wasEnabled = safeMarginCheckbox.checked;
+            safeMarginCheckbox.checked = false;
+
+            // 背景透過でレンダリング
+            exportingTransparent = true;
+            render();
+
+            try {
+                // Node.js fsモジュールを使用
+                const fs = require('fs');
+                const path = require('path');
+                const os = require('os');
+
+                // 一時ファイルパスを生成
+                const tempDir = os.tmpdir();
+                const fileName = `telop_${Date.now()}.png`;
+                const filePath = path.join(tempDir, fileName);
+
+                // Canvas -> Base64 -> Buffer -> File
+                const dataUrl = canvas.toDataURL('image/png');
+                const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+
+                // ファイルに保存
+                fs.writeFileSync(filePath, buffer);
+                console.log('PNG saved to:', filePath);
+
+                // ExtendScriptでPremiereにインポート
+                const script = `TelopEditor.importImage("${filePath.replace(/\\/g, '/')}", "Telop Editor")`;
+                csInterface.evalScript(script, function(result) {
+                    try {
+                        const response = JSON.parse(result);
+                        if (response.success) {
+                            alert('タイムラインに追加しました。\nプロジェクトパネルの「Telop Editor」ビンにインポートされました。\n\nファイル: ' + fileName);
+                        } else {
+                            alert('インポートエラー: ' + (response.error || '不明なエラー'));
+                        }
+                    } catch (e) {
+                        // 非JSON応答の場合
+                        if (result && result.indexOf('success') !== -1) {
+                            alert('タイムラインに追加しました。');
+                        } else {
+                            alert('応答エラー: ' + result);
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error('addToTimeline error:', e);
+                alert('エラーが発生しました: ' + e.message + '\n\nPNG書き出しを使用してください。');
+            }
+
+            // 元に戻す
+            exportingTransparent = false;
+            safeMarginCheckbox.checked = wasEnabled;
+            render();
+        }
+
         // ========== アニメーション機能 ==========
 
         function updateAnimation() {
@@ -7973,7 +8050,7 @@
             // パネルリサイズ初期化（フォールバック）
             initPanelResize();
 
-            // CustomStyleManager初期化（style-manager.js読み込み後）
+            // CustomStyleManager初期化
             setTimeout(function() {
                 if (window.CustomStyleManager) {
                     initCustomStyleManager();
@@ -7982,7 +8059,483 @@
                 }
             }, 100);
         });
+
+        // ========== CustomStyleManager (インライン) ==========
+        /**
+         * Telop Editor - Custom Style Manager
+         * カスタムスタイル保存・管理機能
+         */
+        const CustomStyleManager = {
+            STORAGE_KEY: 'telop_editor_custom_styles',
+            styles: [],
+            stylesDir: null,
+
+            init() {
+                this.loadStyles();
+                this.setupUI();
+                console.log('CustomStyleManager initialized with', this.styles.length, 'styles');
+            },
+
+            setStylesDirectory(basePath) {
+                if (typeof require !== 'undefined') {
+                    try {
+                        const path = require('path');
+                        const fs = require('fs');
+                        this.stylesDir = path.join(basePath, 'styles');
+                        if (!fs.existsSync(this.stylesDir)) {
+                            fs.mkdirSync(this.stylesDir, { recursive: true });
+                        }
+                    } catch (e) {
+                        console.warn('Failed to set styles directory:', e);
+                        this.stylesDir = null;
+                    }
+                }
+            },
+
+            saveStyle(name, styleData) {
+                const id = 'style_' + Date.now();
+                const newStyle = {
+                    id: id,
+                    name: name,
+                    order: this.styles.length,
+                    savedAt: new Date().toISOString(),
+                    style: JSON.parse(JSON.stringify(styleData))
+                };
+                this.styles.push(newStyle);
+                this._persistStyles();
+                this.renderStyleList();
+                return { success: true, id: id, name: name };
+            },
+
+            extractStyleFromChar(charData) {
+                return {
+                    fontFamily: charData.fontFamily || 'Yu Gothic UI',
+                    fontSize: charData.fontSize || 72,
+                    bold: charData.bold !== false,
+                    italic: charData.italic || false,
+                    opacity: charData.opacity || 100,
+                    tracking: charData.tracking || 0,
+                    slant: charData.slant || 0,
+                    scaleX: charData.scaleX || 100,
+                    fillType: charData.fillType || 'solid',
+                    color: charData.color || '#ffffff',
+                    gradientAngle: charData.gradientAngle || 90,
+                    gradientStops: charData.gradientStops ?
+                        JSON.parse(JSON.stringify(charData.gradientStops)) :
+                        [{ color: '#ffffff', ratio: 50 }, { color: '#ffcc00', ratio: 50 }],
+                    strokes: charData.strokes ?
+                        JSON.parse(JSON.stringify(charData.strokes)) :
+                        [{ enabled: true, type: 'edge', color: '#000000', width: 4, opacity: 100, angle: 45, join: 'round' }],
+                    shadow: {
+                        enabled: charData.shadowEnabled || charData.shadow?.enabled || false,
+                        color: charData.shadowColor || charData.shadow?.color || '#000000',
+                        opacity: charData.shadowOpacity || charData.shadow?.opacity || 50,
+                        angle: charData.shadowAngle || charData.shadow?.angle || 45,
+                        distance: charData.shadowDistance || charData.shadow?.distance || 5,
+                        size: charData.shadowSize || charData.shadow?.size || 0,
+                        blur: charData.shadowBlur || charData.shadow?.blur || 5
+                    },
+                    gloss: {
+                        enabled: charData.glossEnabled || charData.gloss?.enabled || false,
+                        color: charData.glossColor || charData.gloss?.color || '#ffffff',
+                        opacity: charData.glossOpacity || charData.gloss?.opacity || 50,
+                        width: charData.glossWidth || charData.gloss?.width || 10,
+                        blur: charData.glossBlur || charData.gloss?.blur || 5
+                    }
+                };
+            },
+
+            applyStyleToChar(styleId, targetChar) {
+                const styleEntry = this.styles.find(s => s.id === styleId);
+                if (!styleEntry) return { success: false, error: 'スタイルが見つかりません' };
+                const style = styleEntry.style;
+                targetChar.fontFamily = style.fontFamily;
+                targetChar.fontSize = style.fontSize;
+                targetChar.bold = style.bold;
+                targetChar.italic = style.italic;
+                targetChar.opacity = style.opacity;
+                targetChar.tracking = style.tracking;
+                targetChar.slant = style.slant;
+                targetChar.scaleX = style.scaleX;
+                targetChar.fillType = style.fillType;
+                targetChar.color = style.color;
+                targetChar.gradientAngle = style.gradientAngle;
+                targetChar.gradientStops = JSON.parse(JSON.stringify(style.gradientStops));
+                targetChar.strokes = JSON.parse(JSON.stringify(style.strokes));
+                targetChar.shadowEnabled = style.shadow.enabled;
+                targetChar.shadowColor = style.shadow.color;
+                targetChar.shadowOpacity = style.shadow.opacity;
+                targetChar.shadowAngle = style.shadow.angle;
+                targetChar.shadowDistance = style.shadow.distance;
+                targetChar.shadowSize = style.shadow.size;
+                targetChar.shadowBlur = style.shadow.blur;
+                targetChar.glossEnabled = style.gloss.enabled;
+                targetChar.glossColor = style.gloss.color;
+                targetChar.glossOpacity = style.gloss.opacity;
+                targetChar.glossWidth = style.gloss.width;
+                targetChar.glossBlur = style.gloss.blur;
+                return { success: true };
+            },
+
+            deleteStyle(styleId) {
+                const index = this.styles.findIndex(s => s.id === styleId);
+                if (index === -1) return { success: false, error: 'スタイルが見つかりません' };
+                const deleted = this.styles.splice(index, 1)[0];
+                this.styles.forEach((s, i) => s.order = i);
+                this._persistStyles();
+                this.renderStyleList();
+                return { success: true, name: deleted.name };
+            },
+
+            renameStyle(styleId, newName) {
+                const style = this.styles.find(s => s.id === styleId);
+                if (!style) return { success: false, error: 'スタイルが見つかりません' };
+                style.name = newName;
+                this._persistStyles();
+                this.renderStyleList();
+                return { success: true };
+            },
+
+            reorderStyles(orderedIds) {
+                const reordered = [];
+                orderedIds.forEach((id, index) => {
+                    const style = this.styles.find(s => s.id === id);
+                    if (style) {
+                        style.order = index;
+                        reordered.push(style);
+                    }
+                });
+                this.styles = reordered;
+                this._persistStyles();
+            },
+
+            exportStyles(styleIds = []) {
+                const toExport = styleIds.length > 0
+                    ? this.styles.filter(s => styleIds.includes(s.id))
+                    : this.styles;
+                if (toExport.length === 0) {
+                    return { success: false, error: 'エクスポートするスタイルがありません' };
+                }
+                const data = {
+                    type: 'telop_custom_styles',
+                    version: '1.0',
+                    exportedAt: new Date().toISOString(),
+                    count: toExport.length,
+                    styles: toExport
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.download = `custom_styles_${Date.now()}.json`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                return { success: true, count: toExport.length };
+            },
+
+            importStyles(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (data.type !== 'telop_custom_styles') {
+                                reject(new Error('無効なスタイルファイルです'));
+                                return;
+                            }
+                            let importedCount = 0;
+                            data.styles.forEach(styleEntry => {
+                                const newId = 'style_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                styleEntry.id = newId;
+                                styleEntry.order = this.styles.length + importedCount;
+                                styleEntry.savedAt = new Date().toISOString();
+                                this.styles.push(styleEntry);
+                                importedCount++;
+                            });
+                            this._persistStyles();
+                            this.renderStyleList();
+                            resolve({ success: true, count: importedCount });
+                        } catch (err) {
+                            reject(err);
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+            },
+
+            loadStyles() {
+                if (this.stylesDir) {
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const stylesFile = path.join(this.stylesDir, 'custom-styles.json');
+                        if (fs.existsSync(stylesFile)) {
+                            const data = fs.readFileSync(stylesFile, 'utf8');
+                            const parsed = JSON.parse(data);
+                            this.styles = parsed.styles || [];
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('Failed to load styles from file:', e);
+                    }
+                }
+                try {
+                    const data = localStorage.getItem(this.STORAGE_KEY);
+                    if (data) {
+                        const parsed = JSON.parse(data);
+                        this.styles = parsed.styles || [];
+                    }
+                } catch (e) {
+                    console.error('Failed to load styles from localStorage:', e);
+                    this.styles = [];
+                }
+            },
+
+            _persistStyles() {
+                const data = {
+                    version: '1.0',
+                    savedAt: new Date().toISOString(),
+                    styles: this.styles
+                };
+                if (this.stylesDir) {
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const stylesFile = path.join(this.stylesDir, 'custom-styles.json');
+                        fs.writeFileSync(stylesFile, JSON.stringify(data, null, 2), 'utf8');
+                    } catch (e) {
+                        console.warn('Failed to save styles to file:', e);
+                    }
+                }
+                try {
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+                } catch (e) {
+                    console.error('Failed to save styles to localStorage:', e);
+                }
+            },
+
+            setupUI() {
+                const container = document.getElementById('customStylesContainer');
+                if (container) {
+                    this.renderStyleList();
+                }
+            },
+
+            renderStyleList() {
+                const list = document.getElementById('customStyleList');
+                if (!list) return;
+                list.innerHTML = '';
+                if (this.styles.length === 0) {
+                    list.innerHTML = '<div style="color:#888;font-size:10px;padding:8px;text-align:center;">保存されたスタイルはありません</div>';
+                    return;
+                }
+                list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;max-height:200px;overflow-y:auto;padding:4px;';
+                const sortedStyles = [...this.styles].sort((a, b) => a.order - b.order);
+                sortedStyles.forEach((styleEntry) => {
+                    const container = this._createStylePreview(styleEntry);
+                    list.appendChild(container);
+                });
+                this._enableDragAndDrop(list);
+            },
+
+            _createStylePreview(styleEntry) {
+                const container = document.createElement('div');
+                container.className = 'custom-style-item';
+                container.dataset.styleId = styleEntry.id;
+                container.draggable = true;
+                container.style.cssText = 'cursor:pointer;border:2px solid #444;border-radius:3px;overflow:hidden;transition:border-color 0.2s;position:relative;';
+                container.title = `${styleEntry.name}\nクリックで適用 | 右クリックでメニュー`;
+                container.onclick = () => this._onStyleClick(styleEntry.id);
+                container.onmouseenter = () => container.style.borderColor = '#0066cc';
+                container.onmouseleave = () => container.style.borderColor = '#444';
+                container.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    this._showContextMenu(e, styleEntry.id);
+                };
+                const canvas = document.createElement('canvas');
+                canvas.width = 80;
+                canvas.height = 60;
+                this._drawStylePreview(canvas, styleEntry.style);
+                container.appendChild(canvas);
+                const label = document.createElement('div');
+                label.style.cssText = 'background:#222;color:#ccc;font-size:8px;padding:2px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                label.textContent = styleEntry.name;
+                container.appendChild(label);
+                return container;
+            },
+
+            _drawStylePreview(canvas, style) {
+                const ctx = canvas.getContext('2d');
+                const checkerSize = 8;
+                for (let y = 0; y < canvas.height; y += checkerSize) {
+                    for (let x = 0; x < canvas.width; x += checkerSize) {
+                        ctx.fillStyle = ((x + y) / checkerSize) % 2 === 0 ? '#555' : '#777';
+                        ctx.fillRect(x, y, checkerSize, checkerSize);
+                    }
+                }
+                const fontStyle = (style.italic ? 'italic ' : '') + (style.bold ? 'bold ' : '');
+                const fontSize = Math.min(32, style.fontSize * 0.4);
+                ctx.font = `${fontStyle}${fontSize}px "${style.fontFamily}"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const x = canvas.width / 2;
+                const y = canvas.height / 2;
+                if (style.shadow && style.shadow.enabled) {
+                    const shadowAngle = (style.shadow.angle || 45) * Math.PI / 180;
+                    const shadowDist = Math.min(3, style.shadow.distance * 0.3);
+                    ctx.shadowColor = style.shadow.color;
+                    ctx.shadowBlur = Math.min(5, style.shadow.blur * 0.5);
+                    ctx.shadowOffsetX = Math.cos(shadowAngle) * shadowDist;
+                    ctx.shadowOffsetY = Math.sin(shadowAngle) * shadowDist;
+                }
+                if (style.strokes && style.strokes.length > 0) {
+                    const mainStroke = style.strokes[0];
+                    if (mainStroke && mainStroke.enabled) {
+                        ctx.strokeStyle = mainStroke.color;
+                        ctx.lineWidth = Math.min(4, mainStroke.width * 0.3);
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText('Aa', x, y);
+                    }
+                }
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                if (style.fillType === 'linear' || style.fillType === 'radial') {
+                    const grad = ctx.createLinearGradient(x - 20, y - 15, x + 20, y + 15);
+                    if (style.gradientStops && style.gradientStops.length >= 2) {
+                        let pos = 0;
+                        style.gradientStops.forEach(stop => {
+                            grad.addColorStop(Math.min(1, pos), stop.color);
+                            pos += (stop.ratio / 100);
+                        });
+                    }
+                    ctx.fillStyle = grad;
+                } else {
+                    ctx.fillStyle = style.color || '#ffffff';
+                }
+                ctx.fillText('Aa', x, y);
+                if (style.gloss && style.gloss.enabled) {
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillStyle = style.gloss.color || '#ffffff';
+                    ctx.fillRect(x - 15, y - fontSize / 2, 30, fontSize / 3);
+                    ctx.globalAlpha = 1;
+                }
+            },
+
+            _onStyleClick(styleId) {
+                if (typeof applyCustomStyle === 'function') {
+                    applyCustomStyle(styleId);
+                }
+            },
+
+            _showContextMenu(e, styleId) {
+                const existing = document.getElementById('customStyleContextMenu');
+                if (existing) existing.remove();
+                const menu = document.createElement('div');
+                menu.id = 'customStyleContextMenu';
+                menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:#2a2a2a;border:1px solid #555;border-radius:4px;padding:4px 0;z-index:10001;box-shadow:0 2px 10px rgba(0,0,0,0.5);min-width:120px;`;
+                const menuItems = [
+                    { label: '適用', action: () => this._onStyleClick(styleId) },
+                    { label: '名前を変更', action: () => this._promptRename(styleId) },
+                    { label: 'エクスポート', action: () => this.exportStyles([styleId]) },
+                    { label: '---' },
+                    { label: '削除', action: () => this._confirmDelete(styleId), danger: true }
+                ];
+                menuItems.forEach(item => {
+                    if (item.label === '---') {
+                        const hr = document.createElement('div');
+                        hr.style.cssText = 'height:1px;background:#555;margin:4px 0;';
+                        menu.appendChild(hr);
+                    } else {
+                        const menuItem = document.createElement('div');
+                        menuItem.style.cssText = `padding:6px 12px;cursor:pointer;font-size:11px;color:${item.danger ? '#ff6b6b' : '#e0e0e0'};`;
+                        menuItem.textContent = item.label;
+                        menuItem.onmouseenter = () => menuItem.style.background = '#3a3a3a';
+                        menuItem.onmouseleave = () => menuItem.style.background = 'transparent';
+                        menuItem.onclick = () => { menu.remove(); item.action(); };
+                        menu.appendChild(menuItem);
+                    }
+                });
+                document.body.appendChild(menu);
+                const closeMenu = (ev) => {
+                    if (!menu.contains(ev.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    }
+                };
+                setTimeout(() => document.addEventListener('click', closeMenu), 10);
+            },
+
+            _promptRename(styleId) {
+                const style = this.styles.find(s => s.id === styleId);
+                if (!style) return;
+                const newName = prompt('新しいスタイル名を入力:', style.name);
+                if (newName && newName.trim()) {
+                    this.renameStyle(styleId, newName.trim());
+                }
+            },
+
+            _confirmDelete(styleId) {
+                const style = this.styles.find(s => s.id === styleId);
+                if (!style) return;
+                if (confirm(`スタイル「${style.name}」を削除しますか？`)) {
+                    this.deleteStyle(styleId);
+                }
+            },
+
+            _enableDragAndDrop(list) {
+                let draggedItem = null;
+                list.querySelectorAll('.custom-style-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        draggedItem = item;
+                        item.style.opacity = '0.5';
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                    item.addEventListener('dragend', () => {
+                        if (draggedItem) {
+                            draggedItem.style.opacity = '1';
+                            draggedItem = null;
+                        }
+                    });
+                    item.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                    });
+                    item.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        if (draggedItem && draggedItem !== item) {
+                            const allItems = [...list.querySelectorAll('.custom-style-item')];
+                            const draggedIndex = allItems.indexOf(draggedItem);
+                            const targetIndex = allItems.indexOf(item);
+                            if (draggedIndex < targetIndex) {
+                                item.parentNode.insertBefore(draggedItem, item.nextSibling);
+                            } else {
+                                item.parentNode.insertBefore(draggedItem, item);
+                            }
+                            const newOrder = [...list.querySelectorAll('.custom-style-item')].map(el => el.dataset.styleId);
+                            this.reorderStyles(newOrder);
+                        }
+                    });
+                });
+            },
+
+            getStyles() {
+                return [...this.styles].sort((a, b) => a.order - b.order);
+            },
+
+            getStyle(styleId) {
+                return this.styles.find(s => s.id === styleId);
+            }
+        };
+
+        // グローバルに公開
+        window.CustomStyleManager = CustomStyleManager;
+
+        // 即時初期化
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            initCustomStyleManager();
+        } else {
+            document.addEventListener('DOMContentLoaded', initCustomStyleManager);
+        }
     </script>
-    <script src="style-manager.js" onload="initCustomStyleManager()"></script>
 </body>
 </html>
