@@ -917,11 +917,28 @@
             log('loadSystemFonts() started');
             let fonts = [];
 
-            // CEP環境の場合: ExtendScriptから取得
+            // CEP環境の場合: ファイルシステムから直接読み込み（優先）
             if (isInCEP()) {
                 log('CEP environment detected');
-                if (typeof csInterface !== 'undefined') {
-                    log('csInterface available, calling TelopEditor.getSystemFonts()');
+
+                // Node.js fsモジュールでフォントファイルを直接読み込み
+                if (typeof loadSystemFontsFromFilesystem === 'function') {
+                    log('Trying loadSystemFontsFromFilesystem()');
+                    try {
+                        fonts = loadSystemFontsFromFilesystem();
+                        if (fonts && fonts.length > 0) {
+                            log('Loaded ' + fonts.length + ' fonts from filesystem');
+                        } else {
+                            log('No fonts loaded from filesystem', 'warn');
+                        }
+                    } catch(e) {
+                        log('Failed to load fonts from filesystem: ' + e.message, 'error');
+                    }
+                }
+
+                // フォールバック: ExtendScriptから取得
+                if (fonts.length === 0 && typeof csInterface !== 'undefined') {
+                    log('Fallback to ExtendScript: calling TelopEditor.getSystemFonts()');
                     try {
                         const result = await new Promise((resolve) => {
                             csInterface.evalScript('TelopEditor.getSystemFonts()', resolve);
@@ -931,15 +948,13 @@
                         log('Parsed result: ' + JSON.stringify(parsed));
                         if (parsed.success && parsed.fonts) {
                             fonts = parsed.fonts;
-                            log('Loaded ' + fonts.length + ' fonts from Premiere Pro');
+                            log('Loaded ' + fonts.length + ' fonts from ExtendScript');
                         } else {
                             log('ExtendScript returned no fonts or failed: ' + (parsed.error || 'unknown'), 'warn');
                         }
                     } catch(e) {
-                        log('Failed to load fonts from Premiere Pro: ' + e.message, 'error');
+                        log('Failed to load fonts from ExtendScript: ' + e.message, 'error');
                     }
-                } else {
-                    log('csInterface is undefined in CEP mode!', 'error');
                 }
             } else {
                 log('Not in CEP environment (standalone mode)');

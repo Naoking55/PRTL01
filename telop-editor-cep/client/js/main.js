@@ -308,6 +308,95 @@ function showNotification(message, type) {
 }
 
 /**
+ * システムフォントをファイルシステムから直接読み込む（Node.js使用）
+ * @returns {Array} フォント名の配列
+ */
+function loadSystemFontsFromFilesystem() {
+    debugLog('loadSystemFontsFromFilesystem() called', 'info');
+
+    try {
+        var fs = require('fs');
+        var path = require('path');
+        var fonts = [];
+        var fontDirs = [];
+
+        // OSに応じてフォントディレクトリを設定
+        var platform = navigator.platform.toLowerCase();
+        debugLog('Platform detected: ' + platform, 'info');
+
+        if (platform.indexOf('mac') !== -1) {
+            // macOS
+            fontDirs = [
+                '/Library/Fonts',
+                '/System/Library/Fonts',
+                path.join(process.env.HOME, 'Library/Fonts')
+            ];
+        } else if (platform.indexOf('win') !== -1) {
+            // Windows
+            var windir = process.env.WINDIR || 'C:\\Windows';
+            fontDirs = [
+                path.join(windir, 'Fonts'),
+                path.join(process.env.LOCALAPPDATA || '', 'Microsoft\\Windows\\Fonts')
+            ];
+        } else {
+            // Linux
+            fontDirs = [
+                '/usr/share/fonts',
+                '/usr/local/share/fonts',
+                path.join(process.env.HOME, '.fonts')
+            ];
+        }
+
+        debugLog('Font directories: ' + fontDirs.join(', '), 'info');
+
+        // フォントファイル拡張子
+        var fontExtensions = ['.ttf', '.otf', '.ttc', '.dfont'];
+
+        // 各ディレクトリからフォントを読み込み
+        fontDirs.forEach(function(dir) {
+            try {
+                if (fs.existsSync(dir)) {
+                    debugLog('Scanning directory: ' + dir, 'info');
+                    var files = fs.readdirSync(dir);
+                    var fontCount = 0;
+
+                    files.forEach(function(file) {
+                        var ext = path.extname(file).toLowerCase();
+                        if (fontExtensions.indexOf(ext) !== -1) {
+                            // 拡張子を除いたファイル名をフォント名とする
+                            var fontName = path.basename(file, ext);
+
+                            // ハイフンやアンダースコアをスペースに変換
+                            fontName = fontName.replace(/[-_]/g, ' ');
+
+                            // 重複を避けるため追加
+                            if (fonts.indexOf(fontName) === -1) {
+                                fonts.push(fontName);
+                                fontCount++;
+                            }
+                        }
+                    });
+
+                    debugLog('Found ' + fontCount + ' fonts in ' + dir, 'info');
+                } else {
+                    debugLog('Directory not found: ' + dir, 'warn');
+                }
+            } catch (e) {
+                debugLog('Error reading directory ' + dir + ': ' + e.message, 'warn');
+            }
+        });
+
+        fonts.sort();
+        debugLog('Total unique fonts found: ' + fonts.length, 'info');
+        return fonts;
+
+    } catch (e) {
+        debugLog('Error in loadSystemFontsFromFilesystem: ' + e.message, 'error');
+        return [];
+    }
+}
+
+/**
  * UIボタンを追加
  */
 function addCEPButtons() {
