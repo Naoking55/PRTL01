@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest
+	Version="7.0"
+	ExtensionBundleId="tv.misterhorse.premierecomposer"
+	ExtensionBundleVersion="1.4.2"
+	ExtensionBundleName="Premiere Composer"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+	<ExtensionList>
+		<Extension Id="tv.misterhorse.premierecomposer.browser" Version="1.4.2" />
+	</ExtensionList>
+	<ExecutionEnvironment>
+		<HostList>
+			<Host Name="PPRO" Version="13.1" />
+		</HostList>
+		<LocaleList>
+			<Locale Code="All" />
+		</LocaleList>
+		<RequiredRuntimeList>
+			<RequiredRuntime Name="CSXS" Version="7.0" />
+		</RequiredRuntimeList>
+	</ExecutionEnvironment>
+
+	<DispatchInfoList>
+		<Extension Id="tv.misterhorse.premierecomposer.browser">
+			<DispatchInfo >
+				<Resources>
+					<MainPath>./client/browser.html</MainPath>
+					<ScriptPath>./host/loader_mhac.jsx</ScriptPath>
+					<CEFCommandLine>
+						<Parameter>--enable-nodejs</Parameter>
+						<Parameter>--allow-file-access</Parameter>
+						<Parameter>--allow-file-access-from-files</Parameter>
+					</CEFCommandLine>
+				</Resources>
+				<Lifecycle>
+					<AutoVisible>true</AutoVisible>
+				</Lifecycle>
+				<UI>
+					<Type>Panel</Type>
+					<Menu>Premiere Composer</Menu>
+					<Geometry>
+						<Size>
+							<Height>600</Height>
+							<Width>500</Width>
+						</Size>
+					</Geometry>
+				</UI>
+			</DispatchInfo>
+		</Extension>
+	</DispatchInfoList>
+</ExtensionManifest>
