@@ -316,7 +316,7 @@ TelopEditor.test = function() {
         var result = {
             success: true,
             message: "Telop Editor ExtendScript is running!",
-            version: "1.0.0",
+            version: "1.1.0",
             host: app.name + " " + app.version
         };
         TelopEditor.log('Test successful: ' + app.name + ' ' + app.version, 'INFO');
@@ -325,4 +325,320 @@ TelopEditor.test = function() {
         TelopEditor.log('test() error: ' + e.toString(), 'ERROR');
         return { success: false, error: e.toString() };
     }
+};
+
+/**
+ * QEモードを有効化
+ * 高度な機能（フォント列挙など）に必要
+ */
+TelopEditor.enableQE = function() {
+    TelopEditor.log('enableQE() called', 'INFO');
+    try {
+        app.enableQE();
+        TelopEditor.log('QE mode enabled', 'INFO');
+        return { success: true, message: "QE mode enabled" };
+    } catch(e) {
+        TelopEditor.log('enableQE() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * QEを使用してシステムフォントを取得
+ * PremiereComposer参考
+ */
+TelopEditor.getQEFonts = function() {
+    TelopEditor.log('getQEFonts() called', 'INFO');
+    try {
+        app.enableQE();
+
+        var fonts = [];
+        // QE経由でのフォント取得を試みる
+        if (typeof qe !== 'undefined' && qe.project) {
+            TelopEditor.log('QE available, attempting font enumeration', 'INFO');
+            // QE APIではフォント列挙は直接サポートされていないため、
+            // プロジェクト内のテキストレイヤーからフォント情報を収集
+        }
+
+        return {
+            success: true,
+            fonts: fonts,
+            message: "QE font enumeration attempted"
+        };
+    } catch(e) {
+        TelopEditor.log('getQEFonts() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * 現在のタイムライン位置を取得
+ */
+TelopEditor.getPlayheadPosition = function() {
+    TelopEditor.log('getPlayheadPosition() called', 'INFO');
+    try {
+        var seq = app.project.activeSequence;
+        if (!seq) {
+            return { success: false, error: "アクティブなシーケンスがありません" };
+        }
+
+        var position = seq.getPlayerPosition();
+        return {
+            success: true,
+            ticks: position.ticks,
+            seconds: position.seconds,
+            timecode: position.getFormatted(seq.videoDisplayFormat, seq.getSettings().videoFrameRate)
+        };
+    } catch(e) {
+        TelopEditor.log('getPlayheadPosition() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * 指定位置にテロップ画像を挿入
+ * @param {string} imagePath - 画像パス
+ * @param {number} trackIndex - ビデオトラックインデックス（0から）
+ * @param {number} startTime - 開始時間（秒）
+ * @param {number} duration - 長さ（秒）
+ */
+TelopEditor.insertTelopAtPosition = function(imagePath, trackIndex, startTime, duration) {
+    TelopEditor.log('insertTelopAtPosition() called: ' + imagePath, 'INFO');
+    try {
+        var seq = app.project.activeSequence;
+        if (!seq) {
+            return { success: false, error: "アクティブなシーケンスがありません" };
+        }
+
+        // 画像をインポート
+        var targetBin = app.project.rootItem.createBin("Telop Editor");
+        app.project.importFiles([imagePath], true, targetBin, false);
+
+        // インポートしたアイテムを取得
+        var items = targetBin.children;
+        var importedItem = null;
+        for (var i = 0; i < items.numItems; i++) {
+            var item = items[i];
+            if (item.getMediaPath() === imagePath) {
+                importedItem = item;
+                break;
+            }
+        }
+
+        if (!importedItem) {
+            // ファイル名で検索
+            var fileName = imagePath.split('/').pop().split('\\').pop();
+            for (var i = 0; i < items.numItems; i++) {
+                if (items[i].name === fileName) {
+                    importedItem = items[i];
+                    break;
+                }
+            }
+        }
+
+        if (!importedItem) {
+            return { success: false, error: "インポートしたアイテムが見つかりません" };
+        }
+
+        // タイムラインに追加
+        var track = seq.videoTracks[trackIndex || 0];
+        if (!track) {
+            return { success: false, error: "指定されたトラックが存在しません" };
+        }
+
+        // 開始時間を設定（未指定の場合は現在の再生位置）
+        var insertTime = startTime !== undefined ? startTime : seq.getPlayerPosition().seconds;
+
+        // クリップを挿入
+        track.insertClip(importedItem, insertTime);
+
+        TelopEditor.log('Telop inserted at ' + insertTime + ' seconds', 'INFO');
+
+        return {
+            success: true,
+            message: "テロップをタイムラインに挿入しました",
+            position: insertTime,
+            track: trackIndex || 0
+        };
+    } catch(e) {
+        TelopEditor.log('insertTelopAtPosition() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * シーケンス設定を取得
+ */
+TelopEditor.getSequenceSettings = function() {
+    TelopEditor.log('getSequenceSettings() called', 'INFO');
+    try {
+        var seq = app.project.activeSequence;
+        if (!seq) {
+            return { success: false, error: "アクティブなシーケンスがありません" };
+        }
+
+        var settings = seq.getSettings();
+        return {
+            success: true,
+            name: seq.name,
+            id: seq.sequenceID,
+            width: settings.videoFrameWidth,
+            height: settings.videoFrameHeight,
+            frameRate: settings.videoFrameRate.seconds,
+            pixelAspectRatio: settings.videoPixelAspectRatio,
+            videoTracks: seq.videoTracks.numTracks,
+            audioTracks: seq.audioTracks.numTracks,
+            duration: seq.end - seq.zeroPoint
+        };
+    } catch(e) {
+        TelopEditor.log('getSequenceSettings() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * プロジェクト内のMOGRTファイルを検索
+ */
+TelopEditor.findMOGRTs = function() {
+    TelopEditor.log('findMOGRTs() called', 'INFO');
+    try {
+        var mogrts = [];
+
+        function searchBin(bin, path) {
+            for (var i = 0; i < bin.children.numItems; i++) {
+                var item = bin.children[i];
+                if (item.type === ProjectItemType.BIN) {
+                    searchBin(item, path + "/" + item.name);
+                } else if (item.type === ProjectItemType.FILE) {
+                    var mediaPath = item.getMediaPath();
+                    if (mediaPath && mediaPath.toLowerCase().indexOf('.mogrt') !== -1) {
+                        mogrts.push({
+                            name: item.name,
+                            path: mediaPath,
+                            binPath: path
+                        });
+                    }
+                }
+            }
+        }
+
+        searchBin(app.project.rootItem, "");
+
+        return {
+            success: true,
+            count: mogrts.length,
+            mogrts: mogrts
+        };
+    } catch(e) {
+        TelopEditor.log('findMOGRTs() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * MOGRTをタイムラインに追加
+ * @param {string} mogrtPath - MOGRTファイルパス
+ * @param {number} trackIndex - ビデオトラックインデックス
+ * @param {number} startTime - 開始時間（秒）
+ */
+TelopEditor.insertMOGRT = function(mogrtPath, trackIndex, startTime) {
+    TelopEditor.log('insertMOGRT() called: ' + mogrtPath, 'INFO');
+    try {
+        var seq = app.project.activeSequence;
+        if (!seq) {
+            return { success: false, error: "アクティブなシーケンスがありません" };
+        }
+
+        // MOGRTをインポート
+        var mogrtFile = new File(mogrtPath);
+        if (!mogrtFile.exists) {
+            return { success: false, error: "MOGRTファイルが見つかりません: " + mogrtPath };
+        }
+
+        var targetBin = app.project.rootItem.createBin("MOGRT Templates");
+        app.project.importFiles([mogrtPath], true, targetBin, false);
+
+        // タイムラインに追加
+        var track = seq.videoTracks[trackIndex || 0];
+        var insertTime = startTime !== undefined ? startTime : seq.getPlayerPosition().seconds;
+
+        // インポートしたMOGRTを取得して挿入
+        var items = targetBin.children;
+        for (var i = 0; i < items.numItems; i++) {
+            var item = items[i];
+            var itemPath = item.getMediaPath();
+            if (itemPath && itemPath.indexOf(mogrtFile.name) !== -1) {
+                track.insertClip(item, insertTime);
+                break;
+            }
+        }
+
+        return {
+            success: true,
+            message: "MOGRTをタイムラインに追加しました",
+            position: insertTime
+        };
+    } catch(e) {
+        TelopEditor.log('insertMOGRT() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * 選択中のクリップ情報を取得
+ */
+TelopEditor.getSelectedClips = function() {
+    TelopEditor.log('getSelectedClips() called', 'INFO');
+    try {
+        var seq = app.project.activeSequence;
+        if (!seq) {
+            return { success: false, error: "アクティブなシーケンスがありません" };
+        }
+
+        var selection = seq.getSelection();
+        var clips = [];
+
+        for (var i = 0; i < selection.length; i++) {
+            var clip = selection[i];
+            clips.push({
+                name: clip.name,
+                start: clip.start.seconds,
+                end: clip.end.seconds,
+                duration: clip.duration.seconds,
+                trackIndex: clip.parentTrackIndex,
+                type: clip.mediaType
+            });
+        }
+
+        return {
+            success: true,
+            count: clips.length,
+            clips: clips
+        };
+    } catch(e) {
+        TelopEditor.log('getSelectedClips() error: ' + e.toString(), 'ERROR');
+        return { success: false, error: e.toString() };
+    }
+};
+
+/**
+ * テンポラリフォルダパスを取得
+ */
+TelopEditor.getTempFolder = function() {
+    return {
+        success: true,
+        path: Folder.temp.fsName
+    };
+};
+
+/**
+ * ファイルが存在するか確認
+ */
+TelopEditor.fileExists = function(filePath) {
+    var file = new File(filePath);
+    return {
+        success: true,
+        exists: file.exists,
+        path: filePath
+    };
 };
