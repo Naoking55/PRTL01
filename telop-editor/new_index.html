@@ -212,6 +212,18 @@
                 <div id="prslStyleList" style="max-height:120px;overflow-y:auto;margin-top:5px;"></div>
             </div>
 
+            <h3 class="collapsible" onclick="toggleCollapse(this)">カスタムスタイル</h3>
+            <div class="collapse-content" id="customStylesContainer">
+                <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="saveNewCustomStyle()">新規保存</button>
+                    <button class="btn btn-secondary btn-small" onclick="exportAllCustomStyles()">エクスポート</button>
+                    <button class="btn btn-secondary btn-small" onclick="importCustomStyles()">インポート</button>
+                    <input type="file" id="customStyleImportInput" accept=".json" style="display:none" onchange="handleCustomStyleImport(event)">
+                </div>
+                <div id="customStyleStatus" style="font-size:10px;color:#888;margin-top:3px;"></div>
+                <div id="customStyleList"></div>
+            </div>
+
             <h3>出力</h3>
             <div style="margin-bottom:6px;">
                 <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
@@ -7573,9 +7585,182 @@
             });
         }
 
+        // ========== カスタムスタイル管理 ==========
+
+        /**
+         * 新規カスタムスタイルを保存
+         */
+        function saveNewCustomStyle() {
+            const statusEl = document.getElementById('customStyleStatus');
+
+            // 選択中のテキストオブジェクトを取得
+            if (!selectedObjId) {
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
+                return;
+            }
+
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'text' || !obj.chars || obj.chars.length === 0) {
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
+                return;
+            }
+
+            // 複数選択時は左端の文字を取得（X座標が最小の文字）
+            let targetChar = obj.chars[0];
+            if (obj.chars.length > 1) {
+                // 選択された文字インデックスがある場合はそれを使用
+                if (typeof selectedCharIndices !== 'undefined' && selectedCharIndices.length > 0) {
+                    // 選択された文字の中で最も左にあるもの
+                    const selectedChars = selectedCharIndices.map(i => obj.chars[i]).filter(c => c);
+                    if (selectedChars.length > 0) {
+                        targetChar = selectedChars[0]; // 配列の最初（左端）
+                    }
+                }
+            }
+
+            // スタイル名を入力
+            const styleName = prompt('スタイル名を入力してください:', '新しいスタイル');
+            if (!styleName || !styleName.trim()) {
+                return; // キャンセル
+            }
+
+            // スタイルを抽出して保存
+            if (typeof CustomStyleManager !== 'undefined') {
+                const styleData = CustomStyleManager.extractStyleFromChar(targetChar);
+                const result = CustomStyleManager.saveStyle(styleName.trim(), styleData);
+
+                if (result.success) {
+                    if (statusEl) statusEl.textContent = `スタイル「${result.name}」を保存しました`;
+                } else {
+                    if (statusEl) statusEl.textContent = 'スタイルの保存に失敗しました';
+                }
+            } else {
+                if (statusEl) statusEl.textContent = 'CustomStyleManagerが読み込まれていません';
+            }
+        }
+
+        /**
+         * カスタムスタイルを適用
+         * @param {string} styleId - スタイルID
+         */
+        function applyCustomStyle(styleId) {
+            const statusEl = document.getElementById('customStyleStatus');
+
+            if (!selectedObjId) {
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
+                return;
+            }
+
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj || obj.type !== 'text') {
+                if (statusEl) statusEl.textContent = 'テキストオブジェクトを選択してください';
+                return;
+            }
+
+            if (typeof CustomStyleManager === 'undefined') {
+                if (statusEl) statusEl.textContent = 'CustomStyleManagerが読み込まれていません';
+                return;
+            }
+
+            const styleEntry = CustomStyleManager.getStyle(styleId);
+            if (!styleEntry) {
+                if (statusEl) statusEl.textContent = 'スタイルが見つかりません';
+                return;
+            }
+
+            saveState(); // Undo用
+
+            // 全文字にスタイルを適用
+            obj.chars.forEach(c => {
+                CustomStyleManager.applyStyleToChar(styleId, c);
+            });
+
+            render();
+            updateLayerProps();
+
+            if (statusEl) statusEl.textContent = `スタイル「${styleEntry.name}」を適用しました`;
+        }
+
+        /**
+         * 全カスタムスタイルをエクスポート
+         */
+        function exportAllCustomStyles() {
+            const statusEl = document.getElementById('customStyleStatus');
+
+            if (typeof CustomStyleManager !== 'undefined') {
+                const result = CustomStyleManager.exportStyles();
+                if (result.success) {
+                    if (statusEl) statusEl.textContent = `${result.count}個のスタイルをエクスポートしました`;
+                } else {
+                    if (statusEl) statusEl.textContent = result.error || 'エクスポートに失敗しました';
+                }
+            }
+        }
+
+        /**
+         * カスタムスタイルをインポート
+         */
+        function importCustomStyles() {
+            document.getElementById('customStyleImportInput').click();
+        }
+
+        /**
+         * カスタムスタイルインポートのハンドラ
+         * @param {Event} e - イベント
+         */
+        function handleCustomStyleImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('customStyleStatus');
+
+            if (typeof CustomStyleManager !== 'undefined') {
+                CustomStyleManager.importStyles(file)
+                    .then(result => {
+                        if (statusEl) statusEl.textContent = `${result.count}個のスタイルをインポートしました`;
+                    })
+                    .catch(err => {
+                        if (statusEl) statusEl.textContent = 'インポートエラー: ' + err.message;
+                    });
+            }
+
+            e.target.value = ''; // リセット
+        }
+
+        /**
+         * CustomStyleManagerの初期化
+         */
+        function initCustomStyleManager() {
+            if (typeof CustomStyleManager !== 'undefined') {
+                // CEP環境の場合、スタイルディレクトリを設定
+                if (typeof csInterface !== 'undefined' && csInterface) {
+                    const basePath = csInterface.getSystemPath(SystemPath.EXTENSION);
+                    CustomStyleManager.setStylesDirectory(basePath);
+                }
+
+                CustomStyleManager.init();
+            }
+        }
+
         // 初期化
         initCanvases();
         render();
+
+        // CustomStyleManagerの初期化（DOMContentLoaded後）
+        document.addEventListener('DOMContentLoaded', function() {
+            // style-manager.jsが読み込まれているか確認
+            if (typeof CustomStyleManager !== 'undefined') {
+                initCustomStyleManager();
+            }
+        });
+
+        // フォールバック: window.onload
+        window.addEventListener('load', function() {
+            if (typeof CustomStyleManager !== 'undefined') {
+                initCustomStyleManager();
+            }
+        });
     </script>
+    <script src="style-manager.js"></script>
 </body>
 </html>
