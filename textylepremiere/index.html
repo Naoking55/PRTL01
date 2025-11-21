@@ -1,0 +1,231 @@
+<html>
+
+<head>
+
+    <script>
+        if (typeof module === 'object') {
+            window.module = module;
+            module = undefined;
+        }
+    </script>
+    <script>
+        if (typeof exports === 'object') {
+            window.exports = exports;
+            exports = undefined;
+        }
+    </script>
+
+    <link rel="stylesheet" href="css/Main.css" type="text/css" />
+
+
+</head>
+
+
+<body>
+    <Header style="display: none;">
+
+        <div class="SelectText">
+            <div>Selected Text Layer</div>
+
+            <div class="blueLine"></div>
+        </div>
+        <div class="NewText">
+            <div>Create New Text</div>
+
+            <div class="blueLine"></div>
+        </div>
+
+
+    </Header>
+
+    <Main style="display: none;">
+        <center>
+            <div class="setText">
+                <textarea id="Text"></textarea>
+                <div class="left">Text Duration <input id="timeDuration" type="number" maxlength="2" min="1" max="99"
+                        value="5">
+                    <div style="opacity: 0.4;display: inline;margin-left: 0px;">Seconds</div>
+                </div>
+                <div class="right">Animation Time <input id="Marker" type="number" maxlength="2" min="1" max="99"
+                        value="1">
+                    <div style="opacity: 0.4;display: inline;margin-left: 0px;">Seconds</div>
+                </div>
+            </div>
+        </center>
+    </Main>
+
+    <Header>
+        <div class="SelectCH_left">
+            <input type="checkbox" id="CB_AnimationIn" checked="true">
+            <div class="CH_txt">Animation In</div>
+
+        </div>
+        <div class="char">
+            <select id="comboIN">
+                <option value="Characters">To Characters</option>
+                <option value="Words">To Words</option>
+            </select>
+        </div>
+        <div class="SelectCH_right">
+            <input type="checkbox" id="CB_AnimationOut" checked="true">
+            <div class="CH_txt">Animation Out</div>
+
+        </div>
+    </Header>
+    <Main class="formAll">
+        <div style="">
+
+            <div class="setText" id="gif_left">
+                <img id="Fav_IN" class="Fav_IN" Like="" src="./img/like.png">
+                <img id="left_Gif" src="./Presets/1- Simple/IN/Characters/Easy Fade.gif">
+                <div id="left_Gif_Off"
+                    style="display:none;background-color: #1c1c1c;width: 100%;height: 115%;border-radius: 5px;"></div>
+            </div>
+
+            <div class="setText" id="gif_right">
+                <img id="Fav_Out" class="Fav_Out" Like="" src="./img/like.png">
+                <img id="right_Gif" src="./Presets/1- Simple/OUT/Characters/Easy Fade.gif">
+                <div id="right_Gif_Off"
+                    style="display:none;background-color: #1c1c1c;width: 100%;height: 115%;border-radius: 5px;"></div>
+
+            </div>
+        </div>
+<div>
+    <div class="left-footer">
+        <div class="left">
+            <div class="Favs"><img id="Favs_IN" src="./img/like.png"></div>
+            <div class="imgBtnIn" id="1- Simple" title="Simple" style="opacity:1;border:white 1px solid;"><img
+                    src="./img/opacity.png" width="24" height="24"></div>
+            <div class="imgBtnIn" id="2- Modern" title="Modern"><img src="./img/magic-wand.png" width="24"
+                    height="24"></div>
+            <div class="imgBtnIn" id="3- Around" title="Around"><img src="./img/shuffle.png" width="24" height="24">
+            </div>
+            <div class="imgBtnIn" id="4- Elastic" title="Elastic"><img src="./img/speed.png" width="24" height="24">
+            </div>
+            <div class="imgBtnIn" id="5- Funny" title="Funny"><img src="./img/Funny.png" width="24" height="24">
+            </div>
+        </div>
+        <div class="disable"></div>
+        <div class="right">
+            <select name="sometext" id="InList" size="5">
+                <option selected>IN</option>
+                <option>text2</option>
+                <option>text3</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text5</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="right-footer">
+        <div class="left">
+
+            <div class="Favs"><img id="Favs_Out" src="./img/like.png"></div>
+            <div class="imgBtnOut" id="1- Simple" title="Simple" style="opacity:1;border:white 1px solid;"><img
+                    src="./img/opacity.png" width="24" height="24"></div>
+            <div class="imgBtnOut" id="2- Modern" title="Modern"><img src="./img/magic-wand.png" width="24"
+                    height="24"></div>
+            <div class="imgBtnOut" id="3- Around" title="Around"><img src="./img/shuffle.png" width="24"
+                    height="24"></div>
+            <div class="imgBtnOut" id="4- Elastic" title="Elastic"><img src="./img/speed.png" width="24"
+                    height="24"></div>
+            <div class="imgBtnOut" id="5- Funny" title="Funny"><img src="./img/Funny.png" width="24" height="24">
+            </div>
+        </div>
+        <div class="disable"></div>
+        <div class="right">
+            <select name="sometext" id="OutList" size="5">
+                <option selected>Out</option>
+                <option>text2</option>
+                <option>text3</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text4</option>
+                <option>text5</option>
+            </select>
+        </div>
+    </div>
+
+</div>
+
+    </Main>
+    <Header style="height: 30px;">
+        <div class="SelectStyleCH">
+            <input type="checkbox" id="CB_StyleEffects">
+            <div class="CH_txt">Style Effects</div>
+
+        </div>
+    </Header>
+    <article class="Style">
+
+        <div class="Style-footer">
+            <div class="left">
+                <!-- <div class="Favs"><img id="Favs_IN" src="./img/like.png"></div> -->
+                <div class="imgBtnStyle" nameStyle="Cooly,Dotted Cartoon,Graphite,Green Life,Kind,Lolly,zChild,zCooky" id="Cartoon" title="Cartoon" style="opacity:1;border:white 1px solid;"><img src="./img/Cartoon.png" width="24" height="24"></div>
+                <div class="imgBtnStyle" nameStyle="Crash Gold Stone,Dark,Dirty Pattern,Hard Metal,Jungle,Peat,Vintage" id="Cinematic" title="Cinematic"><img src="./img/Cinematic.png" width="24"height="24"></div>
+                <div class="imgBtnStyle" nameStyle="Candy,Colorful Glossy,Great,Multi step 2,Multi step,Past,Pattern Text,Pizza,Polka Dots,Random Cuts,Safety,Spot,Sugary,Topo Patern" id="Modern" title="Modern"><img src="./img/Modern.png" width="24" height="24"></div>
+                <div class="imgBtnStyle" nameStyle="Caramel,Oil,Simple depth 2,Simple depth,Soft Lights" id="Simple" title="Simple"><img src="./img/Simple.png" width="24" height="24">
+                </div>
+            </div>
+            <div class="disable"></div>
+            <div class="right">
+                <select name="sometext" id="StyleList" size="5" disabled="disabled">
+                    
+                </select>
+            </div>
+        </div>
+
+        <div class="setText">
+            <img id="Fav_Style" class="Fav_Out" Like="" src="./img/like.png">
+            <img id="Style_Gif" src="./Presets/X- Style/Cartoon/Cooly.jpg">
+            <div id="Style_Gif_Off"
+                style="display:none;background-color: #1c1c1c;width: 100%;height: 115%;border-radius: 5px;"></div>
+            <!-- <img id="Fav_Style" src="./img/like.png"> -->
+        </div>
+
+
+    </article>
+    <div class="btnsFooter">
+        <!-- <div class="SelectOrginal">
+            <input type="checkbox" id="CB_Orginal" checked="true">
+            <div class="CH_txt">Keep Orginal</div>
+        </div> -->
+
+<!-- 
+        <div class="SelectIntro">
+            <input type="checkbox" id="CB_Intro">
+            <div class="CH_txt">Time Protected Region</div>
+        </div> -->
+
+
+        <div class="Apply"><span>Apply / Create</span></div>
+        <br />
+        <div class="MOGRT"><span>MOGRT / MOGRT</span></div>
+
+        <h6 class="list"></h6>
+
+        <!-- <div class="Center"><span>Delete</span></div> -->
+        <!-- <div class="Split" ><span>Split Lines</span></div> -->
+    </div>
+
+</body>
+<script src="./lib/AE/CSInterface.js"></script>
+<script src="./lib/jquery-3.5.1.min.js"></script>
+
+
+<script src="./js/aesp.js"></script>
+<script src="./js/Function.js"></script>
+<script src="./js/Main.js"></script>
+
+<script>
+    if (window.module) module = window.module;
+    if (window.exports) exports = window.exports;
+</script>
+
+</html>
