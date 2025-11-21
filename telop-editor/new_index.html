@@ -17,8 +17,8 @@
         }
         .container {
             display: grid;
-            grid-template-columns: 260px 1fr 340px;
-            gap: 15px;
+            grid-template-columns: var(--left-panel-width, 260px) 6px 1fr 6px var(--right-panel-width, 340px);
+            gap: 0;
             height: calc(100vh - 30px);
         }
         .panel {
@@ -27,6 +27,24 @@
             padding: 12px;
             overflow-y: auto;
         }
+        /* リサイズハンドル */
+        .resize-handle {
+            background: #1a1a1a;
+            cursor: col-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .resize-handle:hover { background: #0066cc; }
+        .resize-handle::after {
+            content: '';
+            width: 2px;
+            height: 30px;
+            background: #444;
+            border-radius: 1px;
+        }
+        .resize-handle:hover::after { background: #fff; }
         .panel h3 {
             margin: 0 0 10px 0;
             padding-bottom: 8px;
@@ -90,15 +108,28 @@
         .tool-group { display: flex; gap: 1px; padding: 0 6px; border-right: 1px solid #444; }
         .tool-group:last-child { border-right: none; }
         .tool-icon {
-            width: 26px; height: 26px;
+            width: 30px; height: 30px;
             display: flex; align-items: center; justify-content: center;
             background: transparent; border: 1px solid transparent; border-radius: 3px;
-            cursor: pointer; font-size: 11px; color: #aaa;
+            cursor: pointer; font-size: 12px; color: #aaa;
+            transition: all 0.15s ease;
         }
         .tool-icon:hover { background: #3a3a3a; color: #fff; }
         .tool-icon.active { background: #0066cc; color: #fff; border-color: #0066cc; }
-        .tool-icon svg { width: 14px; height: 14px; fill: currentColor; }
-        .tool-icon span { font-size: 10px; font-weight: bold; }
+        .tool-icon svg { width: 16px; height: 16px; fill: currentColor; transition: all 0.15s ease; }
+        .tool-icon span { font-size: 11px; font-weight: bold; }
+        /* ツールバーサイズ: Small */
+        .toolbar-size-s .tool-icon { width: 24px; height: 24px; font-size: 10px; }
+        .toolbar-size-s .tool-icon svg { width: 12px; height: 12px; }
+        .toolbar-size-s .tool-icon span { font-size: 9px; }
+        /* ツールバーサイズ: Medium (デフォルト) */
+        .toolbar-size-m .tool-icon { width: 30px; height: 30px; font-size: 12px; }
+        .toolbar-size-m .tool-icon svg { width: 16px; height: 16px; }
+        .toolbar-size-m .tool-icon span { font-size: 11px; }
+        /* ツールバーサイズ: Large */
+        .toolbar-size-l .tool-icon { width: 38px; height: 38px; font-size: 14px; }
+        .toolbar-size-l .tool-icon svg { width: 20px; height: 20px; }
+        .toolbar-size-l .tool-icon span { font-size: 13px; }
         .status { padding: 5px 10px; font-size: 10px; color: #888; display: flex; justify-content: space-between; border-top: 1px solid #444; }
         .prop-section { background: #1a1a1a; padding: 6px; border-radius: 4px; margin: 4px 0; border: 1px solid #2a2a2a; }
         .row2 { display: flex; gap: 4px; }
@@ -204,7 +235,7 @@
                 </div>
             </div>
 
-            <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">PRSLスタイル</h3>
+            <h3 class="collapsible collapsed" onclick="toggleCollapse(this)" style="margin-top: 12px;">PRSLスタイル</h3>
             <div class="collapse-content hidden">
                 <button class="btn btn-secondary" onclick="importPRSL()">PRSL読込</button>
                 <input type="file" id="prslInput" accept=".prsl" style="display:none" onchange="handlePRSLLoad(event)">
@@ -238,6 +269,9 @@
             <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
             <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
         </div>
+
+        <!-- 左リサイズハンドル -->
+        <div class="resize-handle" id="leftResizeHandle" title="ドラッグでパネル幅を調整"></div>
 
         <!-- 中央パネル: キャンバス -->
         <div class="center-panel">
@@ -331,6 +365,17 @@
                 <div class="tool-group" style="flex:1;max-width:150px;">
                     <input type="range" id="timeline" min="0" max="100" value="0" style="width:100%;" oninput="seekAnimation(this.value)">
                 </div>
+                <div class="tool-group" style="margin-left:auto;">
+                    <button class="tool-icon" onclick="setToolbarSize('s')" title="小">
+                        <span style="font-size:8px;">S</span>
+                    </button>
+                    <button class="tool-icon active" onclick="setToolbarSize('m')" title="中" id="toolbarSizeM">
+                        <span style="font-size:10px;">M</span>
+                    </button>
+                    <button class="tool-icon" onclick="setToolbarSize('l')" title="大">
+                        <span style="font-size:12px;">L</span>
+                    </button>
+                </div>
             </div>
             <div class="status">
                 <span id="statusText">準備完了</span>
@@ -345,6 +390,9 @@
                 <div class="canvas-list-horizontal" id="canvasList"></div>
             </div>
         </div>
+
+        <!-- 右リサイズハンドル -->
+        <div class="resize-handle" id="rightResizeHandle" title="ドラッグでパネル幅を調整"></div>
 
         <!-- 右パネル: プロパティ -->
         <div class="panel">
@@ -7742,25 +7790,115 @@
             }
         }
 
+        // ========== ツールバーサイズ切り替え ==========
+
+        let currentToolbarSize = 'm';
+
+        function setToolbarSize(size) {
+            const toolbar = document.querySelector('.bottom-toolbar');
+            if (!toolbar) return;
+
+            // クラスを切り替え
+            toolbar.classList.remove('toolbar-size-s', 'toolbar-size-m', 'toolbar-size-l');
+            toolbar.classList.add('toolbar-size-' + size);
+
+            // ボタンのアクティブ状態を更新
+            document.querySelectorAll('.tool-group:last-child .tool-icon').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const sizeBtn = document.querySelector(`.tool-group:last-child .tool-icon:nth-child(${size === 's' ? 1 : size === 'm' ? 2 : 3})`);
+            if (sizeBtn) sizeBtn.classList.add('active');
+
+            currentToolbarSize = size;
+            localStorage.setItem('toolbarSize', size);
+        }
+
+        // ========== パネルリサイズ機能 ==========
+
+        function initPanelResize() {
+            const container = document.querySelector('.container');
+            const leftHandle = document.getElementById('leftResizeHandle');
+            const rightHandle = document.getElementById('rightResizeHandle');
+
+            if (!container || !leftHandle || !rightHandle) return;
+
+            let isResizing = false;
+            let currentHandle = null;
+
+            const startResize = (e, handle) => {
+                isResizing = true;
+                currentHandle = handle;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            };
+
+            const doResize = (e) => {
+                if (!isResizing) return;
+
+                const containerRect = container.getBoundingClientRect();
+
+                if (currentHandle === 'left') {
+                    let newWidth = e.clientX - containerRect.left;
+                    newWidth = Math.max(180, Math.min(400, newWidth));
+                    container.style.setProperty('--left-panel-width', newWidth + 'px');
+                    localStorage.setItem('leftPanelWidth', newWidth);
+                } else if (currentHandle === 'right') {
+                    let newWidth = containerRect.right - e.clientX;
+                    newWidth = Math.max(250, Math.min(500, newWidth));
+                    container.style.setProperty('--right-panel-width', newWidth + 'px');
+                    localStorage.setItem('rightPanelWidth', newWidth);
+                }
+            };
+
+            const stopResize = () => {
+                isResizing = false;
+                currentHandle = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            };
+
+            leftHandle.addEventListener('mousedown', (e) => startResize(e, 'left'));
+            rightHandle.addEventListener('mousedown', (e) => startResize(e, 'right'));
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+
+            // 保存された値を復元
+            const savedLeft = localStorage.getItem('leftPanelWidth');
+            const savedRight = localStorage.getItem('rightPanelWidth');
+            if (savedLeft) container.style.setProperty('--left-panel-width', savedLeft + 'px');
+            if (savedRight) container.style.setProperty('--right-panel-width', savedRight + 'px');
+        }
+
         // 初期化
         initCanvases();
         render();
 
-        // CustomStyleManagerの初期化（DOMContentLoaded後）
+        // DOM読み込み後の初期化
         document.addEventListener('DOMContentLoaded', function() {
-            // style-manager.jsが読み込まれているか確認
-            if (typeof CustomStyleManager !== 'undefined') {
-                initCustomStyleManager();
-            }
+            // ツールバーサイズを復元
+            const savedSize = localStorage.getItem('toolbarSize');
+            if (savedSize) setToolbarSize(savedSize);
+
+            // パネルリサイズ初期化
+            initPanelResize();
         });
 
         // フォールバック: window.onload
         window.addEventListener('load', function() {
-            if (typeof CustomStyleManager !== 'undefined') {
-                initCustomStyleManager();
-            }
+            // パネルリサイズ初期化（フォールバック）
+            initPanelResize();
+
+            // CustomStyleManager初期化（style-manager.js読み込み後）
+            setTimeout(function() {
+                if (typeof CustomStyleManager !== 'undefined') {
+                    initCustomStyleManager();
+                } else {
+                    console.warn('CustomStyleManager not loaded');
+                }
+            }, 100);
         });
     </script>
-    <script src="style-manager.js"></script>
+    <script src="style-manager.js" onload="initCustomStyleManager()"></script>
 </body>
 </html>
