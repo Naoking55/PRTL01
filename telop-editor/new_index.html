@@ -813,18 +813,22 @@
             <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">プリセット設定</h3>
             <div class="collapse-content hidden" id="presetSettingsPanel">
                 <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;">プリセットフォルダ</label>
-                    <div style="display:flex;gap:4px;margin-top:4px;">
-                        <input type="text" id="presetFolderPath" placeholder="例: ./presets または URL" style="flex:1;font-size:11px;">
-                        <button class="btn btn-small" onclick="loadPresetsFromFolder()">読込</button>
+                    <label style="font-size:11px;">アニメーションプリセット</label>
+                    <div style="display:flex;gap:4px;margin-top:4px;align-items:center;">
+                        <button class="btn btn-small" onclick="document.getElementById('animPresetFileInput').click()">ファイル選択</button>
+                        <span id="animPresetFileName" style="font-size:10px;color:#888;flex:1;">未選択</span>
                     </div>
                 </div>
-                <div style="font-size:10px;color:#888;margin-bottom:8px;">
-                    空欄 = 現在のフォルダから読み込み
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:11px;">スタイルプリセット</label>
+                    <div style="display:flex;gap:4px;margin-top:4px;align-items:center;">
+                        <button class="btn btn-small" onclick="document.getElementById('stylePresetFileInput').click()">ファイル選択</button>
+                        <span id="stylePresetFileName" style="font-size:10px;color:#888;flex:1;">未選択</span>
+                    </div>
                 </div>
-                <div style="display:flex;gap:4px;">
-                    <button class="btn btn-small btn-secondary" onclick="reloadAllPresets()">再読み込み</button>
-                    <button class="btn btn-small btn-secondary" onclick="resetPresetFolder()">リセット</button>
+                <div style="display:flex;gap:4px;margin-bottom:8px;">
+                    <button class="btn btn-small" onclick="loadSelectedPresets()">読込</button>
+                    <button class="btn btn-small btn-secondary" onclick="resetPresetFiles()">リセット</button>
                 </div>
                 <div id="presetLoadStatus" style="font-size:10px;margin-top:6px;color:#4a9eff;"></div>
             </div>
@@ -880,6 +884,8 @@
     <input type="file" id="fileInput" accept=".json,.telop" style="display:none" onchange="handleFileLoad(event)">
     <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportProject(event)">
     <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageLoad(event)">
+    <input type="file" id="animPresetFileInput" accept=".js" style="display:none" onchange="handleAnimPresetFileSelect(event)">
+    <input type="file" id="stylePresetFileInput" accept=".js" style="display:none" onchange="handleStylePresetFileSelect(event)">
     <input type="text" id="imeInput" autocomplete="off">
 
     <script>
@@ -8167,45 +8173,49 @@
             }, 200);
         });
 
-        // ========== プリセットフォルダ管理 ==========
-        let presetFolderPath = localStorage.getItem('presetFolderPath') || '';
-        let loadedPresetScripts = [];
+        // ========== プリセットファイル管理 ==========
+        let animPresetFile = null;
+        let stylePresetFile = null;
 
-        function initPresetFolder() {
-            const input = document.getElementById('presetFolderPath');
-            if (input) {
-                input.value = presetFolderPath;
+        function handleAnimPresetFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                animPresetFile = file;
+                document.getElementById('animPresetFileName').textContent = file.name;
+                document.getElementById('animPresetFileName').style.color = '#4a9eff';
             }
         }
 
-        function loadPresetsFromFolder() {
-            const input = document.getElementById('presetFolderPath');
-            const newPath = input ? input.value.trim() : '';
-            presetFolderPath = newPath;
-            localStorage.setItem('presetFolderPath', newPath);
-            reloadAllPresets();
+        function handleStylePresetFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                stylePresetFile = file;
+                document.getElementById('stylePresetFileName').textContent = file.name;
+                document.getElementById('stylePresetFileName').style.color = '#4a9eff';
+            }
         }
 
-        function reloadAllPresets() {
+        function loadSelectedPresets() {
             const statusEl = document.getElementById('presetLoadStatus');
-            if (statusEl) statusEl.textContent = '読み込み中...';
+            if (!animPresetFile && !stylePresetFile) {
+                if (statusEl) {
+                    statusEl.style.color = '#ff6b6b';
+                    statusEl.textContent = 'ファイルを選択してください';
+                }
+                return;
+            }
 
-            // 既存のスクリプトを削除
-            loadedPresetScripts.forEach(script => {
-                if (script.parentNode) script.parentNode.removeChild(script);
-            });
-            loadedPresetScripts = [];
+            if (statusEl) {
+                statusEl.style.color = '#4a9eff';
+                statusEl.textContent = '読み込み中...';
+            }
 
-            // グローバル変数をリセット
-            window.AnimationPresets = null;
-            window.StylePresets = null;
-
-            const basePath = presetFolderPath ? presetFolderPath.replace(/\/$/, '') + '/' : '';
             let loadedCount = 0;
             let errorCount = 0;
+            const totalFiles = (animPresetFile ? 1 : 0) + (stylePresetFile ? 1 : 0);
 
             function checkComplete() {
-                if (loadedCount + errorCount >= 2) {
+                if (loadedCount + errorCount >= totalFiles) {
                     if (statusEl) {
                         if (errorCount > 0) {
                             statusEl.style.color = '#ff6b6b';
@@ -8224,34 +8234,67 @@
             }
 
             // アニメーションプリセット読み込み
-            const animScript = document.createElement('script');
-            animScript.src = basePath + 'animation-presets.js';
-            animScript.onload = () => { loadedCount++; checkComplete(); };
-            animScript.onerror = () => { errorCount++; console.error('Failed to load animation-presets.js from:', animScript.src); checkComplete(); };
-            document.body.appendChild(animScript);
-            loadedPresetScripts.push(animScript);
+            if (animPresetFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        // eval でスクリプトを実行
+                        eval(e.target.result);
+                        loadedCount++;
+                        console.log('Animation presets loaded from:', animPresetFile.name);
+                    } catch (err) {
+                        errorCount++;
+                        console.error('Failed to load animation presets:', err);
+                    }
+                    checkComplete();
+                };
+                reader.onerror = function() {
+                    errorCount++;
+                    console.error('Failed to read animation preset file');
+                    checkComplete();
+                };
+                reader.readAsText(animPresetFile);
+            }
 
             // スタイルプリセット読み込み
-            const styleScript = document.createElement('script');
-            styleScript.src = basePath + 'style-presets.js';
-            styleScript.onload = () => { loadedCount++; checkComplete(); };
-            styleScript.onerror = () => { errorCount++; console.error('Failed to load style-presets.js from:', styleScript.src); checkComplete(); };
-            document.body.appendChild(styleScript);
-            loadedPresetScripts.push(styleScript);
+            if (stylePresetFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        // eval でスクリプトを実行
+                        eval(e.target.result);
+                        loadedCount++;
+                        console.log('Style presets loaded from:', stylePresetFile.name);
+                    } catch (err) {
+                        errorCount++;
+                        console.error('Failed to load style presets:', err);
+                    }
+                    checkComplete();
+                };
+                reader.onerror = function() {
+                    errorCount++;
+                    console.error('Failed to read style preset file');
+                    checkComplete();
+                };
+                reader.readAsText(stylePresetFile);
+            }
         }
 
-        function resetPresetFolder() {
-            presetFolderPath = '';
-            localStorage.removeItem('presetFolderPath');
-            const input = document.getElementById('presetFolderPath');
-            if (input) input.value = '';
-            reloadAllPresets();
-        }
+        function resetPresetFiles() {
+            animPresetFile = null;
+            stylePresetFile = null;
+            document.getElementById('animPresetFileName').textContent = '未選択';
+            document.getElementById('animPresetFileName').style.color = '#888';
+            document.getElementById('stylePresetFileName').textContent = '未選択';
+            document.getElementById('stylePresetFileName').style.color = '#888';
+            document.getElementById('animPresetFileInput').value = '';
+            document.getElementById('stylePresetFileInput').value = '';
 
-        // 初期化時にフォルダパスを復元
-        window.addEventListener('load', function() {
-            initPresetFolder();
-        });
+            const statusEl = document.getElementById('presetLoadStatus');
+            if (statusEl) {
+                statusEl.textContent = '';
+            }
+        }
 
         // ========== アニメーションプリセット機能 ==========
         let currentAnimPresetType = 'in';
