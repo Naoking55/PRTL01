@@ -4172,15 +4172,36 @@
                             edgeCanvas.height = tempCanvas.height;
                             const edgeCtx = edgeCanvas.getContext('2d');
 
-                            // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                            // join設定に応じて膨張方式を変更
+                            const joinType = st.join || 'round';
                             const edgeSteps = Math.max(1, st.width);
-                            const angleStep = Math.PI / 16;  // 32方向
-                            for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                    const dx = Math.cos(angle) * step;
-                                    const dy = Math.sin(angle) * step;
-                                    edgeCtx.drawImage(tempCanvas, dx, dy);
+
+                            if (joinType === 'round') {
+                                // 丸：より多くの方向（64方向）と細かいステップで滑らかに
+                                const numDirections = 64;
+                                const angleStep = (Math.PI * 2) / numDirections;
+                                const stepSize = Math.max(0.25, st.width / 20);  // 細かいステップ
+
+                                for (let step = stepSize; step <= edgeSteps; step += stepSize) {
+                                    edgeCtx.globalAlpha = 0.15;
+                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                        const dx = Math.cos(angle) * step;
+                                        const dy = Math.sin(angle) * step;
+                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                    }
+                                }
+                            } else {
+                                // 角(miter)：8方向で角張ったエッジを作成
+                                const numDirections = 8;
+                                const angleStep = (Math.PI * 2) / numDirections;
+
+                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                    edgeCtx.globalAlpha = 0.2;
+                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                        const dx = Math.cos(angle) * step;
+                                        const dy = Math.sin(angle) * step;
+                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+                                    }
                                 }
                             }
 
@@ -4660,15 +4681,36 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                // join設定に応じて膨張方式を変更
+                                const joinType = st.join || 'round';
                                 const edgeSteps = Math.max(1, st.width);
-                                const angleStep = Math.PI / 16;  // 32方向
-                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                        const dx = Math.cos(angle) * step;
-                                        const dy = Math.sin(angle) * step;
-                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+
+                                if (joinType === 'round') {
+                                    // 丸：より多くの方向（64方向）と細かいステップで滑らかに
+                                    const numDirections = 64;
+                                    const angleStep = (Math.PI * 2) / numDirections;
+                                    const stepSize = Math.max(0.25, st.width / 20);
+
+                                    for (let step = stepSize; step <= edgeSteps; step += stepSize) {
+                                        edgeCtx.globalAlpha = 0.15;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
+                                    }
+                                } else {
+                                    // 角(miter)：8方向で角張ったエッジを作成
+                                    const numDirections = 8;
+                                    const angleStep = (Math.PI * 2) / numDirections;
+
+                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                        edgeCtx.globalAlpha = 0.2;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
                                     }
                                 }
 
@@ -5072,15 +5114,36 @@
                                     edgeCanvas.height = tempCanvas.height;
                                     const edgeCtx = edgeCanvas.getContext('2d');
 
-                                    // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                    // join設定に応じて膨張方式を変更
+                                    const joinType = st.join || 'round';
                                     const edgeSteps = Math.max(1, st.width);
-                                    const angleStep = Math.PI / 16;  // 32方向
-                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                        edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                            const dx = Math.cos(angle) * step;
-                                            const dy = Math.sin(angle) * step;
-                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+
+                                    if (joinType === 'round') {
+                                        // 丸：より多くの方向（64方向）と細かいステップで滑らかに
+                                        const numDirections = 64;
+                                        const angleStep = (Math.PI * 2) / numDirections;
+                                        const stepSize = Math.max(0.25, st.width / 20);
+
+                                        for (let step = stepSize; step <= edgeSteps; step += stepSize) {
+                                            edgeCtx.globalAlpha = 0.15;
+                                            for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                                const dx = Math.cos(angle) * step;
+                                                const dy = Math.sin(angle) * step;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
+                                        }
+                                    } else {
+                                        // 角(miter)：8方向で角張ったエッジを作成
+                                        const numDirections = 8;
+                                        const angleStep = (Math.PI * 2) / numDirections;
+
+                                        for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                            edgeCtx.globalAlpha = 0.2;
+                                            for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                                const dx = Math.cos(angle) * step;
+                                                const dy = Math.sin(angle) * step;
+                                                edgeCtx.drawImage(tempCanvas, dx, dy);
+                                            }
                                         }
                                     }
 
@@ -5436,15 +5499,36 @@
                                 edgeCanvas.height = tempCanvas.height;
                                 const edgeCtx = edgeCanvas.getContext('2d');
 
-                                // 32方向にオフセットして描画し、形状を膨張させる（より滑らか）
+                                // join設定に応じて膨張方式を変更
+                                const joinType = st.join || 'round';
                                 const edgeSteps = Math.max(1, st.width);
-                                const angleStep = Math.PI / 16;  // 32方向
-                                for (let step = 0.5; step <= edgeSteps; step += 0.5) {
-                                    edgeCtx.globalAlpha = 0.1;  // 薄く重ねて滑らかに
-                                    for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
-                                        const dx = Math.cos(angle) * step;
-                                        const dy = Math.sin(angle) * step;
-                                        edgeCtx.drawImage(tempCanvas, dx, dy);
+
+                                if (joinType === 'round') {
+                                    // 丸：より多くの方向（64方向）と細かいステップで滑らかに
+                                    const numDirections = 64;
+                                    const angleStep = (Math.PI * 2) / numDirections;
+                                    const stepSize = Math.max(0.25, st.width / 20);
+
+                                    for (let step = stepSize; step <= edgeSteps; step += stepSize) {
+                                        edgeCtx.globalAlpha = 0.15;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
+                                    }
+                                } else {
+                                    // 角(miter)：8方向で角張ったエッジを作成
+                                    const numDirections = 8;
+                                    const angleStep = (Math.PI * 2) / numDirections;
+
+                                    for (let step = 0.5; step <= edgeSteps; step += 0.5) {
+                                        edgeCtx.globalAlpha = 0.2;
+                                        for (let angle = 0; angle < Math.PI * 2; angle += angleStep) {
+                                            const dx = Math.cos(angle) * step;
+                                            const dy = Math.sin(angle) * step;
+                                            edgeCtx.drawImage(tempCanvas, dx, dy);
+                                        }
                                     }
                                 }
 
