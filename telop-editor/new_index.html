@@ -209,8 +209,8 @@
             <div style="display:flex;gap:2px;margin-top:5px;flex-wrap:wrap;">
                 <button class="btn btn-small btn-secondary" onclick="moveLayerUp()">↑</button>
                 <button class="btn btn-small btn-secondary" onclick="moveLayerDown()">↓</button>
-                <button class="btn btn-small btn-secondary" onclick="alignToCenter('h')">縦中央</button>
-                <button class="btn btn-small btn-secondary" onclick="alignToCenter('v')">横中央</button>
+                <button class="btn btn-small btn-secondary" onclick="alignToCenter('v')">縦中央</button>
+                <button class="btn btn-small btn-secondary" onclick="alignToCenter('h')">横中央</button>
                 <button class="btn btn-small btn-danger" onclick="deleteSelected()">削除</button>
             </div>
 
@@ -349,10 +349,10 @@
                     </button>
                 </div>
                 <div class="tool-group">
-                    <button class="tool-icon" onclick="alignToCenter('h')" title="たて中央">
+                    <button class="tool-icon" onclick="alignToCenter('v')" title="たて中央">
                         <svg viewBox="0 0 24 24"><path d="M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z"/></svg>
                     </button>
-                    <button class="tool-icon" onclick="alignToCenter('v')" title="よこ中央">
+                    <button class="tool-icon" onclick="alignToCenter('h')" title="よこ中央">
                         <svg viewBox="0 0 24 24"><path d="M19 16v-3h4v-2h-4V8l-4 4 4 4zM5 8v3H1v2h4v3l4-4-4-4zm6-4h2v16h-2V4z"/></svg>
                     </button>
                 </div>
@@ -8312,6 +8312,15 @@
                     if (currentIndex >= blocks.length) {
                         // 完了
                         editorWindow.removeChild(progressOverlay);
+
+                        // 最初に作成したキャンバスに切り替え
+                        if (canvases.length > 0) {
+                            const firstNewCanvas = canvases[canvases.length - blocks.length];
+                            if (firstNewCanvas) {
+                                switchCanvas(firstNewCanvas.id);
+                            }
+                        }
+
                         updateCanvasList();
                         document.body.removeChild(modal);
                         alert(`${blocks.length} 個のキャンバスを生成しました`);
