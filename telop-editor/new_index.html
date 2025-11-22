@@ -8256,6 +8256,32 @@
             }, 200);
         });
 
+        // ========== Undo/Redo機能（簡易版） ==========
+        let undoStack = [];
+        let redoStack = [];
+        const MAX_UNDO_STATES = 50;
+
+        function saveUndoState() {
+            try {
+                // 現在の状態を保存
+                const state = JSON.stringify({
+                    textObjects: textObjects,
+                    selectedObjId: selectedObjId
+                });
+                undoStack.push(state);
+
+                // スタックサイズを制限
+                if (undoStack.length > MAX_UNDO_STATES) {
+                    undoStack.shift();
+                }
+
+                // 新しい操作をした場合、redoスタックをクリア
+                redoStack = [];
+            } catch (e) {
+                console.warn('Failed to save undo state:', e);
+            }
+        }
+
         // ========== アニメーションプリセット機能 ==========
         let currentAnimPresetType = 'in';
         let currentAnimPresetCategory = 'all';
