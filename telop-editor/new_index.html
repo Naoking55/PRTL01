@@ -256,17 +256,6 @@
                 <div id="customStyleList"></div>
             </div>
 
-            <h3 class="collapsible" onclick="toggleCollapse(this)">文字起こし</h3>
-            <div class="collapse-content">
-                <button class="btn btn-secondary" onclick="importSubtitle()">SRT/XML読込</button>
-                <input type="file" id="subtitleInput" accept=".srt,.xml" style="display:none" onchange="handleSubtitleLoad(event)">
-                <div id="subtitleStatus" style="font-size:10px;color:#888;margin-top:3px;"></div>
-                <div id="subtitleListContainer" style="max-height:200px;overflow-y:auto;margin-top:5px;background:#1a1a1a;border-radius:4px;border:1px solid #444;">
-                    <div id="subtitleList"></div>
-                </div>
-                <button class="btn btn-primary" onclick="generateCanvasesFromSubtitles()" style="margin-top:6px;">キャンバスに展開</button>
-            </div>
-
             <h3>出力</h3>
             <div style="margin-bottom:6px;">
                 <label><input type="checkbox" id="exportTransparent"> 背景透過</label>
@@ -399,6 +388,7 @@
                     <button class="btn btn-small btn-primary" onclick="newCanvas()">新規</button>
                     <button class="btn btn-small btn-secondary" onclick="duplicateCanvas()">複製</button>
                     <button class="btn btn-small btn-secondary" onclick="importCanvasFromProject()">インポート</button>
+                    <button class="btn btn-small btn-secondary" onclick="openTranscriptionEditor()">文字起こしファイルを読込</button>
                 </div>
                 <div class="canvas-list-horizontal" id="canvasList"></div>
             </div>
@@ -7994,244 +7984,389 @@
         // 字幕ファイル読み込み機能
         let loadedSubtitles = [];
 
-        function importSubtitle() {
-            document.getElementById('subtitleInput').click();
-        }
+        // BatchProcessor クラス - SRT/XML パーサー
+        const BatchProcessor = {
+            // SRTファイルをパース
+            parseSRT(text) {
+                const subtitles = [];
+                const blocks = text.trim().split(/\n\s*\n/);
 
-        function handleSubtitleLoad(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+                for (const block of blocks) {
+                    const lines = block.trim().split('\n');
+                    if (lines.length < 3) continue;
 
-            const statusEl = document.getElementById('subtitleStatus');
-            const reader = new FileReader();
+                    // 1行目: 番号（スキップ）
+                    // 2行目: タイムコード
+                    const timeMatch = lines[1].match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
+                    if (!timeMatch) continue;
 
-            reader.onload = (ev) => {
-                try {
-                    const text = ev.target.result;
-                    const ext = file.name.toLowerCase().split('.').pop();
+                    const startTime = parseInt(timeMatch[1]) * 3600 +
+                                     parseInt(timeMatch[2]) * 60 +
+                                     parseInt(timeMatch[3]) +
+                                     parseInt(timeMatch[4]) / 1000;
+                    const endTime = parseInt(timeMatch[5]) * 3600 +
+                                   parseInt(timeMatch[6]) * 60 +
+                                   parseInt(timeMatch[7]) +
+                                   parseInt(timeMatch[8]) / 1000;
 
-                    // ファイル形式に応じてパース
-                    if (ext === 'srt') {
-                        loadedSubtitles = BatchProcessor.parseSRT(text);
-                        statusEl.textContent = `${loadedSubtitles.length} 個の字幕を読み込みました (SRT)`;
-                    } else if (ext === 'xml') {
-                        loadedSubtitles = BatchProcessor.parsePremiereXML(text);
-                        statusEl.textContent = `${loadedSubtitles.length} 個の字幕を読み込みました (XML)`;
-                    } else {
-                        statusEl.textContent = 'サポートされていない形式です';
+                    // 3行目以降: テキスト
+                    const text = lines.slice(2).join('\n');
+
+                    subtitles.push({
+                        start: startTime,
+                        end: endTime,
+                        text: text
+                    });
+                }
+
+                return subtitles;
+            },
+
+            // Premiere XMLファイルをパース
+            parsePremiereXML(xmlText) {
+                const subtitles = [];
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+                // パースエラーチェック
+                const parserError = xmlDoc.querySelector('parsererror');
+                if (parserError) {
+                    throw new Error('XMLパースエラー: ' + parserError.textContent);
+                }
+
+                // <subtitle> タグを探す
+                const subtitleElements = xmlDoc.querySelectorAll('subtitle');
+
+                if (subtitleElements.length === 0) {
+                    // 別の形式を試す（例：<text> タグ）
+                    const textElements = xmlDoc.querySelectorAll('text');
+                    textElements.forEach(el => {
+                        const startAttr = el.getAttribute('start') || el.getAttribute('in');
+                        const endAttr = el.getAttribute('end') || el.getAttribute('out');
+                        const text = el.textContent || el.getAttribute('value') || '';
+
+                        if (startAttr && endAttr) {
+                            subtitles.push({
+                                start: parseFloat(startAttr),
+                                end: parseFloat(endAttr),
+                                text: text.trim()
+                            });
+                        }
+                    });
+                } else {
+                    subtitleElements.forEach(el => {
+                        const startAttr = el.getAttribute('start') || el.getAttribute('in');
+                        const endAttr = el.getAttribute('end') || el.getAttribute('out');
+                        const text = el.textContent || el.getAttribute('text') || '';
+
+                        if (startAttr && endAttr) {
+                            subtitles.push({
+                                start: parseFloat(startAttr),
+                                end: parseFloat(endAttr),
+                                text: text.trim()
+                            });
+                        }
+                    });
+                }
+
+                if (subtitles.length === 0) {
+                    throw new Error('XML内に字幕データが見つかりませんでした');
+                }
+
+                return subtitles;
+            }
+        };
+
+        // 文字起こし編集ウィンドウを開く
+        function openTranscriptionEditor() {
+            // モーダルウィンドウを作成
+            const modal = document.createElement('div');
+            modal.id = 'transcriptionEditorModal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+
+            const editorWindow = document.createElement('div');
+            editorWindow.style.cssText = `
+                background: #1a1a1a;
+                border: 2px solid #444;
+                border-radius: 8px;
+                width: 90%;
+                max-width: 1200px;
+                height: 80%;
+                display: flex;
+                flex-direction: column;
+                padding: 20px;
+                color: #fff;
+            `;
+
+            editorWindow.innerHTML = `
+                <h2 style="margin: 0 0 15px 0; font-size: 18px;">文字起こしファイル編集</h2>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="loadFileBtn" class="btn btn-primary">ファイルを開く (SRT/XML)</button>
+                    <input type="file" id="transcriptionFileInput" accept=".srt,.xml" style="display:none">
+                    <span id="fileStatus" style="color: #888; line-height: 32px; font-size: 12px;"></span>
+                </div>
+
+                <div style="flex: 1; display: flex; gap: 15px; overflow: hidden;">
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label style="margin-bottom: 5px; font-size: 14px; font-weight: bold;">文字起こしテキスト編集</label>
+                        <textarea id="transcriptionText" style="
+                            flex: 1;
+                            background: #2a2a2a;
+                            border: 1px solid #444;
+                            border-radius: 4px;
+                            color: #fff;
+                            padding: 10px;
+                            font-family: monospace;
+                            font-size: 14px;
+                            resize: none;
+                            line-height: 1.8;
+                        " placeholder="ここにファイルを読み込むか、直接テキストを入力してください。&#10;&#10;各キャンバスのテキストは空白行で区切ってください。"></textarea>
+                    </div>
+
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label style="margin-bottom: 5px; font-size: 14px; font-weight: bold;">プレビュー (キャンバス割り当て)</label>
+                        <div id="canvasPreview" style="
+                            flex: 1;
+                            background: #2a2a2a;
+                            border: 1px solid #444;
+                            border-radius: 4px;
+                            padding: 10px;
+                            overflow-y: auto;
+                            font-size: 13px;
+                        "></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444;">
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; color: #aaa;">
+                            空白行で区切られたブロックがそれぞれ1つのキャンバスになります。
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="cancelBtn" class="btn btn-secondary">キャンセル</button>
+                        <button id="applyBtn" class="btn btn-primary">キャンバスに展開</button>
+                    </div>
+                </div>
+            `;
+
+            modal.appendChild(editorWindow);
+            document.body.appendChild(modal);
+
+            // イベントリスナー設定
+            const fileInput = document.getElementById('transcriptionFileInput');
+            const fileStatus = document.getElementById('fileStatus');
+            const transcriptionText = document.getElementById('transcriptionText');
+            const canvasPreview = document.getElementById('canvasPreview');
+
+            // テキスト変更時にプレビューを更新
+            function updatePreview() {
+                const text = transcriptionText.value;
+                const blocks = text.split(/\n\s*\n/).filter(block => block.trim());
+
+                canvasPreview.innerHTML = '';
+                if (blocks.length === 0) {
+                    canvasPreview.innerHTML = '<div style="color:#888;text-align:center;margin-top:20px;">テキストを入力するとプレビューが表示されます</div>';
+                    return;
+                }
+
+                blocks.forEach((block, index) => {
+                    const previewItem = document.createElement('div');
+                    previewItem.style.cssText = `
+                        background: #333;
+                        border: 1px solid #555;
+                        border-radius: 4px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                    `;
+                    previewItem.innerHTML = `
+                        <div style="color: #0078d4; font-weight: bold; margin-bottom: 5px;">キャンバス ${index + 1}</div>
+                        <div style="white-space: pre-wrap; line-height: 1.6;">${block.trim()}</div>
+                    `;
+                    canvasPreview.appendChild(previewItem);
+                });
+            }
+
+            transcriptionText.addEventListener('input', updatePreview);
+
+            // ファイル読み込み
+            document.getElementById('loadFileBtn').addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const text = ev.target.result;
+                        const ext = file.name.toLowerCase().split('.').pop();
+
+                        let subtitles = [];
+                        if (ext === 'srt') {
+                            subtitles = BatchProcessor.parseSRT(text);
+                            fileStatus.textContent = `✓ ${file.name} を読み込みました (${subtitles.length}個の字幕)`;
+                            fileStatus.style.color = '#0f0';
+                        } else if (ext === 'xml') {
+                            subtitles = BatchProcessor.parsePremiereXML(text);
+                            fileStatus.textContent = `✓ ${file.name} を読み込みました (${subtitles.length}個の字幕)`;
+                            fileStatus.style.color = '#0f0';
+                        } else {
+                            fileStatus.textContent = '✗ サポートされていない形式です';
+                            fileStatus.style.color = '#f44';
+                            return;
+                        }
+
+                        // 字幕をテキストエリアに表示（1行につき1つの字幕、空白行で区切る）
+                        transcriptionText.value = subtitles.map(sub => sub.text).join('\n\n');
+                        loadedSubtitles = subtitles;
+                        updatePreview();
+                    } catch (err) {
+                        fileStatus.textContent = `✗ エラー: ${err.message}`;
+                        fileStatus.style.color = '#f44';
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            });
+
+            // キャンセルボタン
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // キャンバスに展開ボタン
+            document.getElementById('applyBtn').addEventListener('click', () => {
+                const text = transcriptionText.value;
+                const blocks = text.split(/\n\s*\n/).filter(block => block.trim());
+
+                if (blocks.length === 0) {
+                    alert('テキストが入力されていません');
+                    return;
+                }
+
+                // プログレスバーを表示
+                const progressOverlay = document.createElement('div');
+                progressOverlay.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.9);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-direction: column;
+                    z-index: 1;
+                `;
+                progressOverlay.innerHTML = `
+                    <div style="color: #fff; font-size: 18px; margin-bottom: 20px;">キャンバスを生成中...</div>
+                    <div style="width: 400px; height: 30px; background: #333; border-radius: 15px; overflow: hidden; border: 1px solid #555;">
+                        <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, #0078d4, #00bcf2); width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="progressText" style="color: #aaa; margin-top: 10px; font-size: 14px;">0 / ${blocks.length}</div>
+                `;
+                editorWindow.appendChild(progressOverlay);
+
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                // 現在選択されているオブジェクトをテンプレートとして使用
+                let template = null;
+                if (selectedObjId) {
+                    template = textObjects.find(o => o.id === selectedObjId);
+                }
+
+                // テンプレートがない場合はデフォルトのテキストオブジェクトを作成
+                if (!template) {
+                    template = {
+                        type: 'text',
+                        chars: [],
+                        x: 960,
+                        y: 900,
+                        fontSize: 72,
+                        fontFamily: 'Yu Gothic UI',
+                        color: '#ffffff'
+                    };
+                }
+
+                // 非同期でキャンバスを生成（UIをブロックしないため）
+                let currentIndex = 0;
+                function processNextCanvas() {
+                    if (currentIndex >= blocks.length) {
+                        // 完了
+                        renderCanvasList();
+                        document.body.removeChild(modal);
+                        alert(`${blocks.length} 個のキャンバスを生成しました`);
                         return;
                     }
 
-                    displaySubtitleList();
-                    statusEl.style.color = '#0f0';
-                    setTimeout(() => { statusEl.style.color = '#888'; }, 2000);
-                } catch (err) {
-                    statusEl.textContent = 'エラー: ' + err.message;
-                    statusEl.style.color = '#f44';
-                    console.error(err);
+                    const block = blocks[currentIndex];
+                    const canvasName = `字幕_${currentIndex + 1}`;
+                    const newCanvas = createCanvasData(canvasName);
+
+                    // テンプレートをクローン
+                    const newObj = JSON.parse(JSON.stringify(template));
+                    newObj.id = Date.now() + currentIndex;
+                    newObj.name = `字幕${currentIndex + 1}`;
+
+                    // テキストを設定
+                    const chars = block.trim().split('').map(char => ({
+                        char: char,
+                        fontSize: template.fontSize || 72,
+                        fontFamily: template.fontFamily || 'Yu Gothic UI',
+                        color: template.color || '#ffffff',
+                        bold: template.bold || false,
+                        italic: template.italic || false,
+                        opacity: 100,
+                        tracking: 0,
+                        fillType: 'solid',
+                        strokes: []
+                    }));
+                    newObj.chars = chars;
+
+                    // キャンバスにオブジェクトを追加
+                    newCanvas.objects = [newObj];
+
+                    // タイミング情報があれば保存
+                    if (loadedSubtitles[currentIndex]) {
+                        newCanvas.metadata = {
+                            startTime: loadedSubtitles[currentIndex].start,
+                            endTime: loadedSubtitles[currentIndex].end,
+                            duration: loadedSubtitles[currentIndex].end - loadedSubtitles[currentIndex].start
+                        };
+                    }
+
+                    canvases.push(newCanvas);
+
+                    // プログレスバー更新
+                    currentIndex++;
+                    const progress = (currentIndex / blocks.length) * 100;
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = `${currentIndex} / ${blocks.length}`;
+
+                    // 次のキャンバスを処理
+                    setTimeout(processNextCanvas, 10);
                 }
-            };
 
-            reader.readAsText(file);
-            e.target.value = '';
-        }
-
-        function displaySubtitleList() {
-            const listEl = document.getElementById('subtitleList');
-            if (!listEl) return;
-
-            listEl.innerHTML = '';
-
-            if (loadedSubtitles.length === 0) {
-                listEl.innerHTML = '<div style="padding:10px;color:#888;text-align:center;">字幕データがありません</div>';
-                return;
-            }
-
-            // 編集可能なテーブルとして表示
-            const table = document.createElement('table');
-            table.style.width = '100%';
-            table.style.fontSize = '10px';
-            table.style.borderCollapse = 'collapse';
-
-            // ヘッダー
-            const thead = document.createElement('thead');
-            thead.innerHTML = `
-                <tr style="background:#333;">
-                    <th style="padding:4px;border:1px solid #444;width:30px;">#</th>
-                    <th style="padding:4px;border:1px solid #444;width:60px;">開始</th>
-                    <th style="padding:4px;border:1px solid #444;width:60px;">終了</th>
-                    <th style="padding:4px;border:1px solid #444;">テキスト</th>
-                    <th style="padding:4px;border:1px solid #444;width:40px;">削除</th>
-                </tr>
-            `;
-            table.appendChild(thead);
-
-            // データ行
-            const tbody = document.createElement('tbody');
-            loadedSubtitles.forEach((sub, idx) => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #333';
-
-                // 番号
-                const tdIndex = document.createElement('td');
-                tdIndex.style.padding = '4px';
-                tdIndex.style.border = '1px solid #444';
-                tdIndex.style.textAlign = 'center';
-                tdIndex.textContent = idx + 1;
-                tr.appendChild(tdIndex);
-
-                // 開始時間
-                const tdStart = document.createElement('td');
-                tdStart.style.padding = '2px';
-                tdStart.style.border = '1px solid #444';
-                const inputStart = document.createElement('input');
-                inputStart.type = 'number';
-                inputStart.step = '0.1';
-                inputStart.value = sub.start.toFixed(2);
-                inputStart.style.width = '100%';
-                inputStart.style.background = '#2a2a2a';
-                inputStart.style.border = 'none';
-                inputStart.style.color = '#fff';
-                inputStart.style.padding = '2px';
-                inputStart.onchange = () => { loadedSubtitles[idx].start = parseFloat(inputStart.value); };
-                tdStart.appendChild(inputStart);
-                tr.appendChild(tdStart);
-
-                // 終了時間
-                const tdEnd = document.createElement('td');
-                tdEnd.style.padding = '2px';
-                tdEnd.style.border = '1px solid #444';
-                const inputEnd = document.createElement('input');
-                inputEnd.type = 'number';
-                inputEnd.step = '0.1';
-                inputEnd.value = sub.end.toFixed(2);
-                inputEnd.style.width = '100%';
-                inputEnd.style.background = '#2a2a2a';
-                inputEnd.style.border = 'none';
-                inputEnd.style.color = '#fff';
-                inputEnd.style.padding = '2px';
-                inputEnd.onchange = () => { loadedSubtitles[idx].end = parseFloat(inputEnd.value); };
-                tdEnd.appendChild(inputEnd);
-                tr.appendChild(tdEnd);
-
-                // テキスト
-                const tdText = document.createElement('td');
-                tdText.style.padding = '2px';
-                tdText.style.border = '1px solid #444';
-                const inputText = document.createElement('input');
-                inputText.type = 'text';
-                inputText.value = sub.text;
-                inputText.style.width = '100%';
-                inputText.style.background = '#2a2a2a';
-                inputText.style.border = 'none';
-                inputText.style.color = '#fff';
-                inputText.style.padding = '2px';
-                inputText.onchange = () => { loadedSubtitles[idx].text = inputText.value; };
-                tdText.appendChild(inputText);
-                tr.appendChild(tdText);
-
-                // 削除ボタン
-                const tdDelete = document.createElement('td');
-                tdDelete.style.padding = '2px';
-                tdDelete.style.border = '1px solid #444';
-                tdDelete.style.textAlign = 'center';
-                const btnDelete = document.createElement('button');
-                btnDelete.textContent = '×';
-                btnDelete.style.background = '#c42b1c';
-                btnDelete.style.color = '#fff';
-                btnDelete.style.border = 'none';
-                btnDelete.style.borderRadius = '3px';
-                btnDelete.style.cursor = 'pointer';
-                btnDelete.style.padding = '2px 6px';
-                btnDelete.onclick = () => {
-                    loadedSubtitles.splice(idx, 1);
-                    displaySubtitleList();
-                };
-                tdDelete.appendChild(btnDelete);
-                tr.appendChild(tdDelete);
-
-                tbody.appendChild(tr);
+                processNextCanvas();
             });
-            table.appendChild(tbody);
-
-            listEl.appendChild(table);
-        }
-
-        function generateCanvasesFromSubtitles() {
-            if (loadedSubtitles.length === 0) {
-                alert('字幕データが読み込まれていません');
-                return;
-            }
-
-            // 現在選択されているオブジェクトをテンプレートとして使用
-            let template = null;
-            if (selectedObjId) {
-                template = textObjects.find(o => o.id === selectedObjId);
-            }
-
-            // テンプレートがない場合はデフォルトのテキストオブジェクトを作成
-            if (!template) {
-                template = {
-                    type: 'text',
-                    chars: [],
-                    x: 960,
-                    y: 900,
-                    fontSize: 72,
-                    fontFamily: 'Yu Gothic UI',
-                    color: '#ffffff'
-                };
-            }
-
-            // 各字幕データからキャンバスを生成
-            loadedSubtitles.forEach((sub, index) => {
-                const canvasName = `字幕_${index + 1}_${sub.start.toFixed(1)}s`;
-                const newCanvas = createCanvasData(canvasName);
-
-                // テンプレートをクローン
-                const newObj = JSON.parse(JSON.stringify(template));
-                newObj.id = Date.now() + index;
-                newObj.name = `字幕${index + 1}`;
-
-                // テキストを設定
-                const chars = sub.text.split('').map(char => ({
-                    char: char,
-                    fontSize: template.fontSize || 72,
-                    fontFamily: template.fontFamily || 'Yu Gothic UI',
-                    color: template.color || '#ffffff',
-                    bold: template.bold || false,
-                    italic: template.italic || false,
-                    opacity: 100,
-                    tracking: 0,
-                    fillType: 'solid',
-                    strokes: []
-                }));
-                newObj.chars = chars;
-
-                // キャンバスにオブジェクトを追加
-                newCanvas.objects = [newObj];
-
-                // メタデータとして時間情報を保存
-                newCanvas.metadata = {
-                    startTime: sub.start,
-                    endTime: sub.end,
-                    duration: sub.end - sub.start
-                };
-
-                canvases.push(newCanvas);
-            });
-
-            // キャンバスリストを更新
-            renderCanvasList();
-
-            // 成功メッセージ
-            const statusEl = document.getElementById('subtitleStatus');
-            if (statusEl) {
-                statusEl.textContent = `${loadedSubtitles.length} 個のキャンバスを生成しました`;
-                statusEl.style.color = '#0f0';
-                setTimeout(() => { statusEl.style.color = '#888'; }, 3000);
-            }
-
-            alert(`${loadedSubtitles.length} 個のキャンバスを生成しました`);
         }
 
         function handleFileLoad(e) {
