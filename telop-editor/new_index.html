@@ -8587,6 +8587,8 @@
             document.getElementById('animSpeed').value = obj.animation.speed;
             document.getElementById('animLoop').checked = obj.animation.loop;
 
+            // アニメーションをリセットしてプレビュー表示
+            resetAnimation();
             render();
 
             console.log('Animation preset applied:', preset.name, '| unit:', preset.unit, '| keyframes:', preset.keyframes.length);
@@ -8594,10 +8596,29 @@
             // 成功メッセージ
             const statusEl = document.getElementById('presetLoadStatus');
             if (statusEl) {
-                statusEl.style.color = '#4a9eff';
-                statusEl.textContent = `アニメーション適用: ${preset.name} (${preset.type})`;
-                setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                statusEl.style.color = '#4caf50';
+                statusEl.innerHTML = `✓ ${preset.name}を適用しました<br><span style="font-size:9px;color:#888;">再生ボタン(Space)でアニメーションを確認できます</span>`;
+                setTimeout(() => { statusEl.textContent = ''; }, 5000);
             }
+
+            // プレビューのために少しアニメーションを進める
+            setTimeout(() => {
+                if (!isPlaying) {
+                    // アニメーションを少し進めてプレビュー表示
+                    animationTime = 0.3;  // 30%の位置まで進める
+                    const timeline = document.getElementById('timeline');
+                    if (timeline) {
+                        timeline.value = animationTime * 100;
+                    }
+                    render();
+                    // 2秒後に最初に戻す
+                    setTimeout(() => {
+                        if (!isPlaying) {
+                            resetAnimation();
+                        }
+                    }, 2000);
+                }
+            }, 100);
         }
 
         function previewAnimPreset() {
