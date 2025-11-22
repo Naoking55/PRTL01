@@ -198,6 +198,7 @@
         .prop-row { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
         .prop-label { font-size: 10px; width: 50px; color: #888; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -6930,20 +6931,23 @@
                 await new Promise(r => setTimeout(r, 10)); // UIを更新
             }
 
-            // 各フレームをダウンロード
-            if (frames.length <= 30) {
-                // 30フレーム以下なら個別ダウンロード
-                for (const frame of frames) {
-                    const link = document.createElement('a');
-                    link.download = frame.name;
-                    link.href = frame.data;
-                    link.click();
-                    await new Promise(r => setTimeout(r, 100));
-                }
-            } else {
-                // 多すぎる場合は警告
-                alert(`${frames.length}フレームを生成しました。\nブラウザの制限により一括ダウンロードできません。\nFPSまたは時間を減らしてください。`);
+            // ZIPファイルを作成してダウンロード
+            progress.innerHTML = `<div>ZIPファイル作成中...</div><div>お待ちください</div>`;
+
+            const zip = new JSZip();
+            for (const frame of frames) {
+                // data URLからbase64部分を抽出
+                const base64Data = frame.data.split(',')[1];
+                zip.file(frame.name, base64Data, { base64: true });
             }
+
+            // ZIPファイルを生成してダウンロード
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.download = `telop_sequence_${totalFrames}frames.zip`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            URL.revokeObjectURL(link.href);
 
             // 状態を復元
             animationTime = 0;
