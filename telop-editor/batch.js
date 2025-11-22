@@ -152,21 +152,71 @@ const BatchProcessor = {
             captions = xmlDoc.querySelectorAll('subtitle');
         }
 
-        captions.forEach((caption, index) => {
-            const start = caption.getAttribute('start') || caption.getAttribute('in');
-            const end = caption.getAttribute('end') || caption.getAttribute('out');
-            const textElement = caption.querySelector('text') || caption;
-            const text = textElement.textContent.trim();
+        // 文字起こし形式も試す: <generatoritem>タグ
+        if (captions.length === 0) {
+            const generatorItems = xmlDoc.querySelectorAll('generatoritem');
 
-            if (start && end && text) {
-                subtitles.push({
-                    index: index + 1,
-                    start: this.premiereTimeToSeconds(start),
-                    end: this.premiereTimeToSeconds(end),
-                    text: text
-                });
-            }
-        });
+            generatorItems.forEach((item, index) => {
+                // <start>と<end>タグから時間を取得
+                const startElement = item.querySelector('start');
+                const endElement = item.querySelector('end');
+
+                if (!startElement || !endElement) return;
+
+                const start = startElement.textContent.trim();
+                const end = endElement.textContent.trim();
+
+                // テキストを取得（優先順位: parameter内のvalue > name）
+                let text = '';
+
+                // parameter内のstrパラメータを探す
+                const parameters = item.querySelectorAll('parameter');
+                for (const param of parameters) {
+                    const paramId = param.querySelector('parameterid');
+                    if (paramId && paramId.textContent.trim() === 'str') {
+                        const valueElement = param.querySelector('value');
+                        if (valueElement) {
+                            text = valueElement.textContent.trim();
+                            break;
+                        }
+                    }
+                }
+
+                // strが見つからなければnameタグから取得
+                if (!text) {
+                    const nameElement = item.querySelector('name');
+                    if (nameElement) {
+                        text = nameElement.textContent.trim();
+                    }
+                }
+
+                if (start && end && text) {
+                    subtitles.push({
+                        index: index + 1,
+                        start: this.premiereTimeToSeconds(start),
+                        end: this.premiereTimeToSeconds(end),
+                        text: text
+                    });
+                }
+            });
+        } else {
+            // caption/subtitleタグの処理
+            captions.forEach((caption, index) => {
+                const start = caption.getAttribute('start') || caption.getAttribute('in');
+                const end = caption.getAttribute('end') || caption.getAttribute('out');
+                const textElement = caption.querySelector('text') || caption;
+                const text = textElement.textContent.trim();
+
+                if (start && end && text) {
+                    subtitles.push({
+                        index: index + 1,
+                        start: this.premiereTimeToSeconds(start),
+                        end: this.premiereTimeToSeconds(end),
+                        text: text
+                    });
+                }
+            });
+        }
 
         return subtitles;
     },
