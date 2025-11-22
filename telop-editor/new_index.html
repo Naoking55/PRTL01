@@ -266,6 +266,7 @@
             <button class="btn btn-primary" onclick="exportPNG()">PNG書き出し</button>
             <button class="btn btn-secondary" onclick="exportSequencePNG()">連番PNG</button>
             <button class="btn btn-secondary" onclick="exportGIF()">GIF書き出し</button>
+            <button class="btn btn-secondary" onclick="exportWebM()">WebM書き出し</button>
             <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
             <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
         </div>
@@ -7026,6 +7027,114 @@
             safeMarginCheckbox.checked = wasEnabled;
             render();
             document.body.removeChild(progress);
+        }
+
+        // WebMエクスポート（透過対応）
+        async function exportWebM() {
+            const fps = parseInt(document.getElementById('exportFps').value) || 30;
+            const duration = parseFloat(document.getElementById('exportDuration').value) || 3;
+            const transparent = document.getElementById('exportTransparent').checked;
+
+            // VP9コーデックの透過性サポートを確認
+            const mimeType = transparent ? 'video/webm;codecs=vp9' : 'video/webm;codecs=vp8';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                alert('お使いのブラウザは' + (transparent ? '透過性付き' : '') + 'WebMエクスポートに対応していません。\nChrome/Edgeの最新版をご利用ください。');
+                return;
+            }
+
+            // 状態を保存
+            if (isPlaying) toggleAnimation();
+            const safeMarginCheckbox = document.getElementById('safeMarginEnabled');
+            const wasEnabled = safeMarginCheckbox.checked;
+            safeMarginCheckbox.checked = false;
+            const prevExportingTransparent = exportingTransparent;
+            exportingTransparent = transparent;
+            const prevSelectedIds = [...selectedObjIds];
+            selectedObjId = null;
+            selectedObjIds = [];
+
+            // 進捗表示
+            const progress = document.createElement('div');
+            progress.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:#fff;padding:20px;border-radius:8px;z-index:10000;min-width:250px;text-align:center;';
+            progress.innerHTML = `<div style="margin-bottom:10px;">WebMエクスポート中...</div><div id="webmProgress">準備中...</div>`;
+            document.body.appendChild(progress);
+
+            try {
+                // canvasからMediaStreamを取得
+                const stream = canvas.captureStream(fps);
+
+                // MediaRecorderを設定
+                const chunks = [];
+                const recorder = new MediaRecorder(stream, {
+                    mimeType: mimeType,
+                    videoBitsPerSecond: 5000000 // 5Mbps
+                });
+
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        chunks.push(e.data);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: mimeType });
+                    const link = document.createElement('a');
+                    link.download = `telop_${Date.now()}.webm`;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+
+                    // 状態を復元
+                    animationTime = 0;
+                    exportingTransparent = prevExportingTransparent;
+                    selectedObjId = prevSelectedIds.length > 0 ? prevSelectedIds[prevSelectedIds.length - 1] : null;
+                    selectedObjIds = prevSelectedIds;
+                    safeMarginCheckbox.checked = wasEnabled;
+                    render();
+                    document.body.removeChild(progress);
+                };
+
+                // 録画開始
+                recorder.start();
+                document.getElementById('webmProgress').textContent = '録画中...';
+
+                // アニメーションをループ
+                const startTime = performance.now();
+                const frameInterval = 1000 / fps;
+                let frameCount = 0;
+                const totalFrames = Math.ceil(fps * duration);
+
+                const animate = () => {
+                    const elapsed = (performance.now() - startTime) / 1000;
+
+                    if (elapsed >= duration) {
+                        // 録画終了
+                        recorder.stop();
+                        document.getElementById('webmProgress').textContent = 'エンコード中...';
+                        return;
+                    }
+
+                    animationTime = elapsed;
+                    render();
+                    frameCount++;
+                    document.getElementById('webmProgress').textContent = `録画中: ${frameCount}/${totalFrames} フレーム`;
+
+                    // 次のフレームまで待機
+                    setTimeout(animate, frameInterval);
+                };
+
+                animate();
+
+            } catch (e) {
+                alert('WebMエクスポートに失敗しました: ' + e.message);
+                // 状態を復元
+                animationTime = 0;
+                exportingTransparent = prevExportingTransparent;
+                selectedObjId = prevSelectedIds.length > 0 ? prevSelectedIds[prevSelectedIds.length - 1] : null;
+                selectedObjIds = prevSelectedIds;
+                safeMarginCheckbox.checked = wasEnabled;
+                render();
+                document.body.removeChild(progress);
+            }
         }
 
         // 簡易GIFエンコーダー
