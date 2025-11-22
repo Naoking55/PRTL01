@@ -8264,10 +8264,65 @@
                 }
             }, 100);
 
-            // プリセット初期化
+            // プリセット初期化とチェック
             setTimeout(function() {
                 initAnimationPresets();
                 initStylePresets();
+
+                // プリセット読み込み状態をチェック
+                const statusEl = document.getElementById('presetLoadStatus');
+                const presetSettingsPanel = document.getElementById('presetSettingsPanel');
+
+                if (!window.AnimationPresets && !window.StylePresets) {
+                    if (statusEl) {
+                        statusEl.style.color = '#ff6b6b';
+                        statusEl.innerHTML = '⚠ プリセットファイルが読み込まれていません<br>上の「プリセット設定」からJSファイルを選択して読み込んでください';
+                    }
+                    // プリセット設定パネルを自動展開
+                    if (presetSettingsPanel) {
+                        const header = presetSettingsPanel.previousElementSibling;
+                        if (header && header.classList.contains('collapsed')) {
+                            header.classList.remove('collapsed');
+                            presetSettingsPanel.classList.remove('hidden');
+                        }
+                    }
+                    console.warn('Preset files not loaded. Please load animation-presets.js and style-presets.js');
+                } else if (!window.AnimationPresets) {
+                    if (statusEl) {
+                        statusEl.style.color = '#ff9800';
+                        statusEl.innerHTML = '⚠ アニメーションプリセットが未読込';
+                    }
+                    // プリセット設定パネルを自動展開
+                    if (presetSettingsPanel) {
+                        const header = presetSettingsPanel.previousElementSibling;
+                        if (header && header.classList.contains('collapsed')) {
+                            header.classList.remove('collapsed');
+                            presetSettingsPanel.classList.remove('hidden');
+                        }
+                    }
+                    console.warn('AnimationPresets not loaded');
+                } else if (!window.StylePresets) {
+                    if (statusEl) {
+                        statusEl.style.color = '#ff9800';
+                        statusEl.innerHTML = '⚠ スタイルプリセットが未読込';
+                    }
+                    // プリセット設定パネルを自動展開
+                    if (presetSettingsPanel) {
+                        const header = presetSettingsPanel.previousElementSibling;
+                        if (header && header.classList.contains('collapsed')) {
+                            header.classList.remove('collapsed');
+                            presetSettingsPanel.classList.remove('hidden');
+                        }
+                    }
+                    console.warn('StylePresets not loaded');
+                } else {
+                    if (statusEl) {
+                        statusEl.style.color = '#4caf50';
+                        statusEl.textContent = '✓ プリセット読み込み済み';
+                        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                    }
+                    console.log('All presets loaded successfully');
+                }
             }, 200);
         });
 
@@ -8456,12 +8511,34 @@
         }
 
         function applyAnimPreset() {
-            if (!selectedAnimPresetId || !window.AnimationPresets) return;
-            const preset = window.AnimationPresets.getPreset(selectedAnimPresetId);
-            if (!preset) return;
+            // プリセットモジュールの読み込みチェック
+            if (!window.AnimationPresets) {
+                alert('アニメーションプリセットが読み込まれていません。\n\n右パネルの「プリセット設定」セクションから、\nanimation-presets.js ファイルを選択して「読込」ボタンをクリックしてください。');
+                console.error('AnimationPresets module not loaded');
+                return;
+            }
 
+            // プリセット選択チェック
+            if (!selectedAnimPresetId) {
+                alert('アニメーションプリセットが選択されていません。\n\nプリセットリストからプリセットを選択してください。');
+                console.error('No animation preset selected');
+                return;
+            }
+
+            const preset = window.AnimationPresets.getPreset(selectedAnimPresetId);
+            if (!preset) {
+                alert('選択されたプリセットが見つかりませんでした。');
+                console.error('Preset not found:', selectedAnimPresetId);
+                return;
+            }
+
+            // オブジェクト選択チェック
             const obj = textObjects.find(o => o.id === selectedObjId);
-            if (!obj) return;
+            if (!obj) {
+                alert('オブジェクトが選択されていません。\n\nキャンバス上のオブジェクトをクリックして選択してください。');
+                console.error('No object selected');
+                return;
+            }
 
             saveUndoState();
 
@@ -8491,6 +8568,14 @@
             render();
 
             console.log('Animation preset applied:', preset.name, '| unit:', preset.unit, '| keyframes:', preset.keyframes.length);
+
+            // 成功メッセージ
+            const statusEl = document.getElementById('presetLoadStatus');
+            if (statusEl) {
+                statusEl.style.color = '#4a9eff';
+                statusEl.textContent = `アニメーション適用: ${preset.name} (${preset.type})`;
+                setTimeout(() => { statusEl.textContent = ''; }, 3000);
+            }
         }
 
         function previewAnimPreset() {
@@ -8555,12 +8640,47 @@
         }
 
         function applyStylePreset(mode) {
-            if (!selectedStylePresetId || !window.StylePresets) return;
-            const preset = window.StylePresets.getPreset(selectedStylePresetId);
-            if (!preset || !preset.style) return;
+            // プリセットモジュールの読み込みチェック
+            if (!window.StylePresets) {
+                alert('スタイルプリセットが読み込まれていません。\n\n右パネルの「プリセット設定」セクションから、\nstyle-presets.js ファイルを選択して「読込」ボタンをクリックしてください。');
+                console.error('StylePresets module not loaded');
+                return;
+            }
 
+            // プリセット選択チェック
+            if (!selectedStylePresetId) {
+                alert('スタイルプリセットが選択されていません。\n\nプリセットリストからプリセットを選択してください。');
+                console.error('No style preset selected');
+                return;
+            }
+
+            const preset = window.StylePresets.getPreset(selectedStylePresetId);
+            if (!preset || !preset.style) {
+                alert('選択されたプリセットが見つかりませんでした。');
+                console.error('Preset not found:', selectedStylePresetId);
+                return;
+            }
+
+            // テキストオブジェクト選択チェック
             const obj = textObjects.find(o => o.id === selectedObjId);
-            if (!obj || obj.type !== 'text') return;
+            if (!obj) {
+                alert('テキストオブジェクトが選択されていません。\n\nキャンバス上のテキストをクリックして選択してください。');
+                console.error('No text object selected');
+                return;
+            }
+
+            if (obj.type !== 'text') {
+                alert('選択されたオブジェクトはテキストではありません。');
+                console.error('Selected object is not text:', obj.type);
+                return;
+            }
+
+            // 文字データの存在チェック
+            if (!obj.chars || obj.chars.length === 0) {
+                alert('テキストに文字データがありません。\n\nテキストを入力してから再度お試しください。');
+                console.error('No chars data in text object');
+                return;
+            }
 
             saveUndoState();
 
@@ -8637,7 +8757,18 @@
             updateCharList();
             render();
 
-            console.log('Style preset applied:', preset.name, 'mode:', mode);
+            // 成功メッセージ
+            const appliedCount = mode === 'all' ? obj.chars.length :
+                (selectedCharEnd - selectedCharStart + 1);
+            console.log('Style preset applied:', preset.name, 'mode:', mode, 'chars:', appliedCount);
+
+            // ステータス表示（一時的）
+            const statusEl = document.getElementById('presetLoadStatus');
+            if (statusEl) {
+                statusEl.style.color = '#4a9eff';
+                statusEl.textContent = `スタイル適用: ${preset.name} (${appliedCount}文字)`;
+                setTimeout(() => { statusEl.textContent = ''; }, 3000);
+            }
         }
 
         function saveCurrentStyle() {
