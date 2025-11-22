@@ -1801,11 +1801,15 @@
             const bounds = getObjectBounds(obj);
 
             if (axis === 'h') {
-                // 縦中央 = 水平方向の中央
-                obj.x = canvas.width / 2;
+                // よこ中央 = 水平方向の中央
+                // バウンディングボックスの中心をキャンバスの中心に合わせる
+                const offsetX = obj.x - bounds.x; // obj.xとバウンディングボックス左端の差
+                obj.x = (canvas.width - bounds.w) / 2 + offsetX;
             } else if (axis === 'v') {
-                // 横中央 = 垂直方向の中央
-                obj.y = canvas.height / 2;
+                // たて中央 = 垂直方向の中央
+                // バウンディングボックスの中心をキャンバスの中心に合わせる
+                const offsetY = obj.y - bounds.y; // obj.yとバウンディングボックス上端の差
+                obj.y = (canvas.height - bounds.h) / 2 + offsetY;
             }
 
             updateLayerProps();
