@@ -767,6 +767,7 @@
                 <div><label>種類</label>
                     <select id="animType" onchange="updateAnimation()">
                         <option value="none">なし</option>
+                        <option value="preset">プリセート</option>
                         <option value="fadeIn">フェードイン</option>
                         <option value="fadeOut">フェードアウト</option>
                         <option value="slideLeft">左からスライド</option>
@@ -6805,6 +6806,103 @@
                 case 'rollLeft':
                     x = obj.x + canvas.width - t * (canvas.width * 2) * speed;
                     break;
+                case 'preset':
+                    // プリセートアニメーション
+                    if (obj.presetKeyframes && window.AnimationPresets) {
+                        const unit = obj.presetUnit || 'all';
+                        const stagger = obj.presetStagger || 0;
+                        const charCount = obj.chars?.length || 0;
+
+                        if (unit === 'all') {
+                            // 全体に適用
+                            const values = window.AnimationPresets.interpolate(
+                                obj.presetKeyframes,
+                                t,
+                                anim.easing
+                            );
+
+                            // 透明度
+                            if (values.opacity !== undefined) {
+                                opacity = values.opacity * (obj.opacity || 100);
+                            }
+
+                            // 位置（translateX, translateY）
+                            if (values.translateX !== undefined) {
+                                x = obj.x + values.translateX;
+                            }
+                            if (values.translateY !== undefined) {
+                                y = obj.y + values.translateY;
+                            }
+
+                            // スケールと回転は文字単位で適用
+                            if (values.scale !== undefined || values.rotate !== undefined) {
+                                charAnimations = [];
+                                for (let i = 0; i < charCount; i++) {
+                                    charAnimations.push({
+                                        opacity: 1,
+                                        rotation: values.rotate || 0,
+                                        scale: values.scale !== undefined ? values.scale : 1,
+                                        offsetX: 0,
+                                        offsetY: 0
+                                    });
+                                }
+                            }
+                        } else if (unit === 'character' && obj.chars) {
+                            // 文字単位で適用（stagger付き）
+                            charAnimations = [];
+                            const staggerDelay = (stagger / 1000) / duration;  // 秒単位に変換
+
+                            for (let i = 0; i < charCount; i++) {
+                                // 各文字の開始タイミングを遅延
+                                const charDelay = i * staggerDelay;
+                                const charT = Math.max(0, Math.min(1, (t - charDelay) / (1 - charDelay * charCount)));
+
+                                const values = window.AnimationPresets.interpolate(
+                                    obj.presetKeyframes,
+                                    charT,
+                                    anim.easing
+                                );
+
+                                charAnimations.push({
+                                    opacity: values.opacity !== undefined ? values.opacity : 1,
+                                    rotation: values.rotate || 0,
+                                    scale: values.scale !== undefined ? values.scale : 1,
+                                    offsetX: values.translateX || 0,
+                                    offsetY: values.translateY || 0
+                                });
+                            }
+                        } else if (unit === 'word' && obj.chars) {
+                            // 単語単位で適用（簡易実装：スペースで区切る）
+                            charAnimations = [];
+                            let wordIndex = 0;
+                            const staggerDelay = (stagger / 1000) / duration;
+
+                            for (let i = 0; i < charCount; i++) {
+                                // スペースまたは句読点で単語を区切る
+                                if (i > 0 && (obj.chars[i-1].char === ' ' || obj.chars[i-1].char === '　')) {
+                                    wordIndex++;
+                                }
+
+                                const wordDelay = wordIndex * staggerDelay;
+                                const wordT = Math.max(0, Math.min(1, (t - wordDelay) / Math.max(0.01, 1 - wordDelay)));
+
+                                const values = window.AnimationPresets.interpolate(
+                                    obj.presetKeyframes,
+                                    wordT,
+                                    anim.easing
+                                );
+
+                                charAnimations.push({
+                                    opacity: values.opacity !== undefined ? values.opacity : 1,
+                                    rotation: values.rotate || 0,
+                                    scale: values.scale !== undefined ? values.scale : 1,
+                                    offsetX: values.translateX || 0,
+                                    offsetY: values.translateY || 0
+                                });
+                            }
+                        }
+                    }
+                    break;
             }
 
             return { opacity, x, y, visibleChars, charAnimations };
@@ -8362,46 +8460,47 @@
             const preset = window.AnimationPresets.getPreset(selectedAnimPresetId);
             if (!preset) return;
 
+            const obj = textObjects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+
+            saveUndoState();
+
+            // プリセートのkeyframesと設定を保存
+            obj.presetKeyframes = JSON.parse(JSON.stringify(preset.keyframes));
+            obj.presetUnit = preset.unit || 'all';
+            obj.presetStagger = preset.stagger || 0;
+
             // アニメーション設定を適用
-            const animType = document.getElementById('animType');
-            const animDuration = document.getElementById('animDuration');
-            const animEasing = document.getElementById('animEasing');
+            obj.animation = {
+                type: 'preset',  // プリセート専用タイプ
+                duration: (preset.duration || 500) / 1000,  // ミリ秒→秒
+                delay: obj.animation?.delay || 0,
+                speed: obj.animation?.speed || 100,
+                easing: preset.easing || 'easeOutQuad',
+                loop: obj.animation?.loop || false
+            };
 
-            // プリセットからアニメーション設定を適用
-            // duration は秒単位に変換（プリセットはミリ秒）
-            if (preset.duration) {
-                animDuration.value = preset.duration / 1000;
-            }
-            if (preset.easing) {
-                // イージング名を変換（プリセートのイージング名とUIのイージング名が異なる場合）
-                const easingMap = {
-                    'linear': 'linear',
-                    'easeInQuad': 'easeIn',
-                    'easeOutQuad': 'easeOut',
-                    'easeInOutQuad': 'easeInOut',
-                    'easeInCubic': 'easeIn',
-                    'easeOutCubic': 'easeOut',
-                    'easeInOutCubic': 'easeInOut'
-                };
-                animEasing.value = easingMap[preset.easing] || 'easeOut';
-            }
-            // アニメーションタイプはプリセートから推定
-            if (preset.type === 'in') {
-                animType.value = 'fadeIn'; // デフォルトのIN系アニメーション
-            } else if (preset.type === 'out') {
-                animType.value = 'fadeOut'; // デフォルトのOUT系アニメーション
-            }
+            // UIを更新
+            document.getElementById('animType').value = 'preset';
+            document.getElementById('animDuration').value = obj.animation.duration;
+            document.getElementById('animEasing').value = obj.animation.easing;
+            document.getElementById('animDelay').value = obj.animation.delay;
+            document.getElementById('animSpeed').value = obj.animation.speed;
+            document.getElementById('animLoop').checked = obj.animation.loop;
 
-            updateAnimation();
             render();
 
-            console.log('Animation preset applied:', preset.name);
+            console.log('Animation preset applied:', preset.name, '| unit:', preset.unit, '| keyframes:', preset.keyframes.length);
         }
 
         function previewAnimPreset() {
             if (!selectedAnimPresetId) return;
             applyAnimPreset();
-            playAnimation();
+            // アニメーションを最初から再生
+            resetAnimation();
+            if (!isPlaying) {
+                toggleAnimation();
+            }
         }
 
         // ========== スタイルプリセット機能 ==========
