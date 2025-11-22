@@ -5731,8 +5731,14 @@
                                 const blur = (c.gradientBlur || 0) / 100; // 0-1 range
 
                                 c.gradientStops.forEach((stop, i) => {
-                                    const startPos = Math.max(0, Math.min(1, stop.pos / 100));
-                                    const endPos = Math.max(0, Math.min(1, stop.endPos / 100));
+                                    const startPos = Math.max(0, Math.min(1, (stop.pos || 0) / 100));
+                                    // Use endPos if defined, otherwise use next stop's pos or 100
+                                    let endPosValue = stop.endPos;
+                                    if (endPosValue === undefined) {
+                                        endPosValue = (i < c.gradientStops.length - 1) ?
+                                            c.gradientStops[i + 1].pos : 100;
+                                    }
+                                    const endPos = Math.max(0, Math.min(1, endPosValue / 100));
 
                                     if (blur === 0) {
                                         // Sharp boundaries
@@ -8590,8 +8596,7 @@
                 }
             }
 
-            console.log('[StylePreset] Calling updateCharList and render');
-            updateCharList();
+            console.log('[StylePreset] Calling render');
             render();
 
             // 成功メッセージ
