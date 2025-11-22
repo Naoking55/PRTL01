@@ -8382,6 +8382,28 @@
                     setTimeout(() => {
                         initAnimationPresets();
                         initStylePresets();
+
+                        // プリセット読み込み状態を再チェックして最終ステータスを表示
+                        setTimeout(() => {
+                            if (window.AnimationPresets && window.StylePresets) {
+                                if (statusEl) {
+                                    statusEl.style.color = '#4caf50';
+                                    statusEl.textContent = '✓ プリセット読み込み済み';
+                                    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                                }
+                                console.log('All presets loaded successfully');
+                            } else if (!window.AnimationPresets) {
+                                if (statusEl) {
+                                    statusEl.style.color = '#ff9800';
+                                    statusEl.innerHTML = '⚠ アニメーションプリセットが未読込';
+                                }
+                            } else if (!window.StylePresets) {
+                                if (statusEl) {
+                                    statusEl.style.color = '#ff9800';
+                                    statusEl.innerHTML = '⚠ スタイルプリセットが未読込';
+                                }
+                            }
+                        }, 100);
                     }, 100);
                 }
             }
