@@ -7035,10 +7035,10 @@
             const duration = parseFloat(document.getElementById('exportDuration').value) || 3;
             const transparent = document.getElementById('exportTransparent').checked;
 
-            // VP9コーデックの透過性サポートを確認
-            const mimeType = transparent ? 'video/webm;codecs=vp9' : 'video/webm;codecs=vp8';
+            // VP9コーデック（透過性サポート）を確認
+            const mimeType = 'video/webm;codecs=vp9';
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                alert('お使いのブラウザは' + (transparent ? '透過性付き' : '') + 'WebMエクスポートに対応していません。\nChrome/Edgeの最新版をご利用ください。');
+                alert('お使いのブラウザはWebM(VP9)エクスポートに対応していません。\nChrome/Edgeの最新版をご利用ください。');
                 return;
             }
 
