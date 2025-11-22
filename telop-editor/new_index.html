@@ -8303,7 +8303,7 @@
                         type: 'text',
                         chars: [],
                         x: 960,
-                        y: 900,
+                        y: 950,
                         fontSize: 72,
                         fontFamily: 'Yu Gothic UI',
                         color: '#ffffff'
@@ -8354,6 +8354,12 @@
                         strokes: []
                     }));
                     newObj.chars = chars;
+
+                    // 横中央揃えを適用
+                    const [canvasWidth, canvasHeight] = (newCanvas.resolution || '1920x1080').split('x').map(Number);
+                    const bounds = getObjectBounds(newObj);
+                    const offsetX = newObj.x - bounds.x;
+                    newObj.x = (canvasWidth - bounds.w) / 2 + offsetX;
 
                     // キャンバスにオブジェクトを追加
                     newCanvas.objects = [newObj];
