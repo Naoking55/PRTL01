@@ -828,10 +828,11 @@
                 <div id="animPresetList" style="max-height:200px;overflow-y:auto;border:1px solid #555;padding:4px;margin-bottom:6px;">
                     <div style="color:#888;text-align:center;padding:20px;">プリセットを読み込み中...</div>
                 </div>
-                <div style="display:flex;gap:4px;">
+                <div style="display:flex;gap:4px;margin-bottom:6px;">
                     <button class="btn btn-small" onclick="applyAnimPreset()">適用</button>
                     <button class="btn btn-small btn-secondary" onclick="previewAnimPreset()">プレビュー</button>
                 </div>
+                <div id="animPresetStatus" style="font-size:10px;color:#4a9eff;min-height:14px;"></div>
             </div>
 
             <h3 class="collapsible collapsed" onclick="toggleCollapse(this)">スタイルプリセット</h3>
@@ -848,13 +849,14 @@
                 <div id="stylePresetList" style="max-height:200px;overflow-y:auto;border:1px solid #555;padding:4px;margin-bottom:6px;">
                     <div style="color:#888;text-align:center;padding:20px;">プリセットを読み込み中...</div>
                 </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
                     <button class="btn btn-small" onclick="applyStylePreset('selected')">選択文字に適用</button>
                     <button class="btn btn-small btn-secondary" onclick="applyStylePreset('all')">全文字に適用</button>
                 </div>
-                <div style="margin-top:6px;">
+                <div style="margin-bottom:6px;">
                     <button class="btn btn-small btn-secondary" style="width:100%;" onclick="saveCurrentStyle()">現在のスタイルを保存</button>
                 </div>
+                <div id="stylePresetStatus" style="font-size:10px;color:#4a9eff;min-height:14px;"></div>
             </div>
         </div>
     </div>
@@ -8377,41 +8379,41 @@
             console.log('Animation preset applied:', preset.name, '| unit:', preset.unit, '| keyframes:', preset.keyframes.length);
 
             // 成功メッセージ
-            const statusEl = document.getElementById('presetLoadStatus');
+            const statusEl = document.getElementById('animPresetStatus');
             if (statusEl) {
                 statusEl.style.color = '#4caf50';
-                statusEl.innerHTML = `✓ ${preset.name}を適用しました<br><span style="font-size:9px;color:#888;">再生ボタン(Space)でアニメーションを確認できます</span>`;
+                statusEl.innerHTML = `✓ ${preset.name}を適用<br><span style="font-size:9px;color:#888;">Spaceキーで再生</span>`;
                 setTimeout(() => { statusEl.textContent = ''; }, 5000);
             }
 
-            // プレビューのために少しアニメーションを進める
-            setTimeout(() => {
-                if (!isPlaying) {
-                    // アニメーションを少し進めてプレビュー表示
-                    animationTime = 0.3;  // 30%の位置まで進める
-                    const timeline = document.getElementById('timeline');
-                    if (timeline) {
-                        timeline.value = animationTime * 100;
-                    }
-                    render();
-                    // 2秒後に最初に戻す
-                    setTimeout(() => {
-                        if (!isPlaying) {
-                            resetAnimation();
-                        }
-                    }, 2000);
-                }
-            }, 100);
+            // Note: アニメーションはSpaceキーまたはプレビューボタンで再生できます
         }
 
         function previewAnimPreset() {
             if (!selectedAnimPresetId) return;
-            applyAnimPreset();
-            // アニメーションを最初から再生
-            resetAnimation();
-            if (!isPlaying) {
-                toggleAnimation();
+
+            const statusEl = document.getElementById('animPresetStatus');
+            if (statusEl) {
+                statusEl.style.color = '#4a9eff';
+                statusEl.innerHTML = 'プレビュー再生中...';
             }
+
+            applyAnimPreset();
+
+            // アニメーションを最初から再生
+            setTimeout(() => {
+                resetAnimation();
+                if (!isPlaying) {
+                    toggleAnimation();
+                }
+
+                if (statusEl) {
+                    setTimeout(() => {
+                        statusEl.innerHTML = `✓ プレビュー完了<br><span style="font-size:9px;color:#888;">「適用」で確定</span>`;
+                        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                    }, 100);
+                }
+            }, 100);
         }
 
         // ========== スタイルプリセット機能 ==========
@@ -8511,6 +8513,8 @@
             saveUndoState();
 
             const style = preset.style;
+            console.log('[StylePreset] Applying preset:', preset.name, 'Mode:', mode);
+            console.log('[StylePreset] Preset style:', style);
 
             // スタイルを適用する関数
             const applyToChar = (c) => {
@@ -8559,13 +8563,18 @@
                 if (style.glossBlur !== undefined) c.glossBlur = style.glossBlur;
                 if (style.glossColor !== undefined) c.glossColor = style.glossColor;
                 if (style.glossOpacity !== undefined) c.glossOpacity = style.glossOpacity;
-                if (style.glossHeight !== undefined) c.glossHeight = style.glossHeight;
+                // Note: glossHeight is handled by glossOpacity in the rendering
             };
 
             if (mode === 'all') {
                 // 全文字に適用
                 if (obj.chars) {
-                    obj.chars.forEach(c => applyToChar(c));
+                    obj.chars.forEach((c, i) => {
+                        applyToChar(c);
+                        if (i === 0) {
+                            console.log('[StylePreset] First char after apply:', c);
+                        }
+                    });
                 }
             } else {
                 // 選択文字に適用
@@ -8575,11 +8584,13 @@
                     }
                 } else {
                     // 選択がない場合は全文字に適用
+                    console.log('[StylePreset] No selection, applying to all');
                     applyStylePreset('all');
                     return;
                 }
             }
 
+            console.log('[StylePreset] Calling updateCharList and render');
             updateCharList();
             render();
 
@@ -8589,10 +8600,10 @@
             console.log('Style preset applied:', preset.name, 'mode:', mode, 'chars:', appliedCount);
 
             // ステータス表示（一時的）
-            const statusEl = document.getElementById('presetLoadStatus');
+            const statusEl = document.getElementById('stylePresetStatus');
             if (statusEl) {
-                statusEl.style.color = '#4a9eff';
-                statusEl.textContent = `スタイル適用: ${preset.name} (${appliedCount}文字)`;
+                statusEl.style.color = '#4caf50';
+                statusEl.textContent = `✓ ${preset.name} (${appliedCount}文字)`;
                 setTimeout(() => { statusEl.textContent = ''; }, 3000);
             }
         }
