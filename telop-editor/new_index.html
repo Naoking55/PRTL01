@@ -8367,15 +8367,35 @@
             const animDuration = document.getElementById('animDuration');
             const animEasing = document.getElementById('animEasing');
 
-            // プリセットからアニメーション設定を生成
-            if (preset.animation) {
-                animType.value = preset.animation.type || 'fadeIn';
-                animDuration.value = preset.animation.duration || 1;
-                animEasing.value = preset.animation.easing || 'easeOut';
+            // プリセットからアニメーション設定を適用
+            // duration は秒単位に変換（プリセットはミリ秒）
+            if (preset.duration) {
+                animDuration.value = preset.duration / 1000;
+            }
+            if (preset.easing) {
+                // イージング名を変換（プリセートのイージング名とUIのイージング名が異なる場合）
+                const easingMap = {
+                    'linear': 'linear',
+                    'easeInQuad': 'easeIn',
+                    'easeOutQuad': 'easeOut',
+                    'easeInOutQuad': 'easeInOut',
+                    'easeInCubic': 'easeIn',
+                    'easeOutCubic': 'easeOut',
+                    'easeInOutCubic': 'easeInOut'
+                };
+                animEasing.value = easingMap[preset.easing] || 'easeOut';
+            }
+            // アニメーションタイプはプリセートから推定
+            if (preset.type === 'in') {
+                animType.value = 'fadeIn'; // デフォルトのIN系アニメーション
+            } else if (preset.type === 'out') {
+                animType.value = 'fadeOut'; // デフォルトのOUT系アニメーション
             }
 
             updateAnimation();
             render();
+
+            console.log('Animation preset applied:', preset.name);
         }
 
         function previewAnimPreset() {
@@ -8447,39 +8467,66 @@
 
             const style = preset.style;
 
+            // スタイルを適用する関数
+            const applyToChar = (c) => {
+                // 基本テキストプロパティ
+                if (style.fontFamily !== undefined) c.fontFamily = style.fontFamily;
+                if (style.fontSize !== undefined) c.fontSize = style.fontSize;
+                if (style.fontWeight !== undefined) c.fontWeight = style.fontWeight;
+                if (style.fontStyle !== undefined) c.fontStyle = style.fontStyle;
+
+                // 塗りとグラデーション
+                if (style.fillType !== undefined) c.fillType = style.fillType;
+                if (style.color !== undefined) c.color = style.color;
+                if (style.opacity !== undefined) c.opacity = style.opacity;
+
+                // グラデーション設定
+                if (style.gradientStops !== undefined) {
+                    c.gradientStops = JSON.parse(JSON.stringify(style.gradientStops));
+                    // 最初と最後の色をcolor/color2にも設定
+                    if (style.gradientStops.length > 0) {
+                        c.color = style.gradientStops[0].color;
+                        if (style.gradientStops.length > 1) {
+                            c.color2 = style.gradientStops[style.gradientStops.length - 1].color;
+                        }
+                    }
+                }
+                if (style.gradientAngle !== undefined) c.gradientAngle = style.gradientAngle;
+                if (style.gradientBlur !== undefined) c.gradientBlur = style.gradientBlur;
+
+                // ストローク
+                if (style.strokes !== undefined) {
+                    c.strokes = JSON.parse(JSON.stringify(style.strokes));
+                }
+
+                // 影
+                if (style.shadowEnabled !== undefined) c.shadowEnabled = style.shadowEnabled;
+                if (style.shadowColor !== undefined) c.shadowColor = style.shadowColor;
+                if (style.shadowOpacity !== undefined) c.shadowOpacity = style.shadowOpacity;
+                if (style.shadowAngle !== undefined) c.shadowAngle = style.shadowAngle;
+                if (style.shadowDistance !== undefined) c.shadowDistance = style.shadowDistance;
+                if (style.shadowSize !== undefined) c.shadowSize = style.shadowSize;
+                if (style.shadowBlur !== undefined) c.shadowBlur = style.shadowBlur;
+
+                // 光沢
+                if (style.glossEnabled !== undefined) c.glossEnabled = style.glossEnabled;
+                if (style.glossWidth !== undefined) c.glossWidth = style.glossWidth;
+                if (style.glossBlur !== undefined) c.glossBlur = style.glossBlur;
+                if (style.glossColor !== undefined) c.glossColor = style.glossColor;
+                if (style.glossOpacity !== undefined) c.glossOpacity = style.glossOpacity;
+                if (style.glossHeight !== undefined) c.glossHeight = style.glossHeight;
+            };
+
             if (mode === 'all') {
                 // 全文字に適用
                 if (obj.chars) {
-                    obj.chars.forEach(c => {
-                        Object.assign(c, {
-                            fontFamily: style.fontFamily || c.fontFamily,
-                            fontSize: style.fontSize || c.fontSize,
-                            fontWeight: style.fontWeight || c.fontWeight,
-                            fontStyle: style.fontStyle || c.fontStyle,
-                            color: style.color || c.color,
-                            opacity: style.opacity !== undefined ? style.opacity : c.opacity,
-                            strokes: style.strokes ? JSON.parse(JSON.stringify(style.strokes)) : c.strokes,
-                            shadow: style.shadow ? JSON.parse(JSON.stringify(style.shadow)) : c.shadow,
-                            gradient: style.gradient ? JSON.parse(JSON.stringify(style.gradient)) : c.gradient
-                        });
-                    });
+                    obj.chars.forEach(c => applyToChar(c));
                 }
             } else {
                 // 選択文字に適用
                 if (obj.chars && selectedCharStart >= 0 && selectedCharEnd >= selectedCharStart) {
                     for (let i = selectedCharStart; i <= selectedCharEnd && i < obj.chars.length; i++) {
-                        const c = obj.chars[i];
-                        Object.assign(c, {
-                            fontFamily: style.fontFamily || c.fontFamily,
-                            fontSize: style.fontSize || c.fontSize,
-                            fontWeight: style.fontWeight || c.fontWeight,
-                            fontStyle: style.fontStyle || c.fontStyle,
-                            color: style.color || c.color,
-                            opacity: style.opacity !== undefined ? style.opacity : c.opacity,
-                            strokes: style.strokes ? JSON.parse(JSON.stringify(style.strokes)) : c.strokes,
-                            shadow: style.shadow ? JSON.parse(JSON.stringify(style.shadow)) : c.shadow,
-                            gradient: style.gradient ? JSON.parse(JSON.stringify(style.gradient)) : c.gradient
-                        });
+                        applyToChar(obj.chars[i]);
                     }
                 } else {
                     // 選択がない場合は全文字に適用
@@ -8490,6 +8537,8 @@
 
             updateCharList();
             render();
+
+            console.log('Style preset applied:', preset.name, 'mode:', mode);
         }
 
         function saveCurrentStyle() {
