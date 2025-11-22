@@ -8312,7 +8312,7 @@
                     if (currentIndex >= blocks.length) {
                         // 完了
                         editorWindow.removeChild(progressOverlay);
-                        renderCanvasList();
+                        updateCanvasList();
                         document.body.removeChild(modal);
                         alert(`${blocks.length} 個のキャンバスを生成しました`);
                         return;
