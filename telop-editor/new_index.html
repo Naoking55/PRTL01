@@ -169,8 +169,10 @@
             display: flex;
             gap: 6px;
             overflow-x: auto;
+            overflow-y: hidden;
             flex: 1;
-            padding: 2px 0;
+            padding: 2px 0 12px 0;
+            scroll-behavior: smooth;
         }
         .canvas-list-horizontal .canvas-thumb {
             flex-shrink: 0;
@@ -191,9 +193,19 @@
         .canvas-thumb-btn { width: 16px; height: 16px; background: rgba(0,0,0,0.7); border: none; border-radius: 3px; color: #fff; font-size: 9px; cursor: pointer; }
         .canvas-actions { display: flex; gap: 3px; margin-bottom: 6px; }
         .canvas-actions .btn { flex: 1; padding: 5px 3px; font-size: 10px; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
         ::-webkit-scrollbar-track { background: #1a1a1a; }
-        ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 6px;
+            border: 2px solid #1a1a1a;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+        ::-webkit-scrollbar-thumb:active {
+            background: #6a6a6a;
+        }
         .char-info { font-size: 9px; color: #666; margin-top: 4px; }
         .prop-row { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
         .prop-label { font-size: 10px; width: 50px; color: #888; }
@@ -1284,7 +1296,9 @@
             // 新しいキャンバスに切替
             activeCanvasId = id;
             loadCurrentCanvas();
-            updateCanvasList();
+
+            // アクティブ状態のみ高速更新（DOM再構築をスキップ）
+            updateCanvasList(false);
 
             // サムネイルを非同期で更新（切り替え直後のストレスを軽減）
             setTimeout(() => {
@@ -1689,8 +1703,26 @@
             }
         }
 
-        function updateCanvasList() {
+        function updateCanvasList(fullRebuild = true) {
             const list = document.getElementById('canvasList');
+
+            // 高速モード：activeクラスのみ更新
+            if (!fullRebuild) {
+                const thumbs = list.querySelectorAll('.canvas-thumb');
+                thumbs.forEach((thumb, index) => {
+                    if (index < canvases.length) {
+                        const isActive = canvases[index].id === activeCanvasId;
+                        if (isActive) {
+                            thumb.classList.add('active');
+                        } else {
+                            thumb.classList.remove('active');
+                        }
+                    }
+                });
+                return;
+            }
+
+            // フルリビルド
             list.innerHTML = '';
 
             canvases.forEach(canvasData => {
@@ -8553,6 +8585,8 @@
                             fileStatus.textContent = `✓ ${file.name} を読み込みました (${subtitles.length}個の字幕)`;
                             fileStatus.style.color = '#0f0';
                         } else if (ext === 'xml') {
+                            console.log('XMLファイルを解析中:', file.name);
+                            console.log('ファイルサイズ:', text.length, '文字');
                             subtitles = BatchProcessor.parsePremiereXML(text);
                             fileStatus.textContent = `✓ ${file.name} を読み込みました (${subtitles.length}個の字幕)`;
                             fileStatus.style.color = '#0f0';
@@ -8569,10 +8603,17 @@
                     } catch (err) {
                         fileStatus.textContent = `✗ エラー: ${err.message}`;
                         fileStatus.style.color = '#f44';
-                        console.error(err);
+                        console.error('ファイル読み込みエラー:', err);
+                        console.error('エラー詳細:', err.stack);
+                        alert(`ファイル読み込みエラー:\n${err.message}\n\n詳細はコンソールを確認してください。`);
                     }
                 };
-                reader.readAsText(file);
+                reader.onerror = (err) => {
+                    fileStatus.textContent = '✗ ファイル読み込みに失敗しました';
+                    fileStatus.style.color = '#f44';
+                    console.error('FileReader エラー:', err);
+                };
+                reader.readAsText(file, 'UTF-8');
                 e.target.value = '';
             });
 
@@ -8699,6 +8740,24 @@
                             duration: loadedSubtitles[currentIndex].end - loadedSubtitles[currentIndex].start
                         };
                     }
+
+                    // サムネイルを生成
+                    const thumbCanvas = document.createElement('canvas');
+                    thumbCanvas.width = canvasWidth;
+                    thumbCanvas.height = canvasHeight;
+                    const thumbCtx = thumbCanvas.getContext('2d');
+
+                    // 背景を描画
+                    thumbCtx.fillStyle = '#1a1a1a';
+                    thumbCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                    // テキストオブジェクトを描画
+                    thumbCtx.save();
+                    drawTextObject(thumbCtx, newObj);
+                    thumbCtx.restore();
+
+                    // サムネイルをBase64で保存
+                    newCanvas.thumbnail = thumbCanvas.toDataURL('image/png');
 
                     canvases.push(newCanvas);
 
