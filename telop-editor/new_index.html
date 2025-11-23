@@ -909,6 +909,8 @@
         let editingControlPoint = null;  // 編集中の制御点 {pointIndex, type: 'cp1'|'cp2'|'anchor'}
         let textEditSaveTimer = null;  // テキスト編集Undoのデバウンスタイマー
         let lastSavedState = null;  // 最後に保存した状態（重複保存を防ぐ）
+        let thumbnailUpdateTimer = null;  // サムネイル更新のデバウンスタイマー
+        let isUpdatingThumbnail = false;  // サムネイル更新中フラグ
         let clipboard = null;  // コピーしたオブジェクト
         let exportingTransparent = false;  // 透過エクスポート中
         let selectedObjIds = [];  // 複数選択中のオブジェクトID
@@ -1322,6 +1324,199 @@
             }
         }
 
+        // サムネイル更新をスケジュール（debounce付き）
+        function scheduleThumbnailUpdate() {
+            // 既存のタイマーをキャンセル
+            if (thumbnailUpdateTimer) {
+                clearTimeout(thumbnailUpdateTimer);
+            }
+
+            // 1秒後にサムネイルを更新
+            thumbnailUpdateTimer = setTimeout(() => {
+                updateCurrentCanvasThumbnail();
+                thumbnailUpdateTimer = null;
+            }, 1000);
+        }
+
+        // 現在のキャンバスのサムネイルを更新
+        function updateCurrentCanvasThumbnail() {
+            if (!activeCanvasId) return;
+
+            const current = canvases.find(c => c.id === activeCanvasId);
+            if (!current) return;
+
+            // サムネイル更新中フラグを立てる
+            isUpdatingThumbnail = true;
+
+            // セーフマージン非表示で描画
+            const wasEnabled = document.getElementById('safeMarginEnabled').checked;
+            document.getElementById('safeMarginEnabled').checked = false;
+            const prevSelected = selectedObjId;
+            const prevSelectedIds = [...selectedObjIds];
+            selectedObjId = null;  // 選択枠を非表示
+            selectedObjIds = [];
+
+            // 一時的にrender（サムネイル用）
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground(ctx);
+            textObjects.forEach(obj => {
+                ctx.save();
+                const animProps = getAnimatedProperties(obj);
+                const animX = animProps.x;
+                const animY = animProps.y;
+                const animOpacity = animProps.opacity;
+                const visibleChars = animProps.visibleChars;
+                const charAnimations = animProps.charAnimations;
+                const origX = obj.x, origY = obj.y;
+                obj.x = animX;
+                obj.y = animY;
+                ctx.globalAlpha = animOpacity / 100;
+                if (obj.rotation) { ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation * Math.PI / 180); ctx.translate(-obj.x, -obj.y); }
+                obj._visibleChars = visibleChars;
+                obj._charAnimations = charAnimations;
+                const kfProps = interpolateKeyframes(obj);
+                if (kfProps) {
+                    obj._keyframeProps = kfProps;
+                } else {
+                    obj._keyframeProps = null;
+                }
+                if (obj.type === 'group' && obj.children) {
+                    ctx.save();
+                    obj.children.forEach(child => {
+                        const absChild = { ...child, x: child.x + obj.x, y: child.y + obj.y };
+                        ctx.save();
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (child.opacity || 100) / 100;
+                        if (child.rotation) {
+                            ctx.translate(absChild.x, absChild.y);
+                            ctx.rotate(child.rotation * Math.PI / 180);
+                            ctx.translate(-absChild.x, -absChild.y);
+                        }
+                        if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(child.type)) {
+                            drawShape(ctx, absChild);
+                        } else if (child.type === 'penPath' && child.path) {
+                            const absPath = child.path.map(p => ({
+                                x: p.x + absChild.x,
+                                y: p.y + absChild.y,
+                                cp1: p.cp1 ? { x: p.cp1.x + absChild.x, y: p.cp1.y + absChild.y } : null,
+                                cp2: p.cp2 ? { x: p.cp2.x + absChild.x, y: p.cp2.y + absChild.y } : null
+                            }));
+                            ctx.beginPath();
+                            ctx.moveTo(absPath[0].x, absPath[0].y);
+                            for (let i = 1; i < absPath.length; i++) {
+                                const prev = absPath[i - 1];
+                                const curr = absPath[i];
+                                if (prev.cp2 || curr.cp1) {
+                                    const cp1 = prev.cp2 || { x: prev.x, y: prev.y };
+                                    const cp2 = curr.cp1 || { x: curr.x, y: curr.y };
+                                    ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+                                } else {
+                                    ctx.lineTo(curr.x, curr.y);
+                                }
+                            }
+                            if (child.closed) ctx.closePath();
+                            if (child.fillType !== 'none') {
+                                ctx.fillStyle = child.fill || '#ffffff';
+                                ctx.fill();
+                            }
+                            ctx.strokeStyle = child.stroke || '#ffffff';
+                            ctx.lineWidth = child.strokeWidth || 3;
+                            ctx.stroke();
+                        } else if (child.chars) {
+                            drawTextObject(ctx, absChild);
+                        }
+                        ctx.restore();
+                    });
+                    ctx.restore();
+                } else if (obj.type === 'image') {
+                    drawImageObject(ctx, obj);
+                } else if (['rect', 'roundRect', 'ellipse', 'triangle', 'line', 'chamferRect', 'arc'].includes(obj.type)) {
+                    drawShape(ctx, obj);
+                } else if (obj.type === 'pathText' && obj.path && obj.chars) {
+                    const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y }));
+                    const pathLen = getPathLength(absPath);
+                    let totalTextLen = 0;
+                    if (obj.vertical) {
+                        obj.chars.forEach(c => { totalTextLen += c.fontSize * 1.1; });
+                    } else {
+                        obj.chars.forEach(c => { totalTextLen += getCharWidth(c); });
+                    }
+                    let dist = (pathLen - totalTextLen) / 2 + (obj.pathOffset || 0);
+                    obj.chars.forEach(c => {
+                        let charLen;
+                        if (obj.vertical) {
+                            charLen = c.fontSize * 1.1;
+                        } else {
+                            charLen = getCharWidth(c);
+                        }
+                        const pos = getPointAtDistance(absPath, dist + charLen / 2);
+                        const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
+                        const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
+                        ctx.save();
+                        const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                        const fontStyle = c.italic ? 'italic' : 'normal';
+                        ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
+                        ctx.translate(pos.x, pos.y);
+                        if (obj.vertical) {
+                            ctx.rotate(pos.angle + Math.PI / 2);
+                        } else {
+                            ctx.rotate(pos.angle);
+                        }
+                        drawCharWithEffects(ctx, c, dc, fs, 0, 0);
+                        ctx.restore();
+                        dist += charLen;
+                    });
+                } else if (obj.type === 'penPath' && obj.path) {
+                    const absPath = obj.path.map(p => ({ x: p.x + obj.x, y: p.y + obj.y, cp1: p.cp1 ? { x: p.cp1.x + obj.x, y: p.cp1.y + obj.y } : null, cp2: p.cp2 ? { x: p.cp2.x + obj.x, y: p.cp2.y + obj.y } : null }));
+                    ctx.beginPath();
+                    ctx.moveTo(absPath[0].x, absPath[0].y);
+                    for (let i = 1; i < absPath.length; i++) {
+                        const prev = absPath[i - 1];
+                        const curr = absPath[i];
+                        if (prev.cp2 || curr.cp1) {
+                            const cp1 = prev.cp2 || { x: prev.x, y: prev.y };
+                            const cp2 = curr.cp1 || { x: curr.x, y: curr.y };
+                            ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+                        } else {
+                            ctx.lineTo(curr.x, curr.y);
+                        }
+                    }
+                    if (obj.closed) ctx.closePath();
+                    if (obj.fillType !== 'none') {
+                        ctx.fillStyle = obj.fill || '#ffffff';
+                        ctx.fill();
+                    }
+                    ctx.strokeStyle = obj.stroke || '#ffffff';
+                    ctx.lineWidth = obj.strokeWidth || 3;
+                    ctx.stroke();
+                } else if (obj.chars) {
+                    drawTextObject(ctx, obj);
+                }
+                obj.x = origX;
+                obj.y = origY;
+                ctx.restore();
+            });
+
+            // サムネイルを保存
+            current.thumbnail = canvas.toDataURL('image/png');
+
+            // 元の状態に戻す
+            selectedObjId = prevSelected;
+            selectedObjIds = prevSelectedIds;
+            document.getElementById('safeMarginEnabled').checked = wasEnabled;
+
+            // サムネイル更新中フラグを下ろす
+            isUpdatingThumbnail = false;
+
+            // 元の表示に戻す
+            render();
+
+            // キャンバスリストを更新
+            updateCanvasList();
+        }
+
         function loadCurrentCanvas() {
             const current = canvases.find(c => c.id === activeCanvasId);
             if (!current) return;
@@ -1395,6 +1590,11 @@
         }
 
         function generateCanvasThumbnail(canvasData) {
+            // 保存されたサムネイルがあればそれを使用（現在のキャンバスでも優先）
+            if (canvasData.thumbnail) {
+                return canvasData.thumbnail;
+            }
+
             // 現在のキャンバスの場合は実際のキャンバスからサムネイル生成
             if (canvasData.id === activeCanvasId) {
                 // セーフマージン非表示で描画
@@ -1411,11 +1611,6 @@
                 document.getElementById('safeMarginEnabled').checked = wasEnabled;
                 render();
                 return url;
-            }
-
-            // 保存されたサムネイルがあればそれを使用
-            if (canvasData.thumbnail) {
-                return canvasData.thumbnail;
             }
 
             // 保存されたサムネイルがない場合は簡易プレビュー
@@ -3233,6 +3428,9 @@
         }
 
         function applyStyle() {
+            // Undo/Redoのために現在の状態を保存
+            saveState();
+
             // 編集モードで文字選択がある場合：選択範囲のみに適用
             if (editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
@@ -6055,6 +6253,11 @@
                 statusMsg = `${selectedObjIds.length}個選択中 (Ctrl+G: グループ化)`;
             }
             document.getElementById('statusText').textContent = statusMsg;
+
+            // サムネイル更新をスケジュール（サムネイル更新中でない場合のみ）
+            if (!isUpdatingThumbnail && activeCanvasId) {
+                scheduleThumbnailUpdate();
+            }
         }
 
         function changeResolution() {
