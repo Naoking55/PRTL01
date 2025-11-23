@@ -1278,25 +1278,50 @@
         function switchCanvas(id) {
             if (id === activeCanvasId) return;
 
-            // 現在のキャンバスを保存
-            saveCurrentCanvas();
+            // 現在のキャンバスを保存（サムネイル生成はスキップして高速化）
+            saveCurrentCanvas(true);  // skipThumbnail = true
 
             // 新しいキャンバスに切替
             activeCanvasId = id;
             loadCurrentCanvas();
             updateCanvasList();
+
+            // サムネイルを非同期で更新（切り替え直後のストレスを軽減）
+            setTimeout(() => {
+                updatePreviousCanvasThumbnail(id);
+            }, 100);
         }
 
-        function saveCurrentCanvas() {
+        function saveCurrentCanvas(skipThumbnail = false) {
             if (!activeCanvasId) return;
 
             const current = canvases.find(c => c.id === activeCanvasId);
             if (!current) return;
 
-            current.objects = JSON.parse(JSON.stringify(textObjects));
+            // 構造化クローンを使用した高速ディープコピー
+            try {
+                current.objects = structuredClone(textObjects);
+            } catch {
+                // フォールバック（古いブラウザ対応）
+                current.objects = JSON.parse(JSON.stringify(textObjects));
+            }
             current.resolution = document.getElementById('resolution').value;
             current.bgColor = canvasBgColor;
             current.bgOpacity = canvasBgOpacity;
+
+            // 背景画像をBase64で保存
+            if (bgImage) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = bgImage.width;
+                tempCanvas.height = bgImage.height;
+                tempCanvas.getContext('2d').drawImage(bgImage, 0, 0);
+                current.bgImageData = tempCanvas.toDataURL();
+            } else {
+                current.bgImageData = null;
+            }
+
+            // サムネイル生成をスキップする場合はここで終了（高速化）
+            if (skipThumbnail) return;
 
             // サムネイルを保存（セーフマージン非表示で）
             const wasEnabled = document.getElementById('safeMarginEnabled').checked;
@@ -1311,17 +1336,6 @@
             selectedObjIds = prevSelectedIds;
             document.getElementById('safeMarginEnabled').checked = wasEnabled;
             render();
-
-            // 背景画像をBase64で保存
-            if (bgImage) {
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = bgImage.width;
-                tempCanvas.height = bgImage.height;
-                tempCanvas.getContext('2d').drawImage(bgImage, 0, 0);
-                current.bgImageData = tempCanvas.toDataURL();
-            } else {
-                current.bgImageData = null;
-            }
         }
 
         // サムネイル更新をスケジュール（debounce付き）
@@ -1517,11 +1531,113 @@
             updateCanvasList();
         }
 
+        // 現在のキャンバスのサムネイルを静かに更新（UI更新を最小限に）
+        function updateCurrentCanvasThumbnailQuiet() {
+            if (!activeCanvasId) return;
+
+            const current = canvases.find(c => c.id === activeCanvasId);
+            if (!current) return;
+
+            // サムネイル生成（状態を変更せずに）
+            const wasEnabled = document.getElementById('safeMarginEnabled').checked;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // 現在のキャンバスの内容をコピー
+            tempCtx.drawImage(canvas, 0, 0);
+
+            // セーフマージンを一時的に非表示にして描画
+            if (wasEnabled) {
+                document.getElementById('safeMarginEnabled').checked = false;
+                const prevSelected = selectedObjId;
+                const prevSelectedIds = [...selectedObjIds];
+                selectedObjId = null;
+                selectedObjIds = [];
+
+                // 一時キャンバスに描画
+                tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                tempCtx.drawImage(canvas, 0, 0);
+
+                // 元に戻す
+                selectedObjId = prevSelected;
+                selectedObjIds = prevSelectedIds;
+                document.getElementById('safeMarginEnabled').checked = wasEnabled;
+            }
+
+            // サムネイルを保存
+            current.thumbnail = canvas.toDataURL('image/png');
+
+            // リストのみ更新（renderは呼ばない）
+            updateCanvasList();
+        }
+
+        // 前のキャンバスのサムネイルを非同期で更新
+        function updatePreviousCanvasThumbnail(currentId) {
+            // 前回のアクティブキャンバスを見つける（現在のIDではないもの）
+            const previousCanvases = canvases.filter(c => c.id !== currentId);
+
+            previousCanvases.forEach(canvasData => {
+                // サムネイルが存在しないか、古い場合のみ更新
+                if (!canvasData.thumbnail || canvasData.needsUpdate) {
+                    // 簡易サムネイルを生成（パフォーマンスを考慮）
+                    const callback = () => generateThumbnailForCanvas(canvasData);
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        requestIdleCallback(callback);
+                    } else {
+                        setTimeout(callback, 100);
+                    }
+                }
+            });
+        }
+
+        // 特定のキャンバスのサムネイルを生成
+        function generateThumbnailForCanvas(canvasData) {
+            if (!canvasData.objects) return;
+
+            const [w, h] = (canvasData.resolution || '1920x1080').split('x').map(Number);
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = w;
+            thumbCanvas.height = h;
+            const thumbCtx = thumbCanvas.getContext('2d');
+
+            // 背景を描画
+            if (canvasData.bgImageData) {
+                const img = new Image();
+                img.onload = () => {
+                    thumbCtx.drawImage(img, 0, 0, w, h);
+                    finalizeThumbnail();
+                };
+                img.src = canvasData.bgImageData;
+            } else if (canvasData.bgColor && canvasData.bgOpacity > 0) {
+                thumbCtx.fillStyle = canvasData.bgColor;
+                thumbCtx.globalAlpha = canvasData.bgOpacity / 100;
+                thumbCtx.fillRect(0, 0, w, h);
+                thumbCtx.globalAlpha = 1;
+                finalizeThumbnail();
+            } else {
+                finalizeThumbnail();
+            }
+
+            function finalizeThumbnail() {
+                canvasData.thumbnail = thumbCanvas.toDataURL('image/png');
+                canvasData.needsUpdate = false;
+                updateCanvasList();
+            }
+        }
+
         function loadCurrentCanvas() {
             const current = canvases.find(c => c.id === activeCanvasId);
             if (!current) return;
 
-            textObjects = JSON.parse(JSON.stringify(current.objects));
+            // 構造化クローンを使用した高速ディープコピー
+            try {
+                textObjects = structuredClone(current.objects);
+            } catch {
+                // フォールバック（古いブラウザ対応）
+                textObjects = JSON.parse(JSON.stringify(current.objects));
+            }
             selectedObjId = null;
             selectedObjIds = [];
             editingObjId = null;
@@ -1544,10 +1660,18 @@
                 img.onload = function() {
                     bgImage = img;
                     render();
+                    // 読み込み完了後にサムネイルを更新
+                    setTimeout(() => {
+                        updateCurrentCanvasThumbnailQuiet();
+                    }, 100);
                 };
                 img.src = current.bgImageData;
             } else {
                 bgImage = null;
+                // 背景画像がない場合もサムネイルを更新
+                setTimeout(() => {
+                    updateCurrentCanvasThumbnailQuiet();
+                }, 100);
             }
 
             updateLayerList();
