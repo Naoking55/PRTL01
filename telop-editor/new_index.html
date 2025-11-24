@@ -4517,6 +4517,7 @@
                     const fontStyle = c.italic ? 'italic' : 'normal';
                     ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                     ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'left';
                     ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
 
                     // ストローク（累積方式：外側から内側へ描画）
@@ -4545,14 +4546,14 @@
                                 ctx.lineWidth = innerWidth + d;
                                 ctx.save();
                                 ctx.translate((innerWidth + d) * depthDx, (innerWidth + d) * depthDy);
-                                ctx.strokeText(dc, px + charW / 2, ly);
+                                ctx.strokeText(dc, px, ly);
                                 ctx.restore();
                             }
                         } else if (st.type === 'drop') {
                             ctx.save();
                             ctx.translate(innerWidth + st.width, innerWidth + st.width);
                             ctx.fillStyle = st.color;
-                            ctx.fillText(dc, px + charW / 2, ly);
+                            ctx.fillText(dc, px, ly);
                             ctx.restore();
                         } else {
                             // エッジタイプ：内側の全ストローク＋文字本体の形状全体を均等に囲む
@@ -4691,7 +4692,7 @@
 
                             // メインキャンバスに描画
                             ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100 * (st.opacity || 100) / 100;
-                            ctx.drawImage(edgeCanvas, px + charW / 2 - tempX, ly - tempY);
+                            ctx.drawImage(edgeCanvas, px - tempX, ly - tempY);
                         }
                         ctx.restore();
                     }
@@ -4708,12 +4709,13 @@
                     const fontStyle = c.italic ? 'italic' : 'normal';
                     ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                     ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'left';
 
                     // 塗り
                     if (c.fillType !== 'none') {
                         ctx.fillStyle = c.color || '#ffffff';
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
-                        ctx.fillText(dc, px + charW / 2, ly);
+                        ctx.fillText(dc, px, ly);
                     }
 
                     ctx.restore();
