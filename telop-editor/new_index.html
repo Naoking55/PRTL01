@@ -8058,12 +8058,13 @@
             const reader = new FileReader();
             reader.onload = (ev) => {
                 try {
-                    // UTF-16 LEからテキストに変換
+                    // UTF-8からテキストに変換
+                    // 参考PRTLファイルは実際にUTF-8（BOMなし）でエンコードされている
                     const arrayBuffer = ev.target.result;
-                    const decoder = new TextDecoder('utf-16le');
+                    const decoder = new TextDecoder('utf-8');
                     let xmlText = decoder.decode(arrayBuffer);
 
-                    // BOMを除去
+                    // BOMがある場合は除去（念のため）
                     if (xmlText.charCodeAt(0) === 0xFEFF) {
                         xmlText = xmlText.substring(1);
                     }
@@ -8250,12 +8251,13 @@
             const reader = new FileReader();
             reader.onload = (ev) => {
                 try {
-                    // UTF-16 LEからテキストに変換
+                    // UTF-8からテキストに変換
+                    // 参考PRTLファイルは実際にUTF-8（BOMなし）でエンコードされている
                     const arrayBuffer = ev.target.result;
-                    const decoder = new TextDecoder('utf-16le');
+                    const decoder = new TextDecoder('utf-8');
                     let xmlText = decoder.decode(arrayBuffer);
 
-                    // BOMを除去
+                    // BOMがある場合は除去（念のため）
                     if (xmlText.charCodeAt(0) === 0xFEFF) {
                         xmlText = xmlText.substring(1);
                     }
