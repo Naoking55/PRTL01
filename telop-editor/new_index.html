@@ -282,6 +282,7 @@
             <button class="btn btn-secondary" onclick="exportWebM()">WebM書き出し</button>
             <button class="btn btn-primary" onclick="exportPRTL()">PRTL書き出し</button>
             <button class="btn btn-secondary" onclick="batchExportPRTL()" title="全キャンバスをPRTL形式で一括書き出し（連番: _000, _001...)">バッチPRTL書き出し</button>
+            <button class="btn btn-success" onclick="importPRTL()" title="PRTLファイルを読み込んでキャンバスに表示">PRTL読み込み</button>
             <button class="btn btn-primary" onclick="exportMOGRT()">MOGRT書き出し</button>
             <button class="btn btn-secondary" onclick="saveProject()">プロジェクト保存</button>
             <button class="btn btn-secondary" onclick="loadProject()">プロジェクト読込</button>
@@ -4700,7 +4701,7 @@
                     ctx.restore();
                 }
 
-                // 第2パス：すべての文字の本体を後ろから前へ描画
+                // 第2パス：すべての文字の本体を後ろから前へ描画（レガシータイトル互換：個別キャンバスに描画）
                 for (let charIdx = charPositions.length - 1; charIdx >= 0; charIdx--) {
                     const { c, dc, fs, charW, px } = charPositions[charIdx];
 
@@ -4711,11 +4712,32 @@
                     ctx.textBaseline = 'middle';
                     ctx.textAlign = 'left';
 
-                    // 塗り
+                    // レガシータイトル互換：各文字を一時キャンバスに描画して配置
                     if (c.fillType !== 'none') {
-                        ctx.fillStyle = c.color || '#ffffff';
+                        // 一時キャンバスを作成
+                        const margin = 20;
+                        const metrics = ctx.measureText(dc);
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = Math.ceil(metrics.width + margin * 2);
+                        tempCanvas.height = Math.ceil(fs * 2 + margin * 2);
+                        const tempCtx = tempCanvas.getContext('2d');
+
+                        // フォント設定をコピー
+                        tempCtx.font = ctx.font;
+                        tempCtx.textBaseline = 'middle';
+                        tempCtx.textAlign = 'left';
+
+                        const tempX = margin;
+                        const tempY = tempCanvas.height / 2;
+
+                        // 文字を一時キャンバスに描画
+                        tempCtx.fillStyle = c.color || '#ffffff';
+                        tempCtx.globalAlpha = 1.0;
+                        tempCtx.fillText(dc, tempX, tempY);
+
+                        // メインキャンバスに配置
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
-                        ctx.fillText(dc, px, ly);
+                        ctx.drawImage(tempCanvas, px - tempX, ly - tempY);
                     }
 
                     ctx.restore();
@@ -9643,6 +9665,7 @@
     <script src="batch.js"></script>
     <script src="prtl-generator.js"></script>
     <script src="prtl-export.js"></script>
+    <script src="prtl-import.js"></script>
     <script src="morgt-generator.js"></script>
     <script src="morgt-export.js"></script>
 
