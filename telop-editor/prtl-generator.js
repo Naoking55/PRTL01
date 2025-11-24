@@ -34,10 +34,11 @@ class PRTLGenerator {
         const styles = this._buildStyles(objects);
         const shaders = this._buildShaders(objects);
         const textDescriptions = this._buildTextDescriptions(fonts);
-        const xmlObjects = this._buildObjects(objects);
-        const textChains = this._buildTextChains(objects);
+        const textures = this._buildTextures();
+        const logos = this._buildLogos();
+        const layers = this._buildLayers(objects);
 
-        return `<?xml version="1.0" encoding="UTF-16" ?><Adobe_Root><Adobe_Title><Version>20080702</Version><Motion_Settings><Play_Forward>true</Play_Forward><Start_on_Screen>false</Start_on_Screen><Pre_Roll>0</Pre_Roll><Ease_In>0</Ease_In><End_off_Screen>false</End_off_Screen><Post_Roll>0</Post_Roll><Ease_Out>0</Ease_Out></Motion_Settings></Adobe_Title><InscriberLayouts Version="1.0"><Layout><LayoutEffectInfo Version="2"><EffectType>0</EffectType><Indic>false</Indic><Ligatures>false</Ligatures><HindiDigits>false</HindiDigits></LayoutEffectInfo><LayoutDimension Version="2"><pXPIXELS>${width}</pXPIXELS><pYLINES>${height}</pYLINES><pSCREENAR>1</pSCREENAR><growthDirection>growRightDown</growthDirection></LayoutDimension><LayoutAttributes><SafeTitleArea><left>0.1</left><top>0.1</top><right>0.9</right><bottom>0.9</bottom></SafeTitleArea><SafeActionArea><left>0.05</left><top>0.05</top><right>0.95</right><bottom>0.95</bottom></SafeActionArea></LayoutAttributes><Background Version="4"><ShaderReference>4098</ShaderReference><On>false</On><paintingRange>normalLayout</paintingRange></Background><DefaultStyle><Reference>${this.styleCounter}</Reference></DefaultStyle><DefaultTextDescription><Reference>${this.idCounter}</Reference></DefaultTextDescription><GraphicObjectDefaults><endCapType>square</endCapType><joinTypeClosed>round</joinTypeClosed><joinTypeOpen>round</joinTypeOpen><lineWidth>5</lineWidth><miterLimit>5</miterLimit><windBeziers>false</windBeziers><roundCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </roundCornerFillets><clippedCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </clippedCornerFillets></GraphicObjectDefaults><TextChainDefaults><normal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></normal><boxNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></boxNormal><blockNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></blockNormal><spline><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></spline></TextChainDefaults>${textDescriptions}${styles}${shaders}${xmlObjects}${textChains}</Layout></InscriberLayouts></Adobe_Root>`;
+        return `<?xml version="1.0" encoding="UTF-16" ?><Adobe_Root><Adobe_Title><Version>20080702</Version><Motion_Settings><Play_Forward>true</Play_Forward><Start_on_Screen>false</Start_on_Screen><Pre_Roll>0</Pre_Roll><Ease_In>0</Ease_In><End_off_Screen>false</End_off_Screen><Post_Roll>0</Post_Roll><Ease_Out>0</Ease_Out></Motion_Settings></Adobe_Title><InscriberLayouts Version="1.0"><Layout><LayoutEffectInfo Version="2"><EffectType>0</EffectType><Indic>false</Indic><Ligatures>false</Ligatures><HindiDigits>false</HindiDigits></LayoutEffectInfo><LayoutDimension Version="2"><pXPIXELS>${width}</pXPIXELS><pYLINES>${height}</pYLINES><pSCREENAR>1</pSCREENAR><growthDirection>growRightDown</growthDirection></LayoutDimension><LayoutAttributes><SafeTitleArea><left>0.1</left><top>0.1</top><right>0.9</right><bottom>0.9</bottom></SafeTitleArea><SafeActionArea><left>0.05</left><top>0.05</top><right>0.95</right><bottom>0.95</bottom></SafeActionArea></LayoutAttributes><Background Version="4"><ShaderReference>4098</ShaderReference><On>false</On><paintingRange>normalLayout</paintingRange></Background><DefaultStyle><Reference>${this.styleCounter}</Reference></DefaultStyle><DefaultTextDescription><Reference>${this.idCounter}</Reference></DefaultTextDescription><GraphicObjectDefaults><endCapType>square</endCapType><joinTypeClosed>round</joinTypeClosed><joinTypeOpen>round</joinTypeOpen><lineWidth>5</lineWidth><miterLimit>5</miterLimit><windBeziers>false</windBeziers><roundCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </roundCornerFillets><clippedCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </clippedCornerFillets></GraphicObjectDefaults><TextChainDefaults><normal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></normal><boxNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></boxNormal><blockNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></blockNormal><spline><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></spline></TextChainDefaults>${textDescriptions}${styles}${shaders}${textures}${logos}${layers}<VLS><FileReference Version="1"><fileString></fileString><seClass>2</seClass><seCode>1000</seCode></FileReference></VLS></Layout></InscriberLayouts></Adobe_Root>`;
     }
 
     /**
@@ -183,88 +184,121 @@ class PRTLGenerator {
     }
 
     /**
-     * Objects(テキストオブジェクト配置)を構築
-     * 参考PRTLファイルに合わせてObjectは生成しない（TextChain内に位置情報を含める）
+     * Textures(テクスチャ定義)を構築
      */
-    _buildObjects(objects) {
-        // 参考PRTLファイルではObjects要素が存在しないため、空文字を返す
-        return '';
+    _buildTextures() {
+        // 参考PRTLファイルのTextures構造（最小限）
+        return '<Textures></Textures>';
     }
 
     /**
-     * TextChains(テキスト内容)を構築
-     * 参考PRTLファイルに合わせた複雑な構造を生成
+     * Logos(ロゴ定義)を構築
      */
-    _buildTextChains(objects) {
-        let xml = '<TextChains>';
+    _buildLogos() {
+        return '<Logos></Logos>';
+    }
 
+    /**
+     * Layers(レイヤー構造)を構築
+     * 参考PRTLファイルの構造に完全準拠
+     */
+    _buildLayers(objects) {
+        let xml = '<Layers><Layer><DrawPage></DrawPage><TextPage>';
+
+        // 各テキストオブジェクトに対してTextChainを生成
         objects.forEach((obj, index) => {
             if (obj.type === 'text' && obj.chars) {
-                const styleRef = this.styleCounter + index;
-                const textDescRef = this.idCounter; // デフォルトフォント参照
-                const text = obj.chars.map(c => c.char).join('');
-                const textLength = text.length;
-
-                // オブジェクトの位置とサイズ
-                const x = obj.x || 0;
-                const y = obj.y || 0;
-                const width = obj.width || 500;
-                const height = obj.height || 100;
-                const fontSize = obj.chars[0]?.size || 75;
-
-                xml += '<TextChain>';
-
-                // ChainProperty: テキストボックスのプロパティ
-                xml += `<ChainProperty Version="9">`;
-                xml += `<wordWrap>false</wordWrap>`;
-                xml += `<Position><x>${x}</x><y>${y}</y></Position>`;
-                xml += `<Size><x>${width}</x><y>${height}</y></Size>`;
-                xml += `<leading>0</leading>`;
-                xml += `<lockedLinesX>true</lockedLinesX>`;
-                xml += `<lockedLinesY>true</lockedLinesY>`;
-                xml += `<boxCanGrow>false</boxCanGrow>`;
-                xml += `<tabModeStyle>Word</tabModeStyle>`;
-                xml += `<implicitTabSpacing>100</implicitTabSpacing>`;
-                xml += `<implicitTabType>left</implicitTabType>`;
-                xml += `</ChainProperty>`;
-
-                // ChainTabs: タブ設定（空）
-                xml += `<ChainTabs><TabList></TabList></ChainTabs>`;
-
-                // TextLine: テキストの内容とスタイル
-                const objectID = index + 1;
-                const persistentID = index + 3;
-                xml += `<TextLine Version="2" objectID="${objectID}" persistentID="${persistentID}">`;
-
-                // BaseProperties: テキストの基本プロパティ
-                xml += `<BaseProperties Version="5">`;
-                xml += `<txBase>${fontSize}</txBase>`;
-                xml += `<XPos>${x}</XPos>`;
-                xml += `<angle>${obj.rotation || 0}</angle>`;
-                xml += `<verticalText>false</verticalText>`;
-                xml += `<objectLeading>0</objectLeading>`;
-                xml += `</BaseProperties>`;
-
-                // テキストタイプと配置
-                xml += `<EnclosingObjectType>block</EnclosingObjectType>`;
-                xml += `<Alignment>left</Alignment>`;
-                xml += `<RTL>false</RTL>`;
-
-                // TRString: 実際のテキスト内容
-                xml += `<TRString>${this._escapeXML(text)}</TRString>`;
-
-                // RunLengthEncodedCharacterAttributes: 文字毎のスタイル属性
-                xml += `<RunLengthEncodedCharacterAttributes>`;
-                xml += `<CharacterAttributes RunCount="${textLength}" StyleRef="${styleRef}" TextRef="${textDescRef}" TXKerning="0" TXPostKerning="0" BaselineShifting="0"/>`;
-                xml += `</RunLengthEncodedCharacterAttributes>`;
-
-                xml += `<tagName></tagName>`;
-                xml += `</TextLine>`;
-                xml += '</TextChain>';
+                xml += this._buildTextChain(obj, index);
             }
         });
 
-        xml += '</TextChains>';
+        xml += '</TextPage><MergeGroups>';
+
+        // 各オブジェクトに対してGroupを生成
+        objects.forEach((obj, index) => {
+            if (obj.type === 'text' && obj.chars) {
+                const groupID = index + 1;
+                const objectID = index + 1;
+                const opacity = (obj.opacity || 100) / 100;
+                xml += `<Group groupID="${groupID}"><punchThru>false</punchThru><opacity>${opacity}</opacity><ObjectID value="${objectID}" /></Group>`;
+            }
+        });
+
+        xml += '</MergeGroups></Layer></Layers>';
+        return xml;
+    }
+
+    /**
+     * TextChain(テキスト内容)を構築
+     * 参考PRTLファイルに合わせた複雑な構造を生成
+     */
+    _buildTextChain(obj, index) {
+        const styleRef = this.styleCounter + index;
+        const textDescRef = this.idCounter; // デフォルトフォント参照
+        const text = obj.chars.map(c => c.char).join('');
+        const textLength = text.length;
+
+        // オブジェクトの位置とサイズ
+        const x = obj.x || 0;
+        const y = obj.y || 0;
+
+        // テキストの幅を計算（文字数 × フォントサイズ × 係数）
+        const fontSize = obj.chars[0]?.fontSize || 48;
+        const estimatedWidth = textLength * fontSize * 0.8;
+        const width = obj.width || estimatedWidth;
+        const height = obj.height || fontSize * 1.5;
+
+        let xml = '<TextChain>';
+
+        // ChainProperty: テキストボックスのプロパティ
+        xml += `<ChainProperty Version="9">`;
+        xml += `<wordWrap>false</wordWrap>`;
+        xml += `<Position><x>${x}</x><y>${y}</y></Position>`;
+        xml += `<Size><x>${width}</x><y>${height}</y></Size>`;
+        xml += `<leading>0</leading>`;
+        xml += `<lockedLinesX>true</lockedLinesX>`;
+        xml += `<lockedLinesY>true</lockedLinesY>`;
+        xml += `<boxCanGrow>false</boxCanGrow>`;
+        xml += `<tabModeStyle>Word</tabModeStyle>`;
+        xml += `<implicitTabSpacing>100</implicitTabSpacing>`;
+        xml += `<implicitTabType>left</implicitTabType>`;
+        xml += `</ChainProperty>`;
+
+        // ChainTabs: タブ設定（空）
+        xml += `<ChainTabs><TabList></TabList></ChainTabs>`;
+
+        // TextLine: テキストの内容とスタイル
+        const objectID = index + 1;
+        const persistentID = index + 3;
+        xml += `<TextLine Version="2" objectID="${objectID}" persistentID="${persistentID}">`;
+
+        // BaseProperties: テキストの基本プロパティ
+        const txBase = fontSize * 1.2; // ベースライン高さ
+        xml += `<BaseProperties Version="5">`;
+        xml += `<txBase>${txBase}</txBase>`;
+        xml += `<XPos>${x}</XPos>`;
+        xml += `<angle>${obj.rotation || 0}</angle>`;
+        xml += `<verticalText>false</verticalText>`;
+        xml += `<objectLeading>0</objectLeading>`;
+        xml += `</BaseProperties>`;
+
+        // テキストタイプと配置
+        xml += `<EnclosingObjectType>block</EnclosingObjectType>`;
+        xml += `<Alignment>left</Alignment>`;
+        xml += `<RTL>false</RTL>`;
+
+        // TRString: 実際のテキスト内容
+        xml += `<TRString>${this._escapeXML(text)}</TRString>`;
+
+        // RunLengthEncodedCharacterAttributes: 文字毎のスタイル属性
+        xml += `<RunLengthEncodedCharacterAttributes>`;
+        xml += `<CharacterAttributes RunCount="${textLength}" StyleRef="${styleRef}" TextRef="${textDescRef}" TXKerning="0" TXPostKerning="0" BaselineShifting="0" />`;
+        xml += `</RunLengthEncodedCharacterAttributes>`;
+
+        xml += `<tagName></tagName>`;
+        xml += `</TextLine>`;
+        xml += '</TextChain>';
+
         return xml;
     }
 
@@ -294,22 +328,35 @@ class PRTLGenerator {
     }
 
     /**
-     * UTF-8エンコーディング（BOMなし）
-     * PRTLファイルは実際にUTF-8で保存されているが、XMLヘッダーではUTF-16と宣言される
+     * UTF-16 LE エンコーディング（BOM付き）
+     * PRTLファイルは UTF-16 LE (BOM付き) でエンコードする必要がある
      */
-    _encodeUTF8(str) {
-        // TextEncoderを使用してUTF-8エンコーディング（BOMなし）
-        const encoder = new TextEncoder();
-        return encoder.encode(str);
+    _encodeUTF16LE(str) {
+        // BOM: 0xFF 0xFE
+        const bom = new Uint8Array([0xFF, 0xFE]);
+
+        // 文字列をUTF-16 LEにエンコード
+        const utf16Array = new Uint16Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            utf16Array[i] = str.charCodeAt(i);
+        }
+
+        // BOMとUTF-16データを結合
+        const utf16Bytes = new Uint8Array(utf16Array.buffer);
+        const result = new Uint8Array(bom.length + utf16Bytes.length);
+        result.set(bom, 0);
+        result.set(utf16Bytes, bom.length);
+
+        return result;
     }
 
     /**
      * ブラウザでのダウンロード用: PRTLファイルをダウンロード
      */
     downloadPRTL(xml, filename = 'telop.prtl') {
-        // UTF-8エンコーディング（BOMなし）
-        const utf8Array = this._encodeUTF8(xml);
-        const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
+        // UTF-16 LE（BOM付き）でエンコード
+        const utf16Array = this._encodeUTF16LE(xml);
+        const blob = new Blob([utf16Array], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
