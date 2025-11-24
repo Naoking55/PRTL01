@@ -2933,7 +2933,8 @@
             const fontWeight = c.bold !== false ? 'bold' : 'normal';
             const fontStyle = c.italic ? 'italic' : 'normal';
             ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
-            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) + (c.kerning || 0);
+            // カーニング: 正の値で文字間隔を狭め、負の値で広げる（Adobe製品の標準動作）
+            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) - (c.kerning || 0);
         }
 
         function getLineWidth(line) { return line.reduce((w, c) => w + getCharWidth(c), 0); }
@@ -7776,6 +7777,269 @@
         }
 
         function loadProject() { document.getElementById('fileInput').click(); }
+
+        // PRTL書き出し機能
+        function exportPRTL() {
+            exitEditMode(); selectedObjId = null; selectedObjIds = [];
+
+            // 基本的なPRTL XML構造を生成
+            const xmlHeader = '<?xml version="1.0" encoding="UTF-16" ?>';
+            const prtlData = generatePRTLData();
+
+            // UTF-16 LEでエンコード
+            const encoder = new TextEncoder();
+            const utf8Array = encoder.encode(xmlHeader + prtlData);
+
+            // UTF-16 LE変換 (簡易版: 実際にはUTF-16 LE変換が必要)
+            const bom = new Uint8Array([0xFF, 0xFE]); // UTF-16 LE BOM
+            const utf16Array = new Uint16Array(xmlHeader.length + prtlData.length + 1);
+            for (let i = 0; i < xmlHeader.length + prtlData.length; i++) {
+                utf16Array[i] = (xmlHeader + prtlData).charCodeAt(i);
+            }
+
+            const blob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.download = `title_${Date.now()}.prtl`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+
+            alert('PRTLファイルを書き出しました');
+        }
+
+        function generatePRTLData() {
+            // 簡易版PRTL生成（基本構造のみ）
+            let xml = '<Adobe_Root><Adobe_Title>';
+            xml += '<Version>20080702</Version>';
+            xml += '<Motion_Settings>';
+            xml += '<Play_Forward>true</Play_Forward>';
+            xml += '<Start_on_Screen>false</Start_on_Screen>';
+            xml += '<Pre_Roll>0</Pre_Roll>';
+            xml += '<Ease_In>0</Ease_In>';
+            xml += '<End_off_Screen>false</End_off_Screen>';
+            xml += '<Post_Roll>0</Post_Roll>';
+            xml += '<Ease_Out>0</Ease_Out>';
+            xml += '</Motion_Settings>';
+            xml += '</Adobe_Title>';
+            xml += '<InscriberLayouts Version="1.0"><Layout>';
+            xml += '<LayoutDimension Version="2">';
+            xml += `<pXPIXELS>${canvas.width}</pXPIXELS>`;
+            xml += `<pYLINES>${canvas.height}</pYLINES>`;
+            xml += '<pSCREENAR>1</pSCREENAR>';
+            xml += '<growthDirection>growRightDown</growthDirection>';
+            xml += '</LayoutDimension>';
+
+            // テキストオブジェクトの情報を追加
+            xml += '<TextObjects>';
+            textObjects.forEach((obj, idx) => {
+                if (obj.type === 'text') {
+                    const text = obj.chars ? obj.chars.map(c => c.char).join('') : '';
+                    xml += `<TextObject id="${idx}">`;
+                    xml += `<text>${escapeXml(text)}</text>`;
+                    xml += `<x>${obj.x}</x>`;
+                    xml += `<y>${obj.y}</y>`;
+                    xml += `<fontSize>${obj.chars && obj.chars[0] ? obj.chars[0].fontSize : 72}</fontSize>`;
+                    xml += `<fontFamily>${obj.chars && obj.chars[0] ? escapeXml(obj.chars[0].fontFamily) : 'Arial'}</fontFamily>`;
+                    xml += `<color>${obj.chars && obj.chars[0] ? obj.chars[0].color : '#ffffff'}</color>`;
+                    xml += '</TextObject>';
+                }
+            });
+            xml += '</TextObjects>';
+
+            xml += '</Layout></InscriberLayouts>';
+            xml += '</Adobe_Root>';
+
+            return xml;
+        }
+
+        function escapeXml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe.replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"': return '&quot;';
+                }
+            });
+        }
+
+        // PRTL読み込み機能
+        function importPRTL() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.prtl';
+            input.onchange = handlePRTLLoad;
+            input.click();
+        }
+
+        function handlePRTLLoad(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    // UTF-16 LEからテキストに変換
+                    const arrayBuffer = ev.target.result;
+                    const decoder = new TextDecoder('utf-16le');
+                    let xmlText = decoder.decode(arrayBuffer);
+
+                    // BOMを除去
+                    if (xmlText.charCodeAt(0) === 0xFEFF) {
+                        xmlText = xmlText.substring(1);
+                    }
+
+                    // XMLをパース
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+                    // エラーチェック
+                    if (xmlDoc.querySelector('parsererror')) {
+                        throw new Error('XMLパースエラー');
+                    }
+
+                    // テキストオブジェクトを抽出（簡易版）
+                    parsePRTLAndLoad(xmlDoc);
+
+                    alert('PRTLファイルを読み込みました');
+                    render();
+                } catch (err) {
+                    alert('エラー: ' + err.message);
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            e.target.value = '';
+        }
+
+        function parsePRTLAndLoad(xmlDoc) {
+            // 簡易版: TextObjectsから読み込み
+            const textObjs = xmlDoc.querySelectorAll('TextObject');
+
+            if (textObjs.length > 0) {
+                // 既存のテキストオブジェクトをクリア
+                textObjects = [];
+
+                textObjs.forEach((textObj) => {
+                    const text = textObj.querySelector('text')?.textContent || '';
+                    const x = parseFloat(textObj.querySelector('x')?.textContent) || canvas.width / 2;
+                    const y = parseFloat(textObj.querySelector('y')?.textContent) || canvas.height / 2;
+                    const fontSize = parseFloat(textObj.querySelector('fontSize')?.textContent) || 72;
+                    const fontFamily = textObj.querySelector('fontFamily')?.textContent || 'Yu Gothic UI';
+                    const color = textObj.querySelector('color')?.textContent || '#ffffff';
+
+                    // 新しいテキストオブジェクトを作成
+                    const obj = {
+                        id: Date.now() + Math.random(),
+                        type: 'text',
+                        x: x,
+                        y: y,
+                        rotation: 0,
+                        vertical: false,
+                        textAlign: 'center',
+                        opacity: 100,
+                        animIn: 'none',
+                        animInDelay: 0,
+                        animInDuration: 0.5,
+                        animOut: 'none',
+                        animOutDelay: 0,
+                        animOutDuration: 0.5,
+                        chars: []
+                    };
+
+                    // 文字配列を作成
+                    for (let i = 0; i < text.length; i++) {
+                        obj.chars.push({
+                            char: text[i],
+                            fontFamily: fontFamily,
+                            fontSize: fontSize,
+                            color: color,
+                            bold: true,
+                            italic: false,
+                            fillType: 'solid',
+                            scaleX: 100,
+                            kerning: 0,
+                            tracking: 0,
+                            baseline: 0,
+                            slant: 0,
+                            opacity: 100,
+                            smallCaps: false,
+                            smallCapsSize: 70,
+                            strokes: [{ enabled: true, color: '#000000', width: 4, opacity: 100, type: 'edge', join: 'round' }],
+                            shadow: { enabled: false, color: '#000000', blur: 10, offsetX: 5, offsetY: 5, opacity: 100 },
+                            gloss: { enabled: false, color: '#ffffff', opacity: 50, height: 50, curve: 50 }
+                        });
+                    }
+
+                    textObjects.push(obj);
+                });
+
+                saveState();
+            }
+        }
+
+        // MOGRT書き出し機能（プレースホルダー）
+        function exportMOGRT() {
+            alert('MOGRT書き出し機能は現在開発中です。\nMOGRTはAdobe After Effectsの複雑なフォーマットのため、完全な実装には時間が必要です。\n\n代替案:\n1. PRTLとして書き出してPremiere Proで使用\n2. PNG/GIF/WebMとして書き出して使用');
+        }
+
+        // バッチPRTL書き出し機能
+        function batchExportPRTL() {
+            if (canvases.length === 0) {
+                alert('キャンバスがありません');
+                return;
+            }
+
+            exitEditMode(); selectedObjId = null; selectedObjIds = [];
+
+            // 現在のキャンバスを保存
+            const currentCanvas = {
+                objects: JSON.parse(JSON.stringify(textObjects)),
+                bgColor: canvasBgColor,
+                bgOpacity: canvasBgOpacity,
+                bgImage: bgImage
+            };
+
+            // 各キャンバスを順番に書き出し
+            canvases.forEach((cvs, idx) => {
+                // キャンバスを切り替え
+                textObjects = JSON.parse(JSON.stringify(cvs.objects || []));
+                canvasBgColor = cvs.bgColor || '#1e1e1e';
+                canvasBgOpacity = cvs.bgOpacity || 100;
+                bgImage = cvs.bgImage || null;
+
+                // PRTLデータを生成
+                const xmlHeader = '<?xml version="1.0" encoding="UTF-16" ?>';
+                const prtlData = generatePRTLData();
+
+                // UTF-16 LE変換
+                const bom = new Uint8Array([0xFF, 0xFE]);
+                const utf16Array = new Uint16Array(xmlHeader.length + prtlData.length + 1);
+                for (let i = 0; i < xmlHeader.length + prtlData.length; i++) {
+                    utf16Array[i] = (xmlHeader + prtlData).charCodeAt(i);
+                }
+
+                const blob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
+                const link = document.createElement('a');
+                const paddedIdx = String(idx).padStart(3, '0');
+                link.download = `title_${paddedIdx}.prtl`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+
+                // 少し待機（ブラウザの制限対策）
+                setTimeout(() => {}, 100);
+            });
+
+            // 元のキャンバスに戻す
+            textObjects = currentCanvas.objects;
+            canvasBgColor = currentCanvas.bgColor;
+            canvasBgOpacity = currentCanvas.bgOpacity;
+            bgImage = currentCanvas.bgImage;
+
+            render();
+            alert(`${canvases.length}個のPRTLファイルを書き出しました`);
+        }
 
         // PRSL読み込み機能
         let loadedPRSLStyles = [];
