@@ -1648,58 +1648,111 @@ v6.36完全機能をお楽しみください！"""
                                   font=("Arial", max(8, int(min(x2-x1, y2-y1) / 6))))
     
     def draw_text_object(self, obj: TextLineData, scale_x: float, scale_y: float):
-        """テキストオブジェクト描画（完全版・回転・エフェクト対応）"""
+        """テキストオブジェクト描画（完全版・回転・エフェクト対応）
+
+        レガシータイトル互換：
+        - 各文字を個別に処理
+        - ストロークが隣の文字を潰さないように描画順序を制御
+        - 後ろの文字から前の文字へ、各文字ごとにストローク→本体の順で描画
+        """
         if not obj.text:
             return
-        
+
         x = obj.x * scale_x
         y = obj.y * scale_y
-        
+
         # フォントサイズ調整
         display_font_size = max(8, int(obj.font_size * min(scale_x, scale_y) / 8))
-        
+
         # 日本語フォント対応
         try:
             font_tuple = (obj.font_family, display_font_size, obj.font_style.lower())
         except:
             font_tuple = ("Yu Gothic UI", display_font_size, "bold")
-        
+
         # 配置設定
         anchor_map = {"left": "w", "center": "center", "right": "e"}
         anchor = anchor_map.get(obj.alignment, "center")
-        
+
         # 色設定
         text_color = f"#{obj.color_r:02x}{obj.color_g:02x}{obj.color_b:02x}"
-        
-        # 影描画（fragmentOff対応）
-        if obj.enable_shadow:
-            shadow_offset_x = obj.shadow_distance * math.cos(math.radians(obj.shadow_angle))
-            shadow_offset_y = obj.shadow_distance * math.sin(math.radians(obj.shadow_angle))
-            shadow_alpha = int(obj.shadow_opacity * 2.55)
-            
+
+        # フォントオブジェクトを作成（文字幅計算用）
+        try:
+            import tkinter.font as tkfont
+            font_obj = tkfont.Font(family=font_tuple[0], size=font_tuple[1], weight=font_tuple[2])
+        except:
+            font_obj = None
+
+        # テキスト全体の幅を計算
+        if font_obj:
+            total_width = font_obj.measure(obj.text)
+        else:
+            # フォールバック：推定
+            total_width = len(obj.text) * display_font_size * 0.6
+
+        # 開始位置を計算（配置に基づく）
+        if obj.alignment == "center":
+            start_x = x - total_width / 2
+        elif obj.alignment == "right":
+            start_x = x - total_width
+        else:  # left
+            start_x = x
+
+        # 各文字を個別に処理（後ろから前へ）
+        chars = list(obj.text)
+        char_positions = []
+        current_x = start_x
+
+        # 各文字の位置を計算
+        for char in chars:
+            if font_obj:
+                char_width = font_obj.measure(char)
+            else:
+                char_width = display_font_size * 0.6
+
+            char_positions.append((char, current_x, y))
+            current_x += char_width
+
+        # レガシータイトル互換の描画順序（2パス方式）
+        # 第1パス: すべての文字の影とストロークを後ろから前へ描画
+        # 第2パス: すべての文字の本体を後ろから前へ描画
+        # これにより、どの文字の本体も、すべてのストロークの上に描画される
+
+        # 第1パス: 影とストローク描画（後ろから前へ）
+        for char, char_x, char_y in reversed(char_positions):
+            # 影描画
+            if obj.enable_shadow:
+                shadow_offset_x = obj.shadow_distance * math.cos(math.radians(obj.shadow_angle))
+                shadow_offset_y = obj.shadow_distance * math.sin(math.radians(obj.shadow_angle))
+                shadow_alpha = int(obj.shadow_opacity * 2.55)
+
+                self.canvas.create_text(
+                    char_x + shadow_offset_x, char_y + shadow_offset_y,
+                    text=char, font=font_tuple, fill="black",
+                    anchor="w", angle=obj.rotation
+                )
+
+            # ストローク描画（各文字個別に）
+            if obj.enable_stroke:
+                stroke_size = max(1, int(obj.stroke_size * min(scale_x, scale_y) / 15))
+                stroke_color = f"#{obj.stroke_color_r:02x}{obj.stroke_color_g:02x}{obj.stroke_color_b:02x}"
+
+                for dx in range(-stroke_size, stroke_size + 1):
+                    for dy in range(-stroke_size, stroke_size + 1):
+                        if dx*dx + dy*dy <= stroke_size*stroke_size:
+                            self.canvas.create_text(
+                                char_x + dx, char_y + dy,
+                                text=char, font=font_tuple, fill=stroke_color,
+                                anchor="w", angle=obj.rotation
+                            )
+
+        # 第2パス: メインテキスト描画（後ろから前へ）
+        for char, char_x, char_y in reversed(char_positions):
             self.canvas.create_text(
-                x + shadow_offset_x, y + shadow_offset_y,
-                text=obj.text, font=font_tuple, fill="black",
-                anchor=anchor, angle=obj.rotation
+                char_x, char_y, text=char, font=font_tuple, fill=text_color,
+                anchor="w", angle=obj.rotation
             )
-        
-        # ストローク描画（fragmentOff対応）
-        if obj.enable_stroke:
-            stroke_size = max(1, int(obj.stroke_size * min(scale_x, scale_y) / 15))
-            for dx in range(-stroke_size, stroke_size + 1):
-                for dy in range(-stroke_size, stroke_size + 1):
-                    if dx*dx + dy*dy <= stroke_size*stroke_size:
-                        self.canvas.create_text(
-                            x + dx, y + dy,
-                            text=obj.text, font=font_tuple, fill="darkgoldenrod",
-                            anchor=anchor, angle=obj.rotation
-                        )
-        
-        # メインテキスト描画
-        self.canvas.create_text(
-            x, y, text=obj.text, font=font_tuple, fill=text_color,
-            anchor=anchor, angle=obj.rotation
-        )
     
     def draw_selection_highlight(self, scale_x: float, scale_y: float):
         """選択ハイライト描画（リサイズハンドル付き）"""
