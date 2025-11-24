@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.naoki.prtl01" ExtensionBundleVersion="1.0.0"
+                   ExtensionBundleName="PRTL01 - テロップエディタ"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <!-- Extension List -->
+    <ExtensionList>
+        <Extension Id="com.naoki.prtl01.panel" Version="1.0.0" />
+    </ExtensionList>
+
+    <!-- Execution Environment -->
+    <ExecutionEnvironment>
+        <HostList>
+            <!-- Adobe Premiere Pro -->
+            <Host Name="PPRO" Version="[14.0,99.9]" />
+            <!-- Adobe After Effects -->
+            <Host Name="AEFT" Version="[17.0,99.9]" />
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="9.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+
+    <!-- Dispatch Info -->
+    <DispatchInfoList>
+        <Extension Id="com.naoki.prtl01.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./telop-editor/new_index.html</MainPath>
+                    <ScriptPath>./jsx/hostscript.jsx</ScriptPath>
+                    <CEFCommandLine>
+                        <Parameter>--enable-nodejs</Parameter>
+                        <Parameter>--mixed-context</Parameter>
+                    </CEFCommandLine>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>PRTL01 エディタ</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>800</Height>
+                            <Width>1200</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>400</Height>
+                            <Width>600</Width>
+                        </MinSize>
+                        <MaxSize>
+                            <Height>2000</Height>
+                            <Width>3000</Width>
+                        </MaxSize>
+                    </Geometry>
+                    <Icons>
+                        <Icon Type="Normal">./icons/icon-normal.png</Icon>
+                        <Icon Type="RollOver">./icons/icon-rollover.png</Icon>
+                        <Icon Type="Disabled">./icons/icon-disabled.png</Icon>
+                        <Icon Type="DarkNormal">./icons/icon-dark-normal.png</Icon>
+                        <Icon Type="DarkRollOver">./icons/icon-dark-rollover.png</Icon>
+                    </Icons>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>
