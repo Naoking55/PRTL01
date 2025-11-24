@@ -8,8 +8,8 @@ PRTL (Premiere Title) は、Adobe Premiere Pro のレガシータイトル機能
 
 ### エンコーディング
 
-- **文字エンコーディング**: UTF-16 LE (Little Endian)
-- **BOM**: 必須 (0xFF 0xFE)
+- **文字エンコーディング**: UTF-8（BOMなし）
+- **重要**: XMLヘッダーでは `encoding="UTF-16"` と宣言されているが、**実際のファイルはUTF-8（BOMなし）**でエンコードされている
 - **XMLヘッダー**: `<?xml version="1.0" encoding="UTF-16" ?>`
 
 ### ファイル拡張子
@@ -469,9 +469,10 @@ ShaderListは、各PainterNumberに対応する色（Shader）を指定します
 
 ### 1. エンコーディング
 
-- ファイルは**UTF-16 LE（BOM付き）**でエンコードする必要があります
-- XMLヘッダーでは`encoding="UTF-16"`と宣言します
-- ただし、実際のファイルによってはUTF-8で保存されている場合もあります（互換性のため両方対応推奨）
+- ファイルは**UTF-8（BOMなし）**でエンコードします
+- XMLヘッダーでは`encoding="UTF-16"`と宣言しますが、**実際のファイルはUTF-8**です
+- この矛盾はAdobe Premiere Proの実装仕様によるものです
+- 参考PRTLファイルはすべてUTF-8（BOMなし）でエンコードされています
 
 ### 2. ID管理
 
@@ -529,7 +530,8 @@ const prtlXML = `<?xml version="1.0" encoding="UTF-16" ?>
   </InscriberLayouts>
 </Adobe_Root>`;
 
-// UTF-16 LE (BOM付き) でエンコード
+// UTF-8（BOMなし）でエンコード
+// 注意: XMLヘッダーはencoding="UTF-16"だが、実際はUTF-8で保存
 const encoder = new TextEncoder();
 const utf8Array = encoder.encode(prtlXML);
 const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
@@ -548,4 +550,5 @@ const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
 
 | 日付 | バージョン | 変更内容 |
 |------|------------|----------|
+| 2025-11-24 | 1.1 | エンコーディング仕様を修正（UTF-16 LE → UTF-8） |
 | 2025-11-24 | 1.0 | 初版作成 |

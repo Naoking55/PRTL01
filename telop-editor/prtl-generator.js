@@ -328,35 +328,23 @@ class PRTLGenerator {
     }
 
     /**
-     * UTF-16 LE エンコーディング（BOM付き）
-     * PRTLファイルは UTF-16 LE (BOM付き) でエンコードする必要がある
+     * UTF-8 エンコーディング（BOMなし）
+     * 参考PRTLファイルはUTF-8（BOMなし）でエンコードされている
+     * XMLヘッダーには encoding="UTF-16" と書かれているが、実際のファイルはUTF-8
      */
-    _encodeUTF16LE(str) {
-        // BOM: 0xFF 0xFE
-        const bom = new Uint8Array([0xFF, 0xFE]);
-
-        // 文字列をUTF-16 LEにエンコード
-        const utf16Array = new Uint16Array(str.length);
-        for (let i = 0; i < str.length; i++) {
-            utf16Array[i] = str.charCodeAt(i);
-        }
-
-        // BOMとUTF-16データを結合
-        const utf16Bytes = new Uint8Array(utf16Array.buffer);
-        const result = new Uint8Array(bom.length + utf16Bytes.length);
-        result.set(bom, 0);
-        result.set(utf16Bytes, bom.length);
-
-        return result;
+    _encodeUTF8(str) {
+        // TextEncoderを使用してUTF-8エンコーディング（BOMなし）
+        const encoder = new TextEncoder();
+        return encoder.encode(str);
     }
 
     /**
      * ブラウザでのダウンロード用: PRTLファイルをダウンロード
      */
     downloadPRTL(xml, filename = 'telop.prtl') {
-        // UTF-16 LE（BOM付き）でエンコード
-        const utf16Array = this._encodeUTF16LE(xml);
-        const blob = new Blob([utf16Array], { type: 'application/octet-stream' });
+        // UTF-8（BOMなし）でエンコード
+        const utf8Array = this._encodeUTF8(xml);
+        const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
