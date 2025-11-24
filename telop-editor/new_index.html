@@ -1013,27 +1013,75 @@
             }
 
             _buildObjects(objects) {
-                let xml = '<Objects>';
-                objects.forEach((obj, index) => {
-                    if (obj.type === 'text') {
-                        const textRef = this.idCounter + 1000 + index;
-                        const styleRef = this.styleCounter + index;
-                        xml += `<Object><BaseClassType>TextObject</BaseClassType><ObjectID>${index}</ObjectID><Position><x>${obj.x}</x><y>${obj.y}</y></Position><TextRef Reference="${textRef}"/><StyleReference Reference="${styleRef}"/><Opacity>${(obj.opacity || 100) / 100}</Opacity><Rotation>${obj.rotation || 0}</Rotation></Object>`;
-                    }
-                });
-                xml += '</Objects>';
-                return xml;
+                // 参考PRTLファイルではObjects要素が存在しないため、空文字を返す
+                return '';
             }
 
             _buildTextChains(objects) {
                 let xml = '<TextChains>';
                 objects.forEach((obj, index) => {
                     if (obj.type === 'text' && obj.chars) {
-                        const ref = this.idCounter + 1000 + index;
-                        const textDescRef = this.idCounter;
                         const styleRef = this.styleCounter + index;
+                        const textDescRef = this.idCounter;
                         const text = obj.chars.map(c => c.char).join('');
-                        xml += `<TextChain Reference="${ref}"><Text>${this._escapeXML(text)}</Text><TextDescriptionReference Reference="${textDescRef}"/><TextStyleReference Reference="${styleRef}"/></TextChain>`;
+                        const textLength = text.length;
+
+                        // オブジェクトの位置とサイズ
+                        const x = obj.x || 0;
+                        const y = obj.y || 0;
+                        const width = obj.width || 500;
+                        const height = obj.height || 100;
+                        const fontSize = obj.chars[0]?.size || 75;
+
+                        xml += '<TextChain>';
+
+                        // ChainProperty: テキストボックスのプロパティ
+                        xml += `<ChainProperty Version="9">`;
+                        xml += `<wordWrap>false</wordWrap>`;
+                        xml += `<Position><x>${x}</x><y>${y}</y></Position>`;
+                        xml += `<Size><x>${width}</x><y>${height}</y></Size>`;
+                        xml += `<leading>0</leading>`;
+                        xml += `<lockedLinesX>true</lockedLinesX>`;
+                        xml += `<lockedLinesY>true</lockedLinesY>`;
+                        xml += `<boxCanGrow>false</boxCanGrow>`;
+                        xml += `<tabModeStyle>Word</tabModeStyle>`;
+                        xml += `<implicitTabSpacing>100</implicitTabSpacing>`;
+                        xml += `<implicitTabType>left</implicitTabType>`;
+                        xml += `</ChainProperty>`;
+
+                        // ChainTabs: タブ設定（空）
+                        xml += `<ChainTabs><TabList></TabList></ChainTabs>`;
+
+                        // TextLine: テキストの内容とスタイル
+                        const objectID = index + 1;
+                        const persistentID = index + 3;
+                        xml += `<TextLine Version="2" objectID="${objectID}" persistentID="${persistentID}">`;
+
+                        // BaseProperties: テキストの基本プロパティ
+                        xml += `<BaseProperties Version="5">`;
+                        xml += `<txBase>${fontSize}</txBase>`;
+                        xml += `<XPos>${x}</XPos>`;
+                        xml += `<angle>${obj.rotation || 0}</angle>`;
+                        xml += `<verticalText>false</verticalText>`;
+                        xml += `<objectLeading>0</objectLeading>`;
+                        xml += `</BaseProperties>`;
+
+                        // テキストタイプと配置
+                        xml += `<EnclosingObjectType>block</EnclosingObjectType>`;
+                        xml += `<Alignment>left</Alignment>`;
+                        xml += `<RTL>false</RTL>`;
+
+                        // TRString: 実際のテキスト内容
+                        xml += `<TRString>${this._escapeXML(text)}</TRString>`;
+
+                        // RunLengthEncodedCharacterAttributes: 文字毎のスタイル属性
+                        xml += `<RunLengthEncodedCharacterAttributes>`;
+                        xml += `<CharacterAttributes RunCount="${textLength}" StyleRef="${styleRef}" TextRef="${textDescRef}" TXKerning="0" TXPostKerning="0" BaselineShifting="0"/>`;
+                        xml += `</RunLengthEncodedCharacterAttributes>`;
+
+                        xml += `<tagName></tagName>`;
+                        xml += `</TextLine>`;
+                        xml += '</TextChain>';
                     }
                 });
                 xml += '</TextChains>';
@@ -7969,14 +8017,12 @@
             };
             const prtlXML = generator.generatePRTL(canvasData);
 
-            // UTF-16 LE + BOMでエンコード
-            const bom = new Uint8Array([0xFF, 0xFE]);
-            const utf16Array = new Uint16Array(prtlXML.length);
-            for (let i = 0; i < prtlXML.length; i++) {
-                utf16Array[i] = prtlXML.charCodeAt(i);
-            }
+            // UTF-8（BOMなし）でエンコード
+            // 参考PRTLファイルはUTF-8（BOMなし）で保存されているが、XMLヘッダーではUTF-16と宣言される
+            const encoder = new TextEncoder(); // UTF-8エンコーディング
+            const utf8Array = encoder.encode(prtlXML);
 
-            const blob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
+            const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
             const link = document.createElement('a');
             link.download = `title_${Date.now()}.prtl`;
             link.href = URL.createObjectURL(blob);
@@ -8170,14 +8216,12 @@
                 };
                 const prtlXML = generator.generatePRTL(canvasData);
 
-                // UTF-16 LE + BOMでエンコード
-                const bom = new Uint8Array([0xFF, 0xFE]);
-                const utf16Array = new Uint16Array(prtlXML.length);
-                for (let i = 0; i < prtlXML.length; i++) {
-                    utf16Array[i] = prtlXML.charCodeAt(i);
-                }
+                // UTF-8（BOMなし）でエンコード
+                // 参考PRTLファイルはUTF-8（BOMなし）で保存されているが、XMLヘッダーではUTF-16と宣言される
+                const encoder = new TextEncoder(); // UTF-8エンコーディング
+                const utf8Array = encoder.encode(prtlXML);
 
-                const prtlBlob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
+                const prtlBlob = new Blob([utf8Array], { type: 'application/octet-stream' });
                 const prtlLink = document.createElement('a');
                 prtlLink.download = `${baseName}-${paddedIdx}.prtl`;
                 prtlLink.href = URL.createObjectURL(prtlBlob);
