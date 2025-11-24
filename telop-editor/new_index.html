@@ -886,6 +886,181 @@
     <input type="text" id="imeInput" autocomplete="off">
 
     <script>
+        // ==================== PRTL Generator Class ====================
+        /**
+         * PRTL Generator - Premiere Pro Legacy Title File Generator
+         * キャンバスデータからPRTLファイル(Adobe Premiere Pro レガシータイトル)を生成
+         */
+        class PRTLGenerator {
+            constructor() {
+                this.idCounter = 4096;
+                this.shaderCounter = 4096;
+                this.styleCounter = 4096;
+            }
+
+            generatePRTL(canvasData) {
+                const [width, height] = (canvasData.resolution || '1920x1080').split('x').map(Number);
+                const objects = canvasData.objects || [];
+                return this._buildPRTLXML(width, height, objects);
+            }
+
+            _buildPRTLXML(width, height, objects) {
+                const fonts = this._collectUniqueFonts(objects);
+                const styles = this._buildStyles(objects);
+                const shaders = this._buildShaders(objects);
+                const textDescriptions = this._buildTextDescriptions(fonts);
+                const xmlObjects = this._buildObjects(objects);
+                const textChains = this._buildTextChains(objects);
+
+                return `<?xml version="1.0" encoding="UTF-16" ?><Adobe_Root><Adobe_Title><Version>20080702</Version><Motion_Settings><Play_Forward>true</Play_Forward><Start_on_Screen>false</Start_on_Screen><Pre_Roll>0</Pre_Roll><Ease_In>0</Ease_In><End_off_Screen>false</End_off_Screen><Post_Roll>0</Post_Roll><Ease_Out>0</Ease_Out></Motion_Settings></Adobe_Title><InscriberLayouts Version="1.0"><Layout><LayoutEffectInfo Version="2"><EffectType>0</EffectType><Indic>false</Indic><Ligatures>false</Ligatures><HindiDigits>false</HindiDigits></LayoutEffectInfo><LayoutDimension Version="2"><pXPIXELS>${width}</pXPIXELS><pYLINES>${height}</pYLINES><pSCREENAR>1</pSCREENAR><growthDirection>growRightDown</growthDirection></LayoutDimension><LayoutAttributes><SafeTitleArea><left>0.1</left><top>0.1</top><right>0.9</right><bottom>0.9</bottom></SafeTitleArea><SafeActionArea><left>0.05</left><top>0.05</top><right>0.95</right><bottom>0.95</bottom></SafeActionArea></LayoutAttributes><Background Version="4"><ShaderReference>4098</ShaderReference><On>false</On><paintingRange>normalLayout</paintingRange></Background><DefaultStyle><Reference>${this.styleCounter}</Reference></DefaultStyle><DefaultTextDescription><Reference>${this.idCounter}</Reference></DefaultTextDescription><GraphicObjectDefaults><endCapType>square</endCapType><joinTypeClosed>round</joinTypeClosed><joinTypeOpen>round</joinTypeOpen><lineWidth>5</lineWidth><miterLimit>5</miterLimit><windBeziers>false</windBeziers><roundCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </roundCornerFillets><clippedCornerFillets>37.5 37.5 37.5 37.5 37.5 37.5 37.5 37.5 </clippedCornerFillets></GraphicObjectDefaults><TextChainDefaults><normal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></normal><boxNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>true</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></boxNormal><blockNormal><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>true</lockedLinesX><lockedLinesY>true</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></blockNormal><spline><leading>0</leading><boxCanGrow>false</boxCanGrow><wordWrap>false</wordWrap><lockedLinesX>false</lockedLinesX><lockedLinesY>false</lockedLinesY><Alignment>left</Alignment><tabModeStyle>Word</tabModeStyle><implicitTabSpacing>100</implicitTabSpacing><implicitTabType>left</implicitTabType><rtl>false</rtl><tabs></tabs></spline></TextChainDefaults>${textDescriptions}${styles}${shaders}${xmlObjects}${textChains}</Layout></InscriberLayouts></Adobe_Root>`;
+            }
+
+            _collectUniqueFonts(objects) {
+                const fontSet = new Set();
+                objects.forEach(obj => {
+                    if (obj.type === 'text' && obj.chars) {
+                        obj.chars.forEach(char => {
+                            if (char.fontFamily) fontSet.add(char.fontFamily);
+                        });
+                    }
+                });
+                return Array.from(fontSet);
+            }
+
+            _buildTextDescriptions(fonts) {
+                if (fonts.length === 0) fonts = ['Yu Gothic UI'];
+                let xml = '<TextDescriptions Version="4">';
+                fonts.forEach((fontFamily, index) => {
+                    const ref = this.idCounter + index;
+                    xml += `<TextDescription Reference="${ref}"><TypeSpec><size>616</size><txHeight>75</txHeight><txKern>0</txKern><baselineShift>0</baselineShift><leading>0</leading><txSCaps>75</txSCaps><txSCapsOn>false</txSCapsOn><txSlant>0</txSlant><txUnderline>false</txUnderline><txWidth>67.5</txWidth><linked>false</linked><fiBold>0</fiBold><fiItalic>0</fiItalic><fifullName>${this._escapeXML(fontFamily)}</fifullName><fifontFamilyName>${this._escapeXML(fontFamily)}</fifontFamilyName><fifontStyle>Regular</fifontStyle><fifontType>5</fifontType><ficategory>1</ficategory></TypeSpec></TextDescription>`;
+                });
+                xml += '</TextDescriptions>';
+                return xml;
+            }
+
+            _buildStyles(objects) {
+                let xml = '<Styles>';
+                objects.forEach((obj, index) => {
+                    if (obj.type === 'text' && obj.chars && obj.chars.length > 0) {
+                        xml += this._buildSingleStyle(obj, index);
+                    }
+                });
+                if (objects.length === 0) xml += this._buildDefaultStyle();
+                xml += '</Styles>';
+                return xml;
+            }
+
+            _buildSingleStyle(obj, index) {
+                const styleId = this.styleCounter + index;
+                const firstChar = obj.chars[0];
+                const strokes = firstChar.strokes || [];
+                let fragments = '';
+
+                strokes.slice().reverse().forEach((stroke, i) => {
+                    if (stroke.enabled) {
+                        const annotation = strokes.length - i;
+                        const painterNum = 10 + (strokes.length - i - 1);
+                        fragments += `<Fragment><size>${stroke.width * 2}</size><offset>0</offset><angle>0</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>2</eFragmentType><fragmentOff>${!stroke.enabled}</fragmentOff><placeHolder>false</placeHolder><annotation>${annotation}</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} ${painterNum} </painterMix></Fragment>`;
+                    }
+                });
+
+                fragments += `<Fragment><size>0</size><offset>0</offset><angle>0</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>0</eFragmentType><fragmentOff>false</fragmentOff><placeHolder>false</placeHolder><annotation>65538</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 </painterMix></Fragment>`;
+
+                const shadowEnabled = firstChar.shadowEnabled || false;
+                const shadowDistance = firstChar.shadowDistance || 10;
+                const shadowAngle = firstChar.shadowAngle || -45;
+                fragments += `<Fragment><size>0</size><offset>${shadowDistance}</offset><angle>${shadowAngle}</angle><ghost>false</ghost><isExtendedShadowFragment>true</isExtendedShadowFragment><eFragmentType>0</eFragmentType><fragmentOff>${!shadowEnabled}</fragmentOff><placeHolder>false</placeHolder><annotation>65537</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 </painterMix></Fragment>`;
+
+                let shaderList = '';
+                for (let i = 2; i <= 15; i++) {
+                    const shaderRef = i >= 10 && i <= 13 ? (this.shaderCounter + index * 20 + (i - 10)) : 0;
+                    shaderList += `<ShaderRef PainterNumber="${i}"><shaderRef>${shaderRef}</shaderRef></ShaderRef>`;
+                }
+                shaderList += `<ShaderRef PainterNumber="-1"><shaderRef>${this.shaderCounter + index * 20 + 15}</shaderRef></ShaderRef>`;
+                for (let i = 1000; i <= 1015; i++) {
+                    shaderList += `<ShaderRef PainterNumber="${i}"><shaderRef>0</shaderRef></ShaderRef>`;
+                }
+
+                return `<Style ID="${styleId}"><StyleBase Version="4"><type>50000</type><positionDominance>0</positionDominance><lineGradient>false</lineGradient><styleRef>${styleId}</styleRef><faceDistortX>0</faceDistortX><faceDistortY>0</faceDistortY><shadow_softness>30</shadow_softness><personality>0</personality><linked>false</linked><EmbellishmentSizeRule>false</EmbellishmentSizeRule><PainterRampType>Basic</PainterRampType></StyleBase><FragmentList Version="5">${fragments}</FragmentList><ShaderList Version="1">${shaderList}</ShaderList></Style>`;
+            }
+
+            _buildDefaultStyle() {
+                const styleId = this.styleCounter;
+                const fragments = `<Fragment><size>60</size><offset>0</offset><angle>0</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>2</eFragmentType><fragmentOff>false</fragmentOff><placeHolder>false</placeHolder><annotation>2</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 </painterMix></Fragment><Fragment><size>30</size><offset>0</offset><angle>0</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>2</eFragmentType><fragmentOff>false</fragmentOff><placeHolder>false</placeHolder><annotation>1</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>13 13 13 13 13 13 13 13 13 13 13 13 13 13 13 13 </painterMix></Fragment><Fragment><size>0</size><offset>0</offset><angle>0</angle><ghost>false</ghost><isExtendedShadowFragment>false</isExtendedShadowFragment><eFragmentType>0</eFragmentType><fragmentOff>false</fragmentOff><placeHolder>false</placeHolder><annotation>65538</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 </painterMix></Fragment><Fragment><size>0</size><offset>10</offset><angle>-45</angle><ghost>false</ghost><isExtendedShadowFragment>true</isExtendedShadowFragment><eFragmentType>0</eFragmentType><fragmentOff>true</fragmentOff><placeHolder>false</placeHolder><annotation>65537</annotation><placeHolderShaderIndex>4294967295</placeHolderShaderIndex><painterMix>0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 </painterMix></Fragment>`;
+                return `<Style ID="${styleId}"><StyleBase Version="4"><type>50000</type><positionDominance>0</positionDominance><lineGradient>false</lineGradient><styleRef>${styleId}</styleRef><faceDistortX>0</faceDistortX><faceDistortY>0</faceDistortY><shadow_softness>30</shadow_softness><personality>0</personality><linked>false</linked><EmbellishmentSizeRule>false</EmbellishmentSizeRule><PainterRampType>Basic</PainterRampType></StyleBase><FragmentList Version="5">${fragments}</FragmentList><ShaderList Version="1"><ShaderRef PainterNumber="12"><shaderRef>4099</shaderRef></ShaderRef><ShaderRef PainterNumber="13"><shaderRef>4100</shaderRef></ShaderRef><ShaderRef PainterNumber="15"><shaderRef>4101</shaderRef></ShaderRef><ShaderRef PainterNumber="-1"><shaderRef>4102</shaderRef></ShaderRef></ShaderList></Style>`;
+            }
+
+            _buildShaders(objects) {
+                let xml = '<Shaders>';
+                objects.forEach((obj, index) => {
+                    if (obj.type === 'text' && obj.chars && obj.chars.length > 0) {
+                        const char = obj.chars[0];
+                        const strokes = char.strokes || [];
+
+                        strokes.forEach((stroke, i) => {
+                            const ref = this.shaderCounter + index * 20 + i;
+                            const rgb = this._hexToRGB(stroke.color);
+                            xml += `<Shader Version="4"><cReference>${ref}</cReference><textureRef>0</textureRef><colorOption>4</colorOption><shaderOn>true</shaderOn><glintSize>10</glintSize><glintOffset>0</glintOffset><rampPosTop>75</rampPosTop><rampPosBottom>25</rampPosBottom><rampAngle>0</rampAngle><bevelBalance>0</bevelBalance><rampCycle>0</rampCycle><classicStyle>0</classicStyle><rampType>0</rampType><ColorSpec index="0"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="1"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="2"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="3"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="4"><red>${rgb.r}</red><green>${rgb.g}</green><blue>${rgb.b}</blue><xpar>0</xpar></ColorSpec><glintAngle>0</glintAngle><bevelSize>0</bevelSize><bevelDirection>0</bevelDirection><bevelPipe>false</bevelPipe><bevelAngle>0</bevelAngle><bevelShape>1</bevelShape><bevelShining>0</bevelShining><bevelLight>false</bevelLight><bevelMerge>true</bevelMerge><sheenOn>false</sheenOn></Shader>`;
+                        });
+
+                        const mainRef = this.shaderCounter + index * 20 + 15;
+                        const mainRGB = this._hexToRGB(char.color || '#ffffff');
+                        xml += `<Shader Version="4"><cReference>${mainRef}</cReference><textureRef>0</textureRef><colorOption>4</colorOption><shaderOn>true</shaderOn><glintSize>10</glintSize><glintOffset>0</glintOffset><rampPosTop>75</rampPosTop><rampPosBottom>25</rampPosBottom><rampAngle>0</rampAngle><bevelBalance>0</bevelBalance><rampCycle>0</rampCycle><classicStyle>0</classicStyle><rampType>0</rampType><ColorSpec index="0"><red>${mainRGB.r}</red><green>${mainRGB.g}</green><blue>${mainRGB.b}</blue><xpar>0</xpar></ColorSpec><ColorSpec index="1"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="2"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="3"><red>0</red><green>0</green><blue>0</blue><xpar>0</xpar></ColorSpec><ColorSpec index="4"><red>250</red><green>250</green><blue>250</blue><xpar>0</xpar></ColorSpec><glintAngle>0</glintAngle><bevelSize>0</bevelSize><bevelDirection>0</bevelDirection><bevelPipe>false</bevelPipe><bevelAngle>0</bevelAngle><bevelShape>1</bevelShape><bevelShining>0</bevelShining><bevelLight>false</bevelLight><bevelMerge>true</bevelMerge><sheenOn>false</sheenOn></Shader>`;
+                    }
+                });
+                xml += '</Shaders>';
+                return xml;
+            }
+
+            _buildObjects(objects) {
+                let xml = '<Objects>';
+                objects.forEach((obj, index) => {
+                    if (obj.type === 'text') {
+                        const textRef = this.idCounter + 1000 + index;
+                        const styleRef = this.styleCounter + index;
+                        xml += `<Object><BaseClassType>TextObject</BaseClassType><ObjectID>${index}</ObjectID><Position><x>${obj.x}</x><y>${obj.y}</y></Position><TextRef Reference="${textRef}"/><StyleReference Reference="${styleRef}"/><Opacity>${(obj.opacity || 100) / 100}</Opacity><Rotation>${obj.rotation || 0}</Rotation></Object>`;
+                    }
+                });
+                xml += '</Objects>';
+                return xml;
+            }
+
+            _buildTextChains(objects) {
+                let xml = '<TextChains>';
+                objects.forEach((obj, index) => {
+                    if (obj.type === 'text' && obj.chars) {
+                        const ref = this.idCounter + 1000 + index;
+                        const textDescRef = this.idCounter;
+                        const styleRef = this.styleCounter + index;
+                        const text = obj.chars.map(c => c.char).join('');
+                        xml += `<TextChain Reference="${ref}"><Text>${this._escapeXML(text)}</Text><TextDescriptionReference Reference="${textDescRef}"/><TextStyleReference Reference="${styleRef}"/></TextChain>`;
+                    }
+                });
+                xml += '</TextChains>';
+                return xml;
+            }
+
+            _hexToRGB(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : { r: 255, g: 255, b: 255 };
+            }
+
+            _escapeXML(str) {
+                if (!str) return '';
+                return str.toString()
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&apos;');
+            }
+        }
+        // ==================== End of PRTL Generator ====================
+
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const imeInput = document.getElementById('imeInput');
@@ -2933,8 +3108,8 @@
             const fontWeight = c.bold !== false ? 'bold' : 'normal';
             const fontStyle = c.italic ? 'italic' : 'normal';
             ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
-            // カーニング: 正の値で文字間隔を狭め、負の値で広げる（Adobe製品の標準動作）
-            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) - (c.kerning || 0);
+            // カーニング: 正の値で文字間隔を広げ、負の値で狭める
+            return ctx.measureText(dc).width * (c.scaleX || 100) / 100 + (c.tracking || 0) + (c.kerning || 0);
         }
 
         function getLineWidth(line) { return line.reduce((w, c) => w + getCharWidth(c), 0); }
@@ -4559,11 +4734,13 @@
                             ctx.restore();
                         } else {
                             // エッジタイプ：内側の全ストローク＋文字本体の形状全体を均等に囲む
-                            const margin = st.width * 4;
+                            // マージンを大きくして隣の文字への干渉を減らす
+                            const totalStrokeWidth = enabledStrokes.reduce((sum, s) => sum + s.width, 0);
+                            const margin = Math.max(st.width * 6, totalStrokeWidth * 3);
                             const tempCanvas = document.createElement('canvas');
                             const metrics = ctx.measureText(dc);
-                            tempCanvas.width = Math.ceil(metrics.width + charW + margin * 2);
-                            tempCanvas.height = Math.ceil(fontSize * 2 + margin * 2);
+                            tempCanvas.width = Math.ceil(metrics.width + charW + margin * 4);
+                            tempCanvas.height = Math.ceil(fontSize * 3 + margin * 4);
                             const tempCtx = tempCanvas.getContext('2d');
 
                             // フォント設定をコピー
@@ -5136,11 +5313,13 @@
                                 ctx.restore();
                             } else {
                                 // エッジタイプ：内側の全ストローク＋文字本体の形状全体を均等に囲む
-                                const margin = st.width * 4;
+                                // マージンを大きくして隣の文字への干渉を減らす
+                                const totalStrokeWidth = enabledStrokes.reduce((sum, s) => sum + s.width, 0);
+                                const margin = Math.max(st.width * 6, totalStrokeWidth * 3);
                                 const tempCanvas = document.createElement('canvas');
                                 const metrics = ctx.measureText(dc);
-                                tempCanvas.width = Math.ceil(metrics.width + fs + margin * 2);
-                                tempCanvas.height = Math.ceil(fs * 2 + margin * 2);
+                                tempCanvas.width = Math.ceil(metrics.width + fs + margin * 4);
+                                tempCanvas.height = Math.ceil(fs * 3 + margin * 4);
                                 const tempCtx = tempCanvas.getContext('2d');
 
                                 // フォント設定をコピー
@@ -7782,19 +7961,19 @@
         function exportPRTL() {
             exitEditMode(); selectedObjId = null; selectedObjIds = [];
 
-            // 基本的なPRTL XML構造を生成
-            const xmlHeader = '<?xml version="1.0" encoding="UTF-16" ?>';
-            const prtlData = generatePRTLData();
+            // PRTLGeneratorを使用して正しいPRTL構造を生成
+            const generator = new PRTLGenerator();
+            const canvasData = {
+                resolution: `${canvas.width}x${canvas.height}`,
+                objects: textObjects
+            };
+            const prtlXML = generator.generatePRTL(canvasData);
 
-            // UTF-16 LEでエンコード
-            const encoder = new TextEncoder();
-            const utf8Array = encoder.encode(xmlHeader + prtlData);
-
-            // UTF-16 LE変換 (簡易版: 実際にはUTF-16 LE変換が必要)
-            const bom = new Uint8Array([0xFF, 0xFE]); // UTF-16 LE BOM
-            const utf16Array = new Uint16Array(xmlHeader.length + prtlData.length + 1);
-            for (let i = 0; i < xmlHeader.length + prtlData.length; i++) {
-                utf16Array[i] = (xmlHeader + prtlData).charCodeAt(i);
+            // UTF-16 LE + BOMでエンコード
+            const bom = new Uint8Array([0xFF, 0xFE]);
+            const utf16Array = new Uint16Array(prtlXML.length);
+            for (let i = 0; i < prtlXML.length; i++) {
+                utf16Array[i] = prtlXML.charCodeAt(i);
             }
 
             const blob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
@@ -7804,51 +7983,6 @@
             link.click();
 
             alert('PRTLファイルを書き出しました');
-        }
-
-        function generatePRTLData() {
-            // 簡易版PRTL生成（基本構造のみ）
-            let xml = '<Adobe_Root><Adobe_Title>';
-            xml += '<Version>20080702</Version>';
-            xml += '<Motion_Settings>';
-            xml += '<Play_Forward>true</Play_Forward>';
-            xml += '<Start_on_Screen>false</Start_on_Screen>';
-            xml += '<Pre_Roll>0</Pre_Roll>';
-            xml += '<Ease_In>0</Ease_In>';
-            xml += '<End_off_Screen>false</End_off_Screen>';
-            xml += '<Post_Roll>0</Post_Roll>';
-            xml += '<Ease_Out>0</Ease_Out>';
-            xml += '</Motion_Settings>';
-            xml += '</Adobe_Title>';
-            xml += '<InscriberLayouts Version="1.0"><Layout>';
-            xml += '<LayoutDimension Version="2">';
-            xml += `<pXPIXELS>${canvas.width}</pXPIXELS>`;
-            xml += `<pYLINES>${canvas.height}</pYLINES>`;
-            xml += '<pSCREENAR>1</pSCREENAR>';
-            xml += '<growthDirection>growRightDown</growthDirection>';
-            xml += '</LayoutDimension>';
-
-            // テキストオブジェクトの情報を追加
-            xml += '<TextObjects>';
-            textObjects.forEach((obj, idx) => {
-                if (obj.type === 'text') {
-                    const text = obj.chars ? obj.chars.map(c => c.char).join('') : '';
-                    xml += `<TextObject id="${idx}">`;
-                    xml += `<text>${escapeXml(text)}</text>`;
-                    xml += `<x>${obj.x}</x>`;
-                    xml += `<y>${obj.y}</y>`;
-                    xml += `<fontSize>${obj.chars && obj.chars[0] ? obj.chars[0].fontSize : 72}</fontSize>`;
-                    xml += `<fontFamily>${obj.chars && obj.chars[0] ? escapeXml(obj.chars[0].fontFamily) : 'Arial'}</fontFamily>`;
-                    xml += `<color>${obj.chars && obj.chars[0] ? obj.chars[0].color : '#ffffff'}</color>`;
-                    xml += '</TextObject>';
-                }
-            });
-            xml += '</TextObjects>';
-
-            xml += '</Layout></InscriberLayouts>';
-            xml += '</Adobe_Root>';
-
-            return xml;
         }
 
         function escapeXml(unsafe) {
@@ -7993,6 +8127,10 @@
 
             exitEditMode(); selectedObjId = null; selectedObjIds = [];
 
+            // ユーザーに基本ファイル名を入力してもらう
+            const baseName = prompt('ファイル名を入力してください（番号が自動で付きます）', 'title');
+            if (!baseName) return;
+
             // 現在のキャンバスを保存
             const currentCanvas = {
                 objects: JSON.parse(JSON.stringify(textObjects)),
@@ -8000,6 +8138,8 @@
                 bgOpacity: canvasBgOpacity,
                 bgImage: bgImage
             };
+
+            const generator = new PRTLGenerator();
 
             // 各キャンバスを順番に書き出し
             canvases.forEach((cvs, idx) => {
@@ -8009,26 +8149,40 @@
                 canvasBgOpacity = cvs.bgOpacity || 100;
                 bgImage = cvs.bgImage || null;
 
-                // PRTLデータを生成
-                const xmlHeader = '<?xml version="1.0" encoding="UTF-16" ?>';
-                const prtlData = generatePRTLData();
+                // レンダリングして画像を生成
+                render();
 
-                // UTF-16 LE変換
+                const paddedIdx = String(idx).padStart(3, '0');
+
+                // PNG書き出し
+                canvas.toBlob(blob => {
+                    const link = document.createElement('a');
+                    link.download = `${baseName}-${paddedIdx}.png`;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(link.href), 100);
+                }, 'image/png');
+
+                // PRTL書き出し
+                const canvasData = {
+                    resolution: `${canvas.width}x${canvas.height}`,
+                    objects: textObjects
+                };
+                const prtlXML = generator.generatePRTL(canvasData);
+
+                // UTF-16 LE + BOMでエンコード
                 const bom = new Uint8Array([0xFF, 0xFE]);
-                const utf16Array = new Uint16Array(xmlHeader.length + prtlData.length + 1);
-                for (let i = 0; i < xmlHeader.length + prtlData.length; i++) {
-                    utf16Array[i] = (xmlHeader + prtlData).charCodeAt(i);
+                const utf16Array = new Uint16Array(prtlXML.length);
+                for (let i = 0; i < prtlXML.length; i++) {
+                    utf16Array[i] = prtlXML.charCodeAt(i);
                 }
 
-                const blob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
-                const link = document.createElement('a');
-                const paddedIdx = String(idx).padStart(3, '0');
-                link.download = `title_${paddedIdx}.prtl`;
-                link.href = URL.createObjectURL(blob);
-                link.click();
-
-                // 少し待機（ブラウザの制限対策）
-                setTimeout(() => {}, 100);
+                const prtlBlob = new Blob([bom, utf16Array], { type: 'application/octet-stream' });
+                const prtlLink = document.createElement('a');
+                prtlLink.download = `${baseName}-${paddedIdx}.prtl`;
+                prtlLink.href = URL.createObjectURL(prtlBlob);
+                prtlLink.click();
+                setTimeout(() => URL.revokeObjectURL(prtlLink.href), 100);
             });
 
             // 元のキャンバスに戻す
@@ -8038,7 +8192,7 @@
             bgImage = currentCanvas.bgImage;
 
             render();
-            alert(`${canvases.length}個のPRTLファイルを書き出しました`);
+            alert(`${canvases.length}個のPNGとPRTLファイルを書き出しました`);
         }
 
         // PRSL読み込み機能
