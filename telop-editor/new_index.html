@@ -890,11 +890,15 @@
         const imeInput = document.getElementById('imeInput');
 
         // 複数キャンバス管理
-        let canvases = [];
-        let activeCanvasId = null;
+        // 外部スクリプトからアクセスできるようにwindowオブジェクトで定義
+        window.canvases = [];
+        window.activeCanvasId = null;
+        window.textObjects = [];
 
-        // 現在のキャンバスのオブジェクト（後方互換性のため維持）
-        let textObjects = [];
+        // ローカルエイリアス（既存コードとの互換性のため）
+        let canvases = window.canvases;
+        let activeCanvasId = window.activeCanvasId;
+        let textObjects = window.textObjects;
         let selectedObjId = null;
         let selectedCharStart = -1;
         let selectedCharEnd = -1;
@@ -983,6 +987,7 @@
             redoStack.push(currentState);
             const prevState = undoStack.pop();
             textObjects = JSON.parse(prevState);
+            window.textObjects = textObjects;
             selectedObjId = null;
             selectedObjIds = [];
             exitEditMode();
@@ -998,6 +1003,7 @@
             undoStack.push(currentState);
             const nextState = redoStack.pop();
             textObjects = JSON.parse(nextState);
+            window.textObjects = textObjects;
             selectedObjId = null;
             selectedObjIds = [];
             exitEditMode();
@@ -1298,6 +1304,7 @@
 
             // 新しいキャンバスに切替
             activeCanvasId = id;
+            window.activeCanvasId = id;
             loadCurrentCanvas();
 
             // アクティブ状態のみ高速更新（DOM再構築をスキップ）
@@ -1651,9 +1658,11 @@
             // 構造化クローンを使用した高速ディープコピー
             try {
                 textObjects = structuredClone(current.objects);
+                window.textObjects = textObjects;
             } catch {
                 // フォールバック（古いブラウザ対応）
                 textObjects = JSON.parse(JSON.stringify(current.objects));
+                window.textObjects = textObjects;
             }
             selectedObjId = null;
             selectedObjIds = [];
@@ -1844,6 +1853,7 @@
                 const initial = createCanvasData('キャンバス 1');
                 canvases.push(initial);
                 activeCanvasId = initial.id;
+                window.activeCanvasId = initial.id;
             }
             updateCanvasList();
         }
@@ -3542,7 +3552,11 @@
             flushDebouncedSave();  // 保留中のUndo保存をフラッシュ
             if (editingObjId) {
                 const obj = textObjects.find(o => o.id === editingObjId);
-                if (obj && obj.chars.length === 0) { textObjects = textObjects.filter(o => o.id !== editingObjId); selectedObjId = null; }
+                if (obj && obj.chars.length === 0) {
+                    textObjects = textObjects.filter(o => o.id !== editingObjId);
+                    window.textObjects = textObjects;
+                    selectedObjId = null;
+                }
             }
             editingObjId = null; selectedCharStart = -1; selectedCharEnd = -1;
             if (cursorInterval) clearInterval(cursorInterval);
@@ -3711,6 +3725,7 @@
             if (selectedObjIds.length === 0) return;
             saveState();
             textObjects = textObjects.filter(o => !selectedObjIds.includes(o.id));
+            window.textObjects = textObjects;
             selectedObjId = null;
             selectedObjIds = [];
             editingObjId = null;
@@ -3762,6 +3777,7 @@
 
             // 元のオブジェクトを削除
             textObjects = textObjects.filter(o => !selectedObjIds.includes(o.id));
+            window.textObjects = textObjects;
 
             // グループを追加
             textObjects.push(groupObj);
@@ -3803,6 +3819,7 @@
 
             // グループオブジェクトを削除
             textObjects = textObjects.filter(o => !(selectedObjIds.includes(o.id) && o.type === 'group'));
+            window.textObjects = textObjects;
 
             // 展開されたオブジェクトを選択
             selectedObjIds = newObjIds;
@@ -8803,6 +8820,7 @@
                         }
                         // オブジェクトを復元
                         textObjects = p.objects || [];
+                        window.textObjects = textObjects;
                         migrateObjects(textObjects);
 
                         // アニメーション設定を復元
@@ -8814,13 +8832,17 @@
                         // 下位互換性のため既存のcanvases形式も復元
                         if (p.canvases) {
                             canvases = p.canvases;
+                            window.canvases = p.canvases;
                             activeCanvasId = p.activeCanvasId;
+                            window.activeCanvasId = p.activeCanvasId;
                         }
                     }
                     // v3.0形式（複数キャンバス）
                     else if (p.version === '3.0' && p.canvases) {
                         canvases = p.canvases;
+                        window.canvases = p.canvases;
                         activeCanvasId = p.activeCanvasId || canvases[0].id;
+                        window.activeCanvasId = p.activeCanvasId || canvases[0].id;
                         // オブジェクトのマイグレーション
                         canvases.forEach(canvasData => {
                             migrateObjects(canvasData.objects);
@@ -8835,7 +8857,9 @@
                         imported.objects = p.objects || [];
                         migrateObjects(imported.objects);
                         canvases = [imported];
+                        window.canvases = [imported];
                         activeCanvasId = imported.id;
+                        window.activeCanvasId = imported.id;
                         loadCurrentCanvas();
                         updateCanvasList();
                     }

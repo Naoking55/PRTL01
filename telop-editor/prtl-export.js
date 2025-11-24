@@ -7,6 +7,10 @@
 function exportPRTL() {
     try {
         // 現在のキャンバスのデータを取得
+        const canvases = window.canvases || [];
+        const activeCanvasId = window.activeCanvasId;
+        const textObjects = window.textObjects || [];
+
         const currentCanvas = canvases.find(c => c.id === activeCanvasId);
         if (!currentCanvas) {
             alert('キャンバスが見つかりません');
@@ -51,6 +55,9 @@ function exportPRTL() {
  */
 async function batchExportPRTL() {
     try {
+        const canvases = window.canvases || [];
+        const activeCanvasId = window.activeCanvasId;
+
         if (!canvases || canvases.length === 0) {
             alert('エクスポートするキャンバスがありません');
             return;

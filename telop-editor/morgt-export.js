@@ -13,6 +13,10 @@ async function exportMOGRT() {
         }
 
         // 現在のキャンバスのデータを取得
+        const canvases = window.canvases || [];
+        const activeCanvasId = window.activeCanvasId;
+        const textObjects = window.textObjects || [];
+
         const currentCanvas = canvases.find(c => c.id === activeCanvasId);
         if (!currentCanvas) {
             alert('キャンバスが見つかりません');
