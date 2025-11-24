@@ -184,37 +184,83 @@ class PRTLGenerator {
 
     /**
      * Objects(テキストオブジェクト配置)を構築
+     * 参考PRTLファイルに合わせてObjectは生成しない（TextChain内に位置情報を含める）
      */
     _buildObjects(objects) {
-        let xml = '<Objects>';
-
-        objects.forEach((obj, index) => {
-            if (obj.type === 'text') {
-                const textRef = this.idCounter + 1000 + index;
-                const styleRef = this.styleCounter + index;
-
-                xml += `<Object><BaseClassType>TextObject</BaseClassType><ObjectID>${index}</ObjectID><Position><x>${obj.x}</x><y>${obj.y}</y></Position><TextRef Reference="${textRef}"/><StyleReference Reference="${styleRef}"/><Opacity>${(obj.opacity || 100) / 100}</Opacity><Rotation>${obj.rotation || 0}</Rotation></Object>`;
-            }
-        });
-
-        xml += '</Objects>';
-        return xml;
+        // 参考PRTLファイルではObjects要素が存在しないため、空文字を返す
+        return '';
     }
 
     /**
      * TextChains(テキスト内容)を構築
+     * 参考PRTLファイルに合わせた複雑な構造を生成
      */
     _buildTextChains(objects) {
         let xml = '<TextChains>';
 
         objects.forEach((obj, index) => {
             if (obj.type === 'text' && obj.chars) {
-                const ref = this.idCounter + 1000 + index;
-                const textDescRef = this.idCounter; // デフォルトフォント参照
                 const styleRef = this.styleCounter + index;
+                const textDescRef = this.idCounter; // デフォルトフォント参照
                 const text = obj.chars.map(c => c.char).join('');
+                const textLength = text.length;
 
-                xml += `<TextChain Reference="${ref}"><Text>${this._escapeXML(text)}</Text><TextDescriptionReference Reference="${textDescRef}"/><TextStyleReference Reference="${styleRef}"/></TextChain>`;
+                // オブジェクトの位置とサイズ
+                const x = obj.x || 0;
+                const y = obj.y || 0;
+                const width = obj.width || 500;
+                const height = obj.height || 100;
+                const fontSize = obj.chars[0]?.size || 75;
+
+                xml += '<TextChain>';
+
+                // ChainProperty: テキストボックスのプロパティ
+                xml += `<ChainProperty Version="9">`;
+                xml += `<wordWrap>false</wordWrap>`;
+                xml += `<Position><x>${x}</x><y>${y}</y></Position>`;
+                xml += `<Size><x>${width}</x><y>${height}</y></Size>`;
+                xml += `<leading>0</leading>`;
+                xml += `<lockedLinesX>true</lockedLinesX>`;
+                xml += `<lockedLinesY>true</lockedLinesY>`;
+                xml += `<boxCanGrow>false</boxCanGrow>`;
+                xml += `<tabModeStyle>Word</tabModeStyle>`;
+                xml += `<implicitTabSpacing>100</implicitTabSpacing>`;
+                xml += `<implicitTabType>left</implicitTabType>`;
+                xml += `</ChainProperty>`;
+
+                // ChainTabs: タブ設定（空）
+                xml += `<ChainTabs><TabList></TabList></ChainTabs>`;
+
+                // TextLine: テキストの内容とスタイル
+                const objectID = index + 1;
+                const persistentID = index + 3;
+                xml += `<TextLine Version="2" objectID="${objectID}" persistentID="${persistentID}">`;
+
+                // BaseProperties: テキストの基本プロパティ
+                xml += `<BaseProperties Version="5">`;
+                xml += `<txBase>${fontSize}</txBase>`;
+                xml += `<XPos>${x}</XPos>`;
+                xml += `<angle>${obj.rotation || 0}</angle>`;
+                xml += `<verticalText>false</verticalText>`;
+                xml += `<objectLeading>0</objectLeading>`;
+                xml += `</BaseProperties>`;
+
+                // テキストタイプと配置
+                xml += `<EnclosingObjectType>block</EnclosingObjectType>`;
+                xml += `<Alignment>left</Alignment>`;
+                xml += `<RTL>false</RTL>`;
+
+                // TRString: 実際のテキスト内容
+                xml += `<TRString>${this._escapeXML(text)}</TRString>`;
+
+                // RunLengthEncodedCharacterAttributes: 文字毎のスタイル属性
+                xml += `<RunLengthEncodedCharacterAttributes>`;
+                xml += `<CharacterAttributes RunCount="${textLength}" StyleRef="${styleRef}" TextRef="${textDescRef}" TXKerning="0" TXPostKerning="0" BaselineShifting="0"/>`;
+                xml += `</RunLengthEncodedCharacterAttributes>`;
+
+                xml += `<tagName></tagName>`;
+                xml += `</TextLine>`;
+                xml += '</TextChain>';
             }
         });
 
@@ -248,31 +294,22 @@ class PRTLGenerator {
     }
 
     /**
-     * UTF-16 LE + BOMエンコーディング
-     * PRTLファイルはUTF-16 LE + BOMが必須
+     * UTF-8エンコーディング（BOMなし）
+     * PRTLファイルは実際にUTF-8で保存されているが、XMLヘッダーではUTF-16と宣言される
      */
-    _encodeUTF16LE(str) {
-        const bom = new Uint8Array([0xFF, 0xFE]); // UTF-16 LE BOM
-        const buffer = new Uint8Array(2 + str.length * 2);
-        buffer[0] = bom[0];
-        buffer[1] = bom[1];
-
-        for (let i = 0; i < str.length; i++) {
-            const charCode = str.charCodeAt(i);
-            buffer[2 + i * 2] = charCode & 0xFF;         // Low byte
-            buffer[2 + i * 2 + 1] = (charCode >> 8) & 0xFF; // High byte
-        }
-
-        return buffer;
+    _encodeUTF8(str) {
+        // TextEncoderを使用してUTF-8エンコーディング（BOMなし）
+        const encoder = new TextEncoder();
+        return encoder.encode(str);
     }
 
     /**
      * ブラウザでのダウンロード用: PRTLファイルをダウンロード
      */
     downloadPRTL(xml, filename = 'telop.prtl') {
-        // UTF-16 LE エンコーディング + BOM
-        const utf16leArray = this._encodeUTF16LE(xml);
-        const blob = new Blob([utf16leArray], { type: 'application/octet-stream' });
+        // UTF-8エンコーディング（BOMなし）
+        const utf8Array = this._encodeUTF8(xml);
+        const blob = new Blob([utf8Array], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
