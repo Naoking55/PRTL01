@@ -4496,17 +4496,26 @@
                 else if (obj.textAlign === 'right') lx = obj.x - lw;
 
                 const ly = startY + li * lh;
-                let px = lx;
 
+                // レガシータイトル互換：各文字の位置を事前計算
+                const charPositions = [];
+                let px = lx;
                 line.forEach(c => {
                     const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
                     const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
                     const charW = getCharWidth(c);
+                    charPositions.push({ c, dc, fs, charW, px });
+                    px += charW;
+                });
+
+                // 第1パス：すべての文字のストロークを後ろから前へ描画
+                for (let charIdx = charPositions.length - 1; charIdx >= 0; charIdx--) {
+                    const { c, dc, fs, charW, px } = charPositions[charIdx];
 
                     ctx.save();
                     const fontWeight = c.bold !== false ? 'bold' : 'normal';
-            const fontStyle = c.italic ? 'italic' : 'normal';
-            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                    const fontStyle = c.italic ? 'italic' : 'normal';
+                    ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                     ctx.textBaseline = 'middle';
                     ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
 
@@ -4687,15 +4696,28 @@
                         ctx.restore();
                     }
 
+                    ctx.restore();
+                }
+
+                // 第2パス：すべての文字の本体を後ろから前へ描画
+                for (let charIdx = charPositions.length - 1; charIdx >= 0; charIdx--) {
+                    const { c, dc, fs, charW, px } = charPositions[charIdx];
+
+                    ctx.save();
+                    const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                    const fontStyle = c.italic ? 'italic' : 'normal';
+                    ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                    ctx.textBaseline = 'middle';
+
                     // 塗り
                     if (c.fillType !== 'none') {
                         ctx.fillStyle = c.color || '#ffffff';
+                        ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
                         ctx.fillText(dc, px + charW / 2, ly);
                     }
 
                     ctx.restore();
-                    px += charW;
-                });
+                }
             });
         }
 
@@ -5015,7 +5037,8 @@
                     // Start position along path (center text by default)
                     let dist = (pathLen - totalTextLen) / 2 + (obj.pathOffset || 0);
 
-                    // Draw each character along path
+                    // レガシータイトル互換：各文字の位置とパラメータを事前計算
+                    const pathCharData = [];
                     obj.chars.forEach(c => {
                         let charLen;
                         if (obj.vertical) {
@@ -5024,14 +5047,21 @@
                             charLen = getCharWidth(c);
                         }
                         const pos = getPointAtDistance(absPath, dist + charLen / 2);
-
                         const dc = c.smallCaps && /[a-z]/.test(c.char) ? c.char.toUpperCase() : c.char;
                         const fs = c.smallCaps && /[a-z]/.test(c.char) ? c.fontSize * (c.smallCapsSize || 70) / 100 : c.fontSize;
 
+                        pathCharData.push({ c, dc, fs, charLen, pos });
+                        dist += charLen;
+                    });
+
+                    // 第1パス：すべての文字のストロークを後ろから前へ描画
+                    for (let charIdx = pathCharData.length - 1; charIdx >= 0; charIdx--) {
+                        const { c, dc, fs, charLen, pos } = pathCharData[charIdx];
+
                         ctx.save();
                         const fontWeight = c.bold !== false ? 'bold' : 'normal';
-            const fontStyle = c.italic ? 'italic' : 'normal';
-            ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                        const fontStyle = c.italic ? 'italic' : 'normal';
+                        ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
                         ctx.textBaseline = 'middle';
                         ctx.textAlign = 'center';
                         ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
@@ -5221,15 +5251,37 @@
                             ctx.restore();
                         }
 
+                        ctx.restore();
+                    }
+
+                    // 第2パス：すべての文字の本体を後ろから前へ描画
+                    for (let charIdx = pathCharData.length - 1; charIdx >= 0; charIdx--) {
+                        const { c, dc, fs, charLen, pos } = pathCharData[charIdx];
+
+                        ctx.save();
+                        const fontWeight = c.bold !== false ? 'bold' : 'normal';
+                        const fontStyle = c.italic ? 'italic' : 'normal';
+                        ctx.font = `${fontStyle} ${fontWeight} ${fs}px "${c.fontFamily}"`;
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+
+                        ctx.translate(pos.x, pos.y);
+
+                        if (obj.vertical) {
+                            ctx.rotate(pos.angle + Math.PI / 2);
+                        } else {
+                            ctx.rotate(pos.angle);
+                        }
+
                         // Fill
                         if (c.fillType !== 'none') {
+                            ctx.globalAlpha = (obj.opacity || 100) / 100 * (c.opacity || 100) / 100;
                             ctx.fillStyle = c.color;
                             ctx.fillText(dc, 0, 0);
                         }
 
                         ctx.restore();
-                        dist += charLen;
-                    });
+                    }
 
                     // Selection highlight for pathText
                     if (obj.id === editingObjId && selectedCharStart !== -1 && selectedCharStart !== selectedCharEnd) {
